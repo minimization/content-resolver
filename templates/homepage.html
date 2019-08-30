@@ -1,0 +1,62 @@
+{% extends "layout.html" %}
+
+{% block content %}
+  <div class="jumbotron jumbotron-fluid">
+    <div class="container">
+      <h1 class="display-4">Feedback Pipeline</h1>
+      <p class="lead">Reporting and notifications regarding dependencies and sizes of defined
+        RPM installations.
+      </p>
+      <a class="btn btn-primary btn-lg" href="./results.html" role="button">Explore results</a>
+    </div>
+  </div>
+  <div class="container">
+
+
+    <h3>Configuration</h3>
+    <p>Installations analyzed by Feedback Pipeline are defined in a <a href="https://pagure.io/minimization/feedback-pipeline-config">git repository</a> in YAML format.</p>
+
+    <h4>Installations</h4>
+
+    <p>Installations define what is actually analyzed — a set of packages representing an app or an image.</p>
+
+    <pre>
+      <code>
+document: feedback-pipeline-install
+version: 0
+data:
+    name: some-id
+    summary: "Visible name"
+    base: empty
+    pkgs:
+      - pkg1
+      - pkg2
+      - pkg3
+    </code>
+  </pre>
+
+    <h4> Views </h4>
+
+    <p>Views group together multiple installations. Defines a base installation (such as a base image) and one or more additional installations installed on top of the base.</p>
+
+    <pre>
+        <code>
+document: feedback-pipeline-view
+version: 0
+data:
+    name: some-id
+    title: "Visible name"
+    summary: "visible summary"
+    releases:
+        - 30
+        - 31
+    base_installation: installation-id
+    installations:
+        - another-id
+        - yet-another-id
+        </code>
+    </pre>
+
+  </div>
+
+{% endblock %}
