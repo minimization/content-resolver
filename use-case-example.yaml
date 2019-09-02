@@ -1,0 +1,17 @@
+---
+document: feeback-pipeline-use-case
+version: 1
+data:
+  id: unique-id
+  name: Human-friendly name
+  packages:
+  - package1
+  - package2
+  options:
+  - no-docs
+  - no-weak-deps
+  install_on:
+  - fedora-container-base:30
+  - fedora-container-base:31
+  - empty:30
+  - empty:31
