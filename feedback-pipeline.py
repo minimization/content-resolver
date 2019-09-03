@@ -569,14 +569,14 @@ def main():
     args = parser.parse_args()
 
     configs = get_configs(args.input)
-    #installs = install_and_load(configs)
-    installs = load_data("installs-cache.json")
-    #dump_data("installs-cache.json", installs)
+    installs = install_and_load(configs)
+    #installs = load_data("installs-cache.json")
+    dump_data("installs-cache.json", installs)
 
     data = get_data(configs, installs)
 
 
-    #generate_graphs(data, args.output)
+    generate_graphs(data, args.output)
     generate_pages(data, args.output)
     generate_reports_by_base(data, args.output)
     generate_reports_by_use_case(data, args.output)
