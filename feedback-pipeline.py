@@ -1,5 +1,17 @@
 #!/usr/bin/python3
 
+#!/usr/bin/python3
+
+# This file is part of feedback-pipeline hosted at:
+#   https://pagure.io/minimization/feedback-pipeline
+#
+# Copyright (C) 2019 Adam Samalik <asamalik@redhat.com>
+#
+# This program is free software.
+# For more information on the license, see LICENSE.
+# For more information on free software, see <https://www.gnu.org/philosophy/free-sw.en.html>.
+
+
 import argparse, yaml, tempfile, os, subprocess, json, jinja2
 import rpm_showme as showme
 
