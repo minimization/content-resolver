@@ -67,6 +67,8 @@ import rpm_showme as showme
 #       ]
 #   }
 
+def log(msg):
+    print(msg)
 
 def get_configs(directory):
     configs = {}
@@ -191,7 +193,13 @@ def install_and_load(configs):
                                   releasever=releasever)
 
                 # Analysis
-                installed_packages = showme.get_packages(installroot)
+                # This command would fail on an empty installation
+                # so this gets us the right result
+                if packages:
+                    installed_packages = showme.get_packages(installroot)
+                else:
+                    installed_packages = {}
+                    
 
                 # Save
                 base_installation = {}
@@ -537,25 +545,27 @@ def generate_pages(data, output):
     with open(os.path.join(output, "index.html"), "w") as file:
         file.write(homepage)
 
-    # views page
+    # views pages
     views_page_template = template_env.get_template("views.html")
     views_page = views_page_template.render(data=data)
     with open(os.path.join(output, "views.html"), "w") as file:
         file.write(views_page)
 
-    # view_base_with_use_cases
     views_page_template = template_env.get_template("view_bases_with_use_cases.html")
     views_page = views_page_template.render(data=data)
     with open(os.path.join(output, "view--bases-with-use-cases.html"), "w") as file:
         file.write(views_page)
 
-    # view_base_with_use_cases
     views_page_template = template_env.get_template("view_use_cases_on_bases.html")
     views_page = views_page_template.render(data=data)
     with open(os.path.join(output, "view--use-cases-on-bases.html"), "w") as file:
         file.write(views_page)
 
-    # view_base_with_use_cases
+    views_page_template = template_env.get_template("view_bases_by_releases.html")
+    views_page = views_page_template.render(data=data)
+    with open(os.path.join(output, "view--bases-by-releases.html"), "w") as file:
+        file.write(views_page)
+
     views_page_template = template_env.get_template("view_use_cases_by_releases.html")
     views_page = views_page_template.render(data=data)
     with open(os.path.join(output, "view--use-cases-by-releases.html"), "w") as file:
