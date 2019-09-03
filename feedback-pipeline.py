@@ -386,7 +386,11 @@ def get_data(configs, installs):
 
 
 def generate_graphs(data, output):
+    log("Generating {} base graphs".format(len(data["bases"])))
+
     for _,base in data["bases"].items():
+        log("  {} ({})".format(base["name"], base["version"]))
+
         graph = showme.compute_graph(base["packages"])
         highlights = base["required_package_names"]
         dot = showme.graph_to_dot(graph, sizes=True, highlights=highlights)
@@ -397,7 +401,12 @@ def generate_graphs(data, output):
         with open(os.path.join(output, filename), "w") as file:
             file.write(svg)
 
+    log("Generating {} use case graphs".format(len(data["use_cases"])))
+
     for _,use_case in data["use_cases"].items():
+        log("  {} on {} ({})".format(
+                use_case["name"], use_case["base_name"], use_case["base_version"]))
+
         # Full graph shows all packages in the installation
         graph_full = showme.compute_graph(use_case["packages"])
         
@@ -426,6 +435,8 @@ def generate_graphs(data, output):
         
 
 def generate_reports_by_base(data, output):
+    log("Generating reports: Bases with use cases")
+
     template_loader = jinja2.FileSystemLoader(searchpath="./templates/")
     template_env = jinja2.Environment(loader=template_loader)
 
@@ -474,6 +485,8 @@ def generate_reports_by_base(data, output):
 
 
 def generate_reports_by_use_case(data, output):
+    log("Generating reports: Use cases on bases")
+
     template_loader = jinja2.FileSystemLoader(searchpath="./templates/")
     template_env = jinja2.Environment(loader=template_loader)
 
@@ -536,6 +549,8 @@ def generate_reports_by_use_case(data, output):
 
 
 def generate_reports_bases_releases(data, output):
+    log("Generating reports: Bases by releases")
+
     template_loader = jinja2.FileSystemLoader(searchpath="./templates/")
     template_env = jinja2.Environment(loader=template_loader)
 
@@ -576,6 +591,8 @@ def generate_reports_bases_releases(data, output):
 
 
 def generate_pages(data, output):
+    log("Generating common pages")
+
     template_loader = jinja2.FileSystemLoader(searchpath="./templates/")
     template_env = jinja2.Environment(loader=template_loader)
     

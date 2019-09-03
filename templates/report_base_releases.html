@@ -74,7 +74,9 @@ tbody tr, tbody th {
         <tr>
             {% for image in report_data %}
             <td>
-              <a href="./graph--{{image.file_id}}.svg">graph</a> 
+                {% if image.packages %}
+                  <a href="./graph--{{image.file_id}}.svg">graph</a> 
+                {% endif %}
             </td>
             {% endfor %}
         </tr>
