@@ -538,6 +538,24 @@ def generate_pages(data, output):
     with open(os.path.join(output, "views.html"), "w") as file:
         file.write(views_page)
 
+    # view_base_with_use_cases
+    views_page_template = template_env.get_template("view_bases_with_use_cases.html")
+    views_page = views_page_template.render(data=data)
+    with open(os.path.join(output, "view--bases-with-use-cases.html"), "w") as file:
+        file.write(views_page)
+
+    # view_base_with_use_cases
+    views_page_template = template_env.get_template("view_use_cases_on_bases.html")
+    views_page = views_page_template.render(data=data)
+    with open(os.path.join(output, "view--use-cases-on-bases.html"), "w") as file:
+        file.write(views_page)
+
+    # view_base_with_use_cases
+    views_page_template = template_env.get_template("view_use_cases_by_releases.html")
+    views_page = views_page_template.render(data=data)
+    with open(os.path.join(output, "view--use-cases-by-releases.html"), "w") as file:
+        file.write(views_page)
+
 
 def dump_data(path, data):
     with open(path, 'w') as file:

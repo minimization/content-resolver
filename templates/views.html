@@ -1,69 +1,10 @@
-{% extends "layout.html" %}
+{% extends "views_layout.html" %}
 
-{% block content %}
-
-<div class="container">
-  <br>
-
-
+{% block breadcrumbs %}
     <nav aria-label="breadcrumb">
       <ol class="breadcrumb">
         <li class="breadcrumb-item"><a href="./">Home</a></li>
         <li class="breadcrumb-item active" aria-current="page">Views</li>
       </ol>
     </nav>
-
-  <h1> Views </h1>
-
-  <hr>
-
-  <h2> By base </h2>
-
-  <div class="row">
-  {% for _,base in data.base_definitions.items() %}
-    <div class="col-lg-6">
-      <div class="card">
-        <div class="card-body">
-          <h5 class="card-title">{{base.name}}</h5>
-          <h6 class="card-subtitle mb-2 text-muted">
-             with relevant use cases on top of it.
-          </h6>
-        </div>
-        <div class="card-footer">
-          {% for version in base.versions %}
-          <a class="card-link" href="report-by-base--{{base.id}}--{{version}}.html">Fedora {{version}}</a>
-          {% endfor %}
-        </div>
-      </div><br>
-    </div>
-  {% endfor %}
-  </div>
-
-<hr>
-
-<h2> By use case </h2>
-
-<div class="row">
-{% for _,use_case in data.use_case_definitions.items() %}
-    <div class="col-lg-6">
-      <div class="card">
-        <div class="card-body">
-          <h5 class="card-title">{{use_case.name}}</h5>
-          <h6 class="card-subtitle mb-2 text-muted">
-             on top of relevant bases.
-          </h6>
-        </div>
-        <div class="card-footer">
-          {% for version in use_case.base_versions %}
-          <a class="card-link" href="report-by-use-case--{{use_case.id}}--{{version}}.html">Fedora {{version}}</a>
-          {% endfor %}
-        </div>
-      </div><br>
-    </div>
-
-{% endfor %}
-</div>
-
-
-</div>
 {% endblock %}

@@ -1,0 +1,30 @@
+{% extends "views_layout.html" %}
+
+{% block view_title %}Use cases on bases{% endblock %}
+
+{% block view_active_use_cases_on_bases %}active{% endblock %}
+
+{% block view_content %}
+
+<div class="row">
+{% for _,use_case in data.use_case_definitions.items() %}
+    <div class="col-lg-6">
+      <div class="card">
+        <div class="card-body">
+          <h5 class="card-title">{{use_case.name}}</h5>
+          <h6 class="card-subtitle mb-2 text-muted">
+             on top of relevant bases.
+          </h6>
+        </div>
+        <div class="card-footer">
+          {% for version in use_case.base_versions %}
+          <a class="card-link" href="report-by-use-case--{{use_case.id}}--{{version}}.html">Fedora {{version}}</a>
+          {% endfor %}
+        </div>
+      </div><br>
+    </div>
+
+{% endfor %}
+</div>
+
+{% endblock %}
