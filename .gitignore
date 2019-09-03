@@ -2,3 +2,4 @@ config
 out
 *.swp
 installs-cache.json
+__pycache__
