@@ -4,27 +4,39 @@
 
 <style>
 td, th {
-    padding-left: 8px;
-    padding-right: 8px;
-}
-.in-base td {
-    background-color: #d4e3ea;
-    color: #CC0066;
+    padding-left: 10px;
+    padding-right: 10px;
 }
 .in-base th {
     background-color: #accad6;
     text-align: center;
 }
-.not-in-base td {
-    background-color: #fff;
+.in-base td {
+    background-color: #d4e3ea;
+    color: #CC0066;
+    font-family: monospace;
+}
+tr.in-base td.all-pkgs {
+    background-color: #accad6!important;
 }
 .not-in-base th {
     background-color: #e9ecef;
     text-align: center;
 }
+.not-in-base td {
+    background-color: #fff;
+    font-family: monospace;
+}
+tr.not-in-base td.all-pkgs {
+    background-color: #e9ecef!important;
+}
 thead td, thead th {
     background-color: #e9ecef;
     text-align: center;
+}
+tbody tr, tbody th {
+    border-bottom: #6c757d 1px solid;
+    border-top: #6c757d 1px solid;
 }
 </style>
 
@@ -34,9 +46,9 @@ thead td, thead th {
 
     <nav aria-label="breadcrumb">
       <ol class="breadcrumb">
-        <li class="breadcrumb-item"><a href="./index.html">Home</a></li>
+        <li class="breadcrumb-item"><a href="./">Home</a></li>
         <li class="breadcrumb-item"><a href="./views.html">Views</a></li>
-        <li class="breadcrumb-item active" aria-current="page">By base</li>
+        <li class="breadcrumb-item active" aria-current="page">By use case</li>
         <li class="breadcrumb-item active" aria-current="page">{{base.name}}</li>
         <li class="breadcrumb-item active" aria-current="page">Fedora {{base.version}}</li>
       </ol>
@@ -61,9 +73,10 @@ thead td, thead th {
 <table>
     <thead>
         <tr>
-            <td rowspan="4">All packages in this report</td>
-            <td rowspan="4">Required packages</td>
-            <td colspan="{{images | length}}">Installed on the following bases</td>
+            <td rowspan="4" style="background-color:#cad1d8">All packages in this report</td>
+            {% for image in images %}
+            <th>{{base.name}}</th>
+            {% endfor %}
         </tr>
         <tr>
             {% for image in images %}
@@ -90,8 +103,7 @@ thead td, thead th {
         </tr>
         {% for pkg in base.packages %}
         <tr class="in-base">
-            <td>{{pkg}}</td>
-            <td>{{pkg}}</td>
+            <td class="all-pkgs">{{pkg}}</td>
             {% for image in images %}
             {% if pkg in image.required_pkgs %}
             <td>{{pkg}}</td>
@@ -106,8 +118,7 @@ thead td, thead th {
         </tr>
         {% for pkg in extra_pkgs %}
         <tr class="not-in-base">
-            <td>{{pkg}}</td>
-            <td> - </td>
+            <td class="all-pkgs">{{pkg}}</td>
             {% for image in images %}
             {% if pkg in image.packages %}
             <td>{{pkg}}</td>
