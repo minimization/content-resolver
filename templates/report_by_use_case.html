@@ -9,6 +9,7 @@ td, th {
 }
 .in-base td {
     background-color: #d4e3ea;
+    color: #CC0066;
 }
 .in-base th {
     background-color: #accad6;
@@ -29,7 +30,7 @@ thead td, thead th {
 
 <br>
 
-<div class="container">
+<div class="container-fluid">
 
     <nav aria-label="breadcrumb">
       <ol class="breadcrumb">
@@ -66,7 +67,7 @@ thead td, thead th {
         </tr>
         <tr>
             {% for image in images %}
-            <th>{{image.name}}</th>
+            <th>on {{image.name}}</th>
             {% endfor %}
         </tr>
         <tr>

@@ -1,17 +1,5 @@
 #!/usr/bin/python3
 
-#!/usr/bin/python3
-
-# This file is part of feedback-pipeline hosted at:
-#   https://pagure.io/minimization/feedback-pipeline
-#
-# Copyright (C) 2019 Adam Samalik <asamalik@redhat.com>
-#
-# This program is free software.
-# For more information on the license, see LICENSE.
-# For more information on free software, see <https://www.gnu.org/philosophy/free-sw.en.html>.
-
-
 import argparse, yaml, tempfile, os, subprocess, json, jinja2
 import rpm_showme as showme
 
@@ -446,6 +434,7 @@ def generate_reports_by_base(data, output):
                 "size": showme.size(use_case["total_size"]),
                 "pkgs_in_base": use_case["packages_in_base"],
                 "pkgs_not_in_base": use_case["packages_not_in_base"],
+                "required_pkgs": use_case["required_package_names"],
                 "packages": use_case["packages"],
                 "file_id": use_case["file_id"]
             } 
@@ -569,14 +558,14 @@ def main():
     args = parser.parse_args()
 
     configs = get_configs(args.input)
-    installs = install_and_load(configs)
-    #installs = load_data("installs-cache.json")
-    dump_data("installs-cache.json", installs)
+    #installs = install_and_load(configs)
+    installs = load_data("installs-cache.json")
+    #dump_data("installs-cache.json", installs)
 
     data = get_data(configs, installs)
 
 
-    generate_graphs(data, args.output)
+    #generate_graphs(data, args.output)
     generate_pages(data, args.output)
     generate_reports_by_base(data, args.output)
     generate_reports_by_use_case(data, args.output)
