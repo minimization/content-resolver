@@ -147,8 +147,13 @@ def _install_packages(installroot, packages, options, releasever):
     cmd += ["dnf", "-y", "--installroot", installroot,
                         "--releasever", releasever]
     cmd += additional_flags
-    cmd += ["install"]
-    cmd += packages
+
+    # If there are no packages, only create the DNF cache
+    if packages:
+        cmd += ["install"]
+        cmd += packages
+    else:
+        cmd += ["makecache"]
 
     # Do the installation
     subprocess.run(cmd)
