@@ -1,0 +1,124 @@
+{% extends "layout.html" %}
+
+{% block content %}
+
+<style>
+td, th {
+    padding-left: 8px;
+    padding-right: 8px;
+}
+.in-base td {
+    background-color: #d4e3ea;
+}
+.in-base th {
+    background-color: #accad6;
+    text-align: center;
+}
+.not-in-base td {
+    background-color: #fff;
+}
+.not-in-base th {
+    background-color: #e9ecef;
+    text-align: center;
+}
+thead td, thead th {
+    background-color: #e9ecef;
+    text-align: center;
+}
+</style>
+
+<br>
+
+<div class="container">
+
+    <nav aria-label="breadcrumb">
+      <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="./index.html">Home</a></li>
+        <li class="breadcrumb-item"><a href="./views.html">Views</a></li>
+        <li class="breadcrumb-item active" aria-current="page">By base</li>
+        <li class="breadcrumb-item active" aria-current="page">{{base.name}}</li>
+        <li class="breadcrumb-item active" aria-current="page">Fedora {{base.version}}</li>
+      </ol>
+    </nav>
+
+
+<h1> {{base.name}} (Fedora {{base.version}})
+{% if images %}
+    <small class="text-muted">
+    {% if images | length > 1 %}
+        on {{images | length}} bases </h1>
+    {% else %}
+        on 1 base </h1>
+    {% endif %}
+    </small>
+{% else %}
+    </h1>
+{% endif %}
+
+<hr>
+
+<table>
+    <thead>
+        <tr>
+            <td rowspan="4">All packages in this report</td>
+            <td rowspan="4">Required packages</td>
+            <td colspan="{{images | length}}">Installed on the following bases</td>
+        </tr>
+        <tr>
+            {% for image in images %}
+            <th>{{image.name}}</th>
+            {% endfor %}
+        </tr>
+        <tr>
+            {% for image in images %}
+            <td>{{image.size}}</td>
+            {% endfor %}
+        </tr>
+        <tr>
+            {% for image in images %}
+            <td>
+              <a href="./graph--{{image.file_id}}.svg">graph</a> |
+              <a href="./graph-simple--{{image.file_id}}.svg">simple graph</a>
+            </td>
+            {% endfor %}
+        </tr>
+    </thead>
+    <tbody>
+        <tr class="in-base">
+            <th colspan="{{images | length + 2}}">--- Required packages ---</th>
+        </tr>
+        {% for pkg in base.packages %}
+        <tr class="in-base">
+            <td>{{pkg}}</td>
+            <td>{{pkg}}</td>
+            {% for image in images %}
+            {% if pkg in image.required_pkgs %}
+            <td>{{pkg}}</td>
+            {% else %}
+            <td> - </td>
+            {% endif %}
+            {% endfor %}
+        </tr>
+        {% endfor %}
+        <tr class="not-in-base">
+            <th colspan="{{images | length + 2}}">--- All other packages (dependencies) ---</th>
+        </tr>
+        {% for pkg in extra_pkgs %}
+        <tr class="not-in-base">
+            <td>{{pkg}}</td>
+            <td> - </td>
+            {% for image in images %}
+            {% if pkg in image.packages %}
+            <td>{{pkg}}</td>
+            {% else %}
+            <td> - </td>
+            {% endif %}
+            {% endfor %}
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+</div>
+
+{% endblock %}

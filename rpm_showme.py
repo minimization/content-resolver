@@ -606,6 +606,10 @@ def get_packages(name):
     return packages
 
 
+def generate_report(base_packages, base_name=None, additional_installations=None):
+    if not base_name:
+        base_name = "Base installation"
+
 
 def main():
 

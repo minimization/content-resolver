@@ -3,22 +3,54 @@
 {% block content %}
 
 <style>
+td, th {
+    padding-left: 8px;
+    padding-right: 8px;
+}
 .in-base td {
     background-color: #e3ece1;
 }
+.in-base th {
+    background-color: #b8cfb3;
+    text-align: center;
+}
+.not-in-base td {
+    background-color: #fff;
+}
+.not-in-base th {
+    background-color: #e9ecef;
+    text-align: center;
+}
 thead td, thead th {
-    background-color: #bbb;
+    background-color: #e9ecef;
     text-align: center;
 }
 </style>
 
-<h1> RPM packages in {{base.name}}
+<br>
+
+<div class="container">
+
+    <nav aria-label="breadcrumb">
+      <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="./index.html">Home</a></li>
+        <li class="breadcrumb-item"><a href="./views.html">Views</a></li>
+        <li class="breadcrumb-item active" aria-current="page">By base</li>
+        <li class="breadcrumb-item active" aria-current="page">{{base.name}}</li>
+        <li class="breadcrumb-item active" aria-current="page">Fedora {{base.version}}</li>
+      </ol>
+    </nav>
+
+
+<h1> {{base.name}} (Fedora {{base.version}})
 {% if images %}
+    <small class="text-muted">
     {% if images | length > 1 %}
-        and {{images | length}} other installations </h1>
+        with {{images | length}} use cases </h1>
     {% else %}
-        and {{images[0].name}} </h1>
+        with {{images[0].name}} </h1>
     {% endif %}
+    </small>
 {% else %}
     </h1>
 {% endif %}
@@ -45,13 +77,19 @@ thead td, thead th {
             {% endfor %}
         </tr>
         <tr>
-            <td><a href="./{{base.graph_name}}">graph</a></td>
+            <td><a href="./graph--{{base.file_id}}.svg">graph</a></td>
             {% for image in images %}
-            <td><a href="./{{image.graph_name}}">graph</a></td>
+            <td>
+              <a href="./graph--{{image.file_id}}.svg">graph</a> |
+              <a href="./graph-simple--{{image.file_id}}.svg">simple graph</a>
+            </td>
             {% endfor %}
         </tr>
     </thead>
     <tbody>
+        <tr class="in-base">
+            <th colspan="{{images | length + 2}}">--- Packages in base ---</th>
+        </tr>
         {% for pkg in base.packages %}
         <tr class="in-base">
             <td>{{pkg}}</td>
@@ -65,8 +103,11 @@ thead td, thead th {
             {% endfor %}
         </tr>
         {% endfor %}
+        <tr class="not-in-base">
+            <th colspan="{{images | length + 2}}">--- Packages not in base ---</th>
+        </tr>
         {% for pkg in extra_pkgs %}
-        <tr>
+        <tr class="not-in-base">
             <td>{{pkg}}</td>
             <td> - </td>
             {% for image in images %}
@@ -80,5 +121,7 @@ thead td, thead th {
         {% endfor %}
     </tbody>
 </table>
+
+</div>
 
 {% endblock %}

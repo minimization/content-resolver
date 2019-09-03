@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 
-import argparse, yaml, tempfile, os, subprocess, json
+import argparse, yaml, tempfile, os, subprocess, json, jinja2
 import rpm_showme as showme
 
 
@@ -155,7 +155,7 @@ def _install_packages(installroot, packages, options, releasever):
     #print(cmd)
 
 
-def install_and_analyze(configs):
+def install_and_load(configs):
     installs = {}
     installs["bases"] = {}
     installs["use_cases"] = {}
@@ -211,13 +211,20 @@ def install_and_analyze(configs):
                         base_id=base_id,
                         base_version=base_version)
                 installroot = os.path.join(root, dirname)
+                base_dirname = "{base_id}--{base_version}".format(
+                        base_id=base_id,
+                        base_version=base_version)
+                base_installroot = os.path.join(root, base_dirname)
 
                 # What and how to install
                 packages = use_case["packages"]
                 options = use_case["options"]
                 releasever = bases[base_id]["versions"][base_version]["source"]["releasever"]
 
-                # Do the installation
+                # First get the base
+                subprocess.run(["cp", "-r", base_installroot, installroot])
+
+                # And then do the final installation
                 _install_packages(installroot=installroot,
                                   packages=packages,
                                   options=options,
@@ -237,69 +244,298 @@ def install_and_analyze(configs):
                 
     return installs
 
-
-def generate_graphs(data, output):
-
-    for _,base_install in data["base_installs"].items():
-        graph = showme.compute_graph(base_install["packages"])
-
-        base = data["base_definitions"][base_install["base_id"]]
-        base_version = base_install["base_version"]
-
-        # Highlight packages that were specified to be installed
-        highlight = base["versions"][base_version]["packages"]
-
-        dot = showme.graph_to_dot(graph, sizes=True, highlights=highlight)
-        svg = showme.dot_to_graph_svg(dot)
-
-        filename="graph--{base_id}--{base_version}.svg".format(
-                base_id=base_install["base_id"],
-                base_version=base_install["base_version"])
-
-        with open(os.path.join(output, filename), "w") as file:
-            file.write(svg)
+def get_data(configs, installs):
     
-    for _,use_case_install in data["use_case_installs"].items():
+    data = {}
+    data["base_definitions"] = configs["bases"]
+    data["base_installs"] = installs["bases"]
+
+    data["use_case_definitions"] = configs["use_cases"]
+    data["use_case_installs"] = installs["use_cases"]
+
+    # Store base info in use_case_definitions
+    for _, use_case_definition in data["use_case_definitions"].items():
+        base_versions = []
+        base_versions_set = set()
+        base_ids = []
+        base_ids_set = set()
+        for base_id in use_case_definition["install_on"]:
+            base_ids_set.add(base_id.split(":")[0])
+            base_versions_set.add(base_id.split(":")[1])
+        base_versions = list(base_versions_set)
+        base_versions.sort()
+        base_ids = list(base_ids_set)
+        base_ids.sort()
+        use_case_definition["base_versions"] = base_versions
+        use_case_definition["base_ids"] = base_ids
+
+    # Data focused on use cases
+    use_cases = {}
+    for _, use_case_install in data["use_case_installs"].items():
+        use_case_definition_id = use_case_install["use_case_id"]
+        use_case_definition = data["use_case_definitions"][use_case_definition_id]
+    
         base_install_id = "{base_id}:{base_version}".format(
                 base_id=use_case_install["base_id"],
                 base_version=use_case_install["base_version"])
-
         base_install = data["base_installs"][base_install_id]
-        base_definition = data["base_definitions"][use_case_install["base_id"]]
-        use_case_definition = data["use_case_definitions"][use_case_install["use_case_id"]]
+        base_id = use_case_install["base_id"]
+        base_definition = data["base_definitions"][base_id]
+        base_version = base_install["base_version"]
 
+        # Define a new entity holding all info about use cases
+        use_case = {}
+
+        # Identity and names
+        use_case["id"] = use_case_install["id"]
+        use_case["name"] = use_case_definition["name"]
+        use_case["file_id"] = "{use_case_id}--{base_id}--{base_version}".format(
+                use_case_id=use_case_definition["id"],
+                base_id=base_definition["id"],
+                base_version=base_version)
+
+        # Related data
+        use_case["base_name"] = base_definition["name"]
+        use_case["base_version"] = base_version
+        use_case["base_id"] = base_install_id
+
+        # Total install size
+        total_size = 0
+        for _,package in use_case_install["packages"].items():
+            total_size += package["size"]
+        use_case["total_size"] = total_size
+
+        # Packages
+        use_case["packages"] = use_case_install["packages"]
+        package_names = []
+        for _,package in use_case_install["packages"].items():
+            package_names.append(package["name"])
+        use_case["package_names"] = package_names
+        use_case["required_package_names"] = use_case_definition["packages"]
+
+        # Advanced packages
+        base_package_names = []
+        for _,package in base_install["packages"].items():
+            base_package_names.append(package["name"])
+        packages_in_base = list(set(base_package_names) & set(package_names))
+        packages_not_in_base = list(set(package_names) - set(packages_in_base))
+        packages_in_base.sort()
+        packages_not_in_base.sort()
+        use_case["packages_in_base"] = packages_in_base
+        use_case["packages_not_in_base"] = packages_not_in_base
+
+        use_cases[use_case["id"]] = use_case
+
+    data["use_cases"] = use_cases
+
+    # Data focued on bases
+    bases = {}
+    for _, base_install in data["base_installs"].items():
+        base_definition = data["base_definitions"][base_install["base_id"]]
+        base_version = base_install["base_version"]
+        
+        # Define a new entity holding all the info about bases
+        base = {}
+        base["id"] = base_install["id"]
+        base["name"] = base_definition["name"]
+        base["version"] = base_version
+        base["file_id"] = "{id}--{version}".format(
+                id=base_definition["id"],
+                version=base_version)
+
+        # Related data
+        use_case_ids = []
+        for _,use_case in data["use_cases"].items():
+            if use_case["base_id"] == base["id"]:
+                use_case_ids.append(use_case["id"])
+        base["use_case_ids"] = use_case_ids
+
+        # Total install size
+        total_size = 0
+        for _,package in base_install["packages"].items():
+            total_size += package["size"]
+        base["total_size"] = total_size
+
+        # Packages
+        base["packages"] = base_install["packages"]
+        package_names = []
+        for _,package in base_install["packages"].items():
+            package_names.append(package["name"])
+        base["package_names"] = package_names
+        base["required_package_names"] = \
+                base_definition["versions"][base_version]["packages"]
+
+        bases[base["id"]] = base
+        
+    data["bases"] = bases
+
+    return data
+
+
+def generate_graphs(data, output):
+    for _,base in data["bases"].items():
+        graph = showme.compute_graph(base["packages"])
+        highlights = base["required_package_names"]
+        dot = showme.graph_to_dot(graph, sizes=True, highlights=highlights)
+        svg = showme.dot_to_graph_svg(dot)
+
+        filename = "graph--{file_id}.svg".format(file_id=base["file_id"])
+
+        with open(os.path.join(output, filename), "w") as file:
+            file.write(svg)
+
+    for _,use_case in data["use_cases"].items():
         # Full graph shows all packages in the installation
-        graph_full = showme.compute_graph(use_case_install["packages"])
-
+        graph_full = showme.compute_graph(use_case["packages"])
+        
         # Simple graph groups the base image into a single node
-        group = showme.packages_to_group(base_definition["name"], base_install["packages"])
-        graph_simple = showme.compute_graph(use_case_install["packages"], [group])
+        base_packages = data["bases"][use_case["base_id"]]["packages"]
+        group = showme.packages_to_group(use_case["base_name"], base_packages)
+        graph_simple = showme.compute_graph(use_case["packages"], [group])
 
-        # Highlight packages that were specified to be installed
-        highlight = use_case_definition["packages"]
-
-        dot_full = showme.graph_to_dot(graph_full, sizes=True, highlights=highlight)
-        dot_simple = showme.graph_to_dot(graph_simple, sizes=True, highlights=highlight)
+        highlights = use_case["required_package_names"]
+        dot_full = showme.graph_to_dot(graph_full, sizes=True, highlights=highlights)
+        dot_simple = showme.graph_to_dot(graph_simple, sizes=True, highlights=highlights)
 
         svg_full = showme.dot_to_graph_svg(dot_full)
         svg_simple = showme.dot_to_graph_svg(dot_simple)
 
-        base_filename = "{use_case_id}--{base_id}--{base_version}.svg".format(
-                use_case_id=use_case_install["use_case_id"],
-                base_id=use_case_install["base_id"],
-                base_version=use_case_install["base_version"])
-
-        filename_full = "graph-full--{base_filename}".format(
-                base_filename=base_filename)
-
-        filename_simple = "graph-simple--{base_filename}".format(
-                base_filename=base_filename)
+        filename_full = "graph--{file_id}.svg".format(file_id=use_case["file_id"])
+        filename_simple = "graph-simple--{file_id}.svg".format(file_id=use_case["file_id"])
 
         with open(os.path.join(output, filename_full), "w") as file:
             file.write(svg_full)
 
         with open(os.path.join(output, filename_simple), "w") as file:
             file.write(svg_simple)
+
+
+        
+
+def generate_reports_by_base(data, output):
+    template_loader = jinja2.FileSystemLoader(searchpath="./templates/")
+    template_env = jinja2.Environment(loader=template_loader)
+
+    for _,base in data["bases"].items():
+        base_report_data = {
+            "name": base["name"],
+            "version": base["version"],
+            "size": showme.size(base["total_size"]),
+            "packages": base["package_names"],
+            "file_id": base["file_id"]
+        }
+
+        other_install_data = []
+        for use_case_id in base["use_case_ids"]:
+            use_case = data["use_cases"][use_case_id]
+
+            use_case_report_data = {
+                "name": use_case["name"],
+                "size": showme.size(use_case["total_size"]),
+                "pkgs_in_base": use_case["packages_in_base"],
+                "pkgs_not_in_base": use_case["packages_not_in_base"],
+                "packages": use_case["packages"],
+                "file_id": use_case["file_id"]
+            } 
+
+            other_install_data.append(use_case_report_data)
+
+        extra_pkgs = []
+        for install_data in other_install_data:
+            extra_pkgs += install_data["pkgs_not_in_base"]
+        extra_pkgs = list(set(extra_pkgs))
+        extra_pkgs.sort()
+
+        table_report_template = template_env.get_template("report_by_base.html")
+        table_report = table_report_template.render(
+                base=base_report_data,
+                images=other_install_data,
+                extra_pkgs=extra_pkgs)
+
+        filename = "report-by-base--{file_id}.html".format(
+                file_id=base["file_id"])
+
+        with open(os.path.join(output, filename), "w") as file:
+            file.write(table_report)
+
+
+def generate_reports_by_use_case(data, output):
+    template_loader = jinja2.FileSystemLoader(searchpath="./templates/")
+    template_env = jinja2.Environment(loader=template_loader)
+
+    for _,use_case_definition in data["use_case_definitions"].items():
+        for base_version in use_case_definition["base_versions"]:
+            use_case_report_data = {
+                "name": use_case_definition["name"],
+                "packages": use_case_definition["packages"],
+                "version": base_version
+            }
+
+            other_install_data = []
+            for base_definition_id in use_case_definition["base_ids"]:
+                base_id = "{base_definition_id}:{base_version}".format(
+                        base_definition_id=base_definition_id,
+                        base_version=base_version)
+                use_case_id = "{use_case_definition_id}:{base_id}".format(
+                        use_case_definition_id=use_case_definition["id"],
+                        base_id=base_id)
+
+                base = data["bases"][base_id]
+                use_case = data["use_cases"][use_case_id]
+
+
+                required_package_names = use_case["required_package_names"]
+                all_package_names = use_case["package_names"]
+                dependencies = list(set(all_package_names) - set(required_package_names))
+                dependencies.sort()
+
+                base_report_data = {
+                    "name": base["name"],
+                    "size": showme.size(use_case["total_size"]),
+                    "required_pkgs": required_package_names,
+                    "dependencies": dependencies,
+                    "packages": use_case["packages"],
+                    "file_id": use_case["file_id"]
+                }
+                other_install_data.append(base_report_data)
+
+            extra_pkgs = []
+            for install_data in other_install_data:
+                extra_pkgs += install_data["dependencies"]
+            extra_pkgs = list(set(extra_pkgs))
+            extra_pkgs.sort()
+
+            table_report_template = template_env.get_template("report_by_use_case.html")
+            table_report = table_report_template.render(
+                    base=use_case_report_data,
+                    images=other_install_data,
+                    extra_pkgs=extra_pkgs)
+
+            file_id = "{use_case}--{version}".format(
+                    use_case=use_case_definition["id"],
+                    version=base_version)
+            filename = "report-by-use-case--{file_id}.html".format(
+                    file_id=file_id)
+
+            with open(os.path.join(output, filename), "w") as file:
+                file.write(table_report)
+
+
+def generate_pages(data, output):
+    template_loader = jinja2.FileSystemLoader(searchpath="./templates/")
+    template_env = jinja2.Environment(loader=template_loader)
+    
+    # homepage
+    homepage_template = template_env.get_template("homepage.html")
+    homepage = homepage_template.render()
+    with open(os.path.join(output, "index.html"), "w") as file:
+        file.write(homepage)
+
+    # views page
+    views_page_template = template_env.get_template("views.html")
+    views_page = views_page_template.render(data=data)
+    with open(os.path.join(output, "views.html"), "w") as file:
+        file.write(views_page)
 
 
 def dump_data(path, data):
@@ -321,18 +557,18 @@ def main():
     args = parser.parse_args()
 
     configs = get_configs(args.input)
-    #installs = install_and_analyze(configs)
+    #installs = install_and_load(configs)
     installs = load_data("installs-cache.json")
     #dump_data("installs-cache.json", installs)
 
-    data = {}
-    data["base_definitions"] = configs["bases"]
-    data["base_installs"] = installs["bases"]
+    data = get_data(configs, installs)
 
-    data["use_case_definitions"] = configs["use_cases"]
-    data["use_case_installs"] = installs["use_cases"]
 
-    generate_graphs(data, args.output)
+    #generate_graphs(data, args.output)
+    generate_pages(data, args.output)
+    generate_reports_by_base(data, args.output)
+    generate_reports_by_use_case(data, args.output)
+
     
     
 
