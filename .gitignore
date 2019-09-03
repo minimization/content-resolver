@@ -1,3 +1,4 @@
 config
 out
 *.swp
+installs-cache.json
