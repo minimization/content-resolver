@@ -535,6 +535,46 @@ def generate_reports_by_use_case(data, output):
                 file.write(table_report)
 
 
+def generate_reports_bases_releases(data, output):
+    template_loader = jinja2.FileSystemLoader(searchpath="./templates/")
+    template_env = jinja2.Environment(loader=template_loader)
+
+    for _,base_definition in data["base_definitions"].items():
+        report_data = []
+        for base_version in base_definition["versions"]:
+            base_id = "{base_definition_id}:{base_version}".format(
+                    base_definition_id=base_definition["id"],
+                    base_version=base_version)
+            base = data["bases"][base_id]
+    
+            base_report_data = {
+                "version": base_version,
+                "size": showme.size(base["total_size"]),
+                "required_pkgs": base["required_package_names"],
+                "packages": base["packages"],
+                "file_id": base["file_id"]
+            }
+            report_data.append(base_report_data)
+
+        all_packages = []
+        for base_report_data in report_data:
+            all_packages += base_report_data["packages"].keys()
+        all_packages = list(set(all_packages))
+        all_packages.sort()
+
+        table_report_template = template_env.get_template("report_base_releases.html")
+        table_report = table_report_template.render(
+                report_data=report_data,
+                all_packages=all_packages,
+                base_name=base_definition["name"])
+
+        filename = "report-base-releases--{base_id}.html".format(
+            base_id=base_definition["id"])
+
+        with open(os.path.join(output, filename), "w") as file:
+            file.write(table_report)
+
+
 def generate_pages(data, output):
     template_loader = jinja2.FileSystemLoader(searchpath="./templates/")
     template_env = jinja2.Environment(loader=template_loader)
@@ -604,6 +644,7 @@ def main():
     generate_pages(data, args.output)
     generate_reports_by_base(data, args.output)
     generate_reports_by_use_case(data, args.output)
+    generate_reports_bases_releases(data, args.output)
 
     
     

@@ -1,0 +1,104 @@
+{% extends "layout.html" %}
+
+{% block content %}
+
+<style>
+td, th {
+    padding-left: 10px;
+    padding-right: 10px;
+}
+.in-base th {
+    background-color: #accad6;
+    text-align: center;
+}
+.in-base td {
+    background-color: #d4e3ea;
+    color: #CC0066;
+    font-family: monospace;
+}
+tr.in-base td.all-pkgs {
+    background-color: #accad6!important;
+}
+.not-in-base th {
+    background-color: #e9ecef;
+    text-align: center;
+}
+.not-in-base td {
+    background-color: #fff;
+    font-family: monospace;
+}
+tr.not-in-base td.all-pkgs {
+    background-color: #e9ecef!important;
+}
+thead td, thead th {
+    background-color: #e9ecef;
+    text-align: center;
+}
+tbody tr, tbody th {
+    border-bottom: #6c757d 1px solid;
+    border-top: #6c757d 1px solid;
+}
+</style>
+
+<br>
+
+<div class="container-fluid">
+
+    <nav aria-label="breadcrumb">
+      <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="./">Home</a></li>
+        <li class="breadcrumb-item"><a href="./views.html">Views</a></li>
+        <li class="breadcrumb-item"><a href="./view--bases-by-releases.html">Bases by releases</a></li>
+        <li class="breadcrumb-item active" aria-current="page">{{base_name}}</li>
+      </ol>
+    </nav>
+
+
+<h1> {{base_name}} <small class="text-muted">by releases</small> </h1>
+
+<hr>
+
+<table>
+    <thead>
+        <tr>
+            <td rowspan="3" style="background-color:#cad1d8">All packages in this report</td>
+            {% for image in report_data %}
+            <th>Fedora {{image.version}}</th>
+            {% endfor %}
+        </tr>
+        <tr>
+            {% for image in report_data %}
+            <td>{{image.size}}</td>
+            {% endfor %}
+        </tr>
+        <tr>
+            {% for image in report_data %}
+            <td>
+              <a href="./graph--{{image.file_id}}.svg">graph</a> 
+            </td>
+            {% endfor %}
+        </tr>
+    </thead>
+    <tbody>
+        {% for pkg in all_packages %}
+        <tr class="not-in-base">
+            <td class="all-pkgs">{{pkg}}</td>
+            {% for image in report_data %}
+            {% if pkg in image.packages %}
+            {% if pkg in image.required_pkgs %}
+                <td style="color:#CC0066">{{pkg}}</td>
+            {% else %}
+                <td>{{pkg}}</td>
+            {% endif %}
+            {% else %}
+            <td> - </td>
+            {% endif %}
+            {% endfor %}
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+</div>
+
+{% endblock %}

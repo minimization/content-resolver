@@ -6,6 +6,22 @@
 
 {% block view_content %}
 
-<p> To be done... </p>
+  <div class="row">
+  {% for _,base in data.base_definitions.items() %}
+    <div class="col-lg-6">
+      <div class="card">
+        <div class="card-body">
+          <h5 class="card-title">{{base.name}}</h5>
+          <h6 class="card-subtitle mb-2 text-muted">
+             with relevant use cases on top of it.
+          </h6>
+        </div>
+        <div class="card-footer">
+          <a class="card-link" href="report-base-releases--{{base.id}}.html">All releases</a>
+        </div>
+      </div><br>
+    </div>
+  {% endfor %}
+  </div>
 
 {% endblock %}
