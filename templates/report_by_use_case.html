@@ -7,6 +7,9 @@ td, th {
     padding-left: 10px;
     padding-right: 10px;
 }
+td {
+    white-space: nowrap!important;
+}
 .in-base th {
     background-color: #accad6;
     text-align: center;
@@ -74,6 +77,7 @@ tbody tr, tbody th {
     <thead>
         <tr>
             <td rowspan="4" style="background-color:#cad1d8">All packages in this report</td>
+            <td rowspan="4" style="background-color:#cad1d8"></td>
             {% for image in images %}
             <th>{{base.name}}</th>
             {% endfor %}
@@ -99,11 +103,12 @@ tbody tr, tbody th {
     </thead>
     <tbody>
         <tr class="in-base">
-            <th colspan="{{images | length + 2}}">--- Required packages ---</th>
+            <th colspan="{{images | length + 3}}">--- Required packages ---</th>
         </tr>
         {% for pkg in base.packages %}
         <tr class="in-base">
             <td class="all-pkgs">{{pkg}}</td>
+            <td class="all-pkgs">{{pkg_sizes[pkg]}}</td>
             {% for image in images %}
             {% if pkg in image.required_pkgs %}
             <td>{{pkg}}</td>
@@ -114,11 +119,12 @@ tbody tr, tbody th {
         </tr>
         {% endfor %}
         <tr class="not-in-base">
-            <th colspan="{{images | length + 2}}">--- All other packages (dependencies) ---</th>
+            <th colspan="{{images | length + 3}}">--- All other packages (dependencies) ---</th>
         </tr>
         {% for pkg in extra_pkgs %}
         <tr class="not-in-base">
             <td class="all-pkgs">{{pkg}}</td>
+            <td class="all-pkgs">{{pkg_sizes[pkg]}}</td>
             {% for image in images %}
             {% if pkg in image.packages %}
             <td>{{pkg}}</td>

@@ -7,6 +7,9 @@ td, th {
     padding-left: 10px;
     padding-right: 10px;
 }
+td {
+    white-space: nowrap!important;
+}
 .in-base th {
     background-color: #accad6;
     text-align: center;
@@ -63,17 +66,17 @@ tbody tr, tbody th {
         <tr>
             <td rowspan="3" style="background-color:#cad1d8">All packages in this report</td>
             {% for image in report_data %}
-            <th>Fedora {{image.version}}</th>
+            <th colspan="2">Fedora {{image.version}}</th>
             {% endfor %}
         </tr>
         <tr>
             {% for image in report_data %}
-            <td>{{image.size}}</td>
+            <td colspan="2">{{image.size}}</td>
             {% endfor %}
         </tr>
         <tr>
             {% for image in report_data %}
-            <td>
+            <td colspan="2">
                 {% if image.packages %}
                   <a href="./graph--{{image.file_id}}.svg">graph</a> 
                 {% endif %}
@@ -88,12 +91,15 @@ tbody tr, tbody th {
             {% for image in report_data %}
             {% if pkg in image.packages %}
             {% if pkg in image.required_pkgs %}
-                <td style="color:#CC0066">{{pkg}}</td>
+                <td style="color:#CC0066; border-left: #555 1px solid">{{pkg}}</td>
+                <td style="color:#CC0066">{{size_function(image.packages[pkg].size)}}</td>
             {% else %}
-                <td>{{pkg}}</td>
+                <td style="border-left: #555 1px solid">{{pkg}}</td>
+                <td>{{size_function(image.packages[pkg].size)}}</td>
             {% endif %}
             {% else %}
-            <td> - </td>
+            <td style="border-left: #555 1px solid"> - </td>
+            <td> </td>
             {% endif %}
             {% endfor %}
         </tr>

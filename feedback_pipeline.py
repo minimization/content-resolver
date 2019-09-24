@@ -449,9 +449,22 @@ def generate_reports_by_base(data, output):
             "file_id": base["file_id"]
         }
 
+        pkg_sizes = {}
+
+        # Get sizes of all packags in the base
+        for _,pkg in base["packages"].items():
+            if pkg["name"] not in pkg_sizes:
+                pkg_sizes[pkg["name"]] = showme.size(pkg["size"])
+                
+
         other_install_data = []
         for use_case_id in base["use_case_ids"]:
             use_case = data["use_cases"][use_case_id]
+
+            # Get sizes of all other packages
+            for _,pkg in use_case["packages"].items():
+                if pkg["name"] not in pkg_sizes:
+                    pkg_sizes[pkg["name"]] = showme.size(pkg["size"])
 
             use_case_report_data = {
                 "name": use_case["name"],
@@ -475,7 +488,8 @@ def generate_reports_by_base(data, output):
         table_report = table_report_template.render(
                 base=base_report_data,
                 images=other_install_data,
-                extra_pkgs=extra_pkgs)
+                extra_pkgs=extra_pkgs,
+                pkg_sizes=pkg_sizes)
 
         filename = "report-by-base--{file_id}.html".format(
                 file_id=base["file_id"])
@@ -498,6 +512,9 @@ def generate_reports_by_use_case(data, output):
                 "version": base_version
             }
 
+            pkg_sizes = {}
+
+
             other_install_data = []
             for base_definition_id in use_case_definition["base_ids"]:
                 base_id = "{base_definition_id}:{base_version}".format(
@@ -510,6 +527,10 @@ def generate_reports_by_use_case(data, output):
                 base = data["bases"][base_id]
                 use_case = data["use_cases"][use_case_id]
 
+                # Get sizes of all packags in the base
+                for _,pkg in use_case["packages"].items():
+                    if pkg["name"] not in pkg_sizes:
+                        pkg_sizes[pkg["name"]] = showme.size(pkg["size"])
 
                 required_package_names = use_case["required_package_names"]
                 all_package_names = use_case["package_names"]
@@ -536,7 +557,8 @@ def generate_reports_by_use_case(data, output):
             table_report = table_report_template.render(
                     base=use_case_report_data,
                     images=other_install_data,
-                    extra_pkgs=extra_pkgs)
+                    extra_pkgs=extra_pkgs,
+                    pkg_sizes=pkg_sizes)
 
             file_id = "{use_case}--{version}".format(
                     use_case=use_case_definition["id"],
@@ -581,7 +603,8 @@ def generate_reports_bases_releases(data, output):
         table_report = table_report_template.render(
                 report_data=report_data,
                 all_packages=all_packages,
-                base_name=base_definition["name"])
+                base_name=base_definition["name"],
+                size_function=showme.size)
 
         filename = "report-base-releases--{base_id}.html".format(
             base_id=base_definition["id"])

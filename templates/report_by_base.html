@@ -7,6 +7,9 @@ td, th {
     padding-left: 8px;
     padding-right: 8px;
 }
+td {
+    white-space: nowrap!important;
+}
 .in-base th {
     background-color: #b8cfb3;
     text-align: center;
@@ -74,6 +77,7 @@ tbody tr, tbody th {
     <thead>
         <tr>
             <td rowspan="3" style="background-color:#cad1d8">All packages in this report</td>
+            <td rowspan="3" style="background-color:#cad1d8"></td>
             <th>{{base.name}}</th>
             {% for image in images %}
             <th>{{image.name}}</th>
@@ -97,11 +101,12 @@ tbody tr, tbody th {
     </thead>
     <tbody>
         <tr class="in-base">
-            <th colspan="{{images | length + 2}}">--- Packages in base ---</th>
+            <th colspan="{{images | length + 3}}">--- Packages in base ---</th>
         </tr>
         {% for pkg in base.packages %}
         <tr class="in-base">
             <td class="all-pkgs">{{pkg}}</td>
+            <td class="all-pkgs">{{pkg_sizes[pkg]}}</td>
             <td>{{pkg}}</td>
             {% for image in images %}
             {% if pkg in image.pkgs_in_base %}
@@ -113,11 +118,12 @@ tbody tr, tbody th {
         </tr>
         {% endfor %}
         <tr class="not-in-base">
-            <th colspan="{{images | length + 2}}">--- Packages not in base ---</th>
+            <th colspan="{{images | length + 3}}">--- Packages not in base ---</th>
         </tr>
         {% for pkg in extra_pkgs %}
         <tr class="not-in-base">
             <td class="all-pkgs">{{pkg}}</td>
+            <td class="all-pkgs">{{pkg_sizes[pkg]}}</td>
             <td> - </td>
             {% for image in images %}
             {% if pkg in image.packages %}
