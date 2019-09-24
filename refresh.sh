@@ -20,7 +20,7 @@ cd $WORK_DIR
 
 
 git clone git@github.com:minimization/feedback-pipeline.git || exit 1
-git clone git@github.com:minimization/reports.git || exit 1
+git clone ssh://git@pagure.io/minimization/reports.git || exit 1
 cd feedback-pipeline || exit 1
 git clone https://pagure.io/minimization/feedback-pipeline-config.git configs || exit 1
 
