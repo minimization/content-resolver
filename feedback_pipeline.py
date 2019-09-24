@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 
-import argparse, yaml, tempfile, os, subprocess, json, jinja2
+import argparse, yaml, tempfile, os, subprocess, json, jinja2, datetime
 import rpm_showme as showme
 
 
@@ -163,9 +163,12 @@ def _install_packages(installroot, packages, options, releasever):
 
 
 def install_and_load(configs):
+    timestamp = str(datetime.datetime.now().strftime("%d/%m/%Y %H:%M"))
+
     installs = {}
     installs["bases"] = {}
     installs["use_cases"] = {}
+    installs["timestamp"] = timestamp
 
     bases = configs["bases"]
     use_cases = configs["use_cases"]
@@ -260,6 +263,9 @@ def install_and_load(configs):
 def get_data(configs, installs):
     
     data = {}
+
+    data["timestamp"] = installs["timestamp"]
+
     data["base_definitions"] = configs["bases"]
     data["base_installs"] = installs["bases"]
 
@@ -489,7 +495,8 @@ def generate_reports_by_base(data, output):
                 base=base_report_data,
                 images=other_install_data,
                 extra_pkgs=extra_pkgs,
-                pkg_sizes=pkg_sizes)
+                pkg_sizes=pkg_sizes,
+                timestamp=data["timestamp"])
 
         filename = "report-by-base--{file_id}.html".format(
                 file_id=base["file_id"])
@@ -558,7 +565,8 @@ def generate_reports_by_use_case(data, output):
                     base=use_case_report_data,
                     images=other_install_data,
                     extra_pkgs=extra_pkgs,
-                    pkg_sizes=pkg_sizes)
+                    pkg_sizes=pkg_sizes,
+                    timestamp=data["timestamp"])
 
             file_id = "{use_case}--{version}".format(
                     use_case=use_case_definition["id"],
@@ -604,7 +612,8 @@ def generate_reports_bases_releases(data, output):
                 report_data=report_data,
                 all_packages=all_packages,
                 base_name=base_definition["name"],
-                size_function=showme.size)
+                size_function=showme.size,
+                timestamp=data["timestamp"])
 
         filename = "report-base-releases--{base_id}.html".format(
             base_id=base_definition["id"])
