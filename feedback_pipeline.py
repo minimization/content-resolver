@@ -490,7 +490,7 @@ def generate_reports_by_use_case(data, output):
     template_loader = jinja2.FileSystemLoader(searchpath="./templates/")
     template_env = jinja2.Environment(loader=template_loader)
 
-    for _,use_case_definition in data["use_case_definitions"].items():
+    for use_case_definition in data["use_case_definitions"]:
         for base_version in use_case_definition["base_versions"]:
             use_case_report_data = {
                 "name": use_case_definition["name"],
@@ -554,7 +554,7 @@ def generate_reports_bases_releases(data, output):
     template_loader = jinja2.FileSystemLoader(searchpath="./templates/")
     template_env = jinja2.Environment(loader=template_loader)
 
-    for _,base_definition in data["base_definitions"].items():
+    for base_definition in data["base_definitions"]:
         report_data = []
         for base_version in base_definition["versions"]:
             base_id = "{base_definition_id}:{base_version}".format(
@@ -593,6 +593,7 @@ def generate_reports_bases_releases(data, output):
 def generate_pages(data, output):
     log("Generating common pages")
 
+    data = sort_definitions(data)
     template_loader = jinja2.FileSystemLoader(searchpath="./templates/")
     template_env = jinja2.Environment(loader=template_loader)
     
@@ -639,6 +640,26 @@ def load_data(path):
         data = json.load(file)
 
     return data
+
+
+def sort_definitions(definitions):
+    definitions["base_definitions"] = sort_data(definitions["base_definitions"])
+    definitions["use_case_definitions"] = sort_data(definitions["use_case_definitions"])
+    return definitions
+
+
+def sort_data(data):
+    names = {}
+    for data_key, data_value in data.items():
+        data_dict = {}
+        data_dict[data_key] = data_value
+        names[data_value["name"]] = data_dict
+    sorted_list = sorted(names.items())
+    soted_data = []
+    for sorted_taple in sorted_list:
+        for _, item_value in sorted_taple[1].items():
+            soted_data.append(item_value)
+    return soted_data
 
 
 def main():
