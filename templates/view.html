@@ -1,0 +1,42 @@
+{% extends "layout.html" %}
+
+{% block content %}
+
+<div class="container">
+  <br>
+
+  {% block breadcrumbs %}
+  <nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="./">Home</a></li>
+      <li class="breadcrumb-item active" aria-current="page">Views</li>
+    </ol>
+  </nav>
+{% endblock %}
+
+
+  <h1> Views </h1>
+
+  <ul class="nav nav-tabs">
+    <li class="nav-item">
+      <a class="nav-link {% block active_view_bases %}{% endblock %}"
+        href="./view--bases-definitions.html"><b>Bases</b></a>
+    </li>
+    <li class="nav-item">
+      <a class="nav-link {% block active_view_use_cases %}{% endblock %}"
+        href="./view--use-cases-definitions.html"><b>Use Cases</b></a>
+    </li>
+  </ul>
+
+  <br>
+
+  {% block view_second_level_menu %}
+  {% endblock %}
+
+  <br>
+
+  {% block view_content %}
+  {% endblock %}
+
+</div>
+{% endblock %}

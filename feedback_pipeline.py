@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 
-import argparse, yaml, tempfile, os, subprocess, json, jinja2, datetime
+import argparse, yaml, tempfile, os, subprocess, json, jinja2, datetime, copy
 import rpm_showme as showme
 
 
@@ -511,7 +511,7 @@ def generate_reports_by_use_case(data, output):
     template_loader = jinja2.FileSystemLoader(searchpath="./templates/")
     template_env = jinja2.Environment(loader=template_loader)
 
-    for use_case_definition in data["use_case_definitions"]:
+    for _,use_case_definition in data["use_case_definitions"].items():
         for base_version in use_case_definition["base_versions"]:
             use_case_report_data = {
                 "name": use_case_definition["name"],
@@ -584,7 +584,7 @@ def generate_reports_bases_releases(data, output):
     template_loader = jinja2.FileSystemLoader(searchpath="./templates/")
     template_env = jinja2.Environment(loader=template_loader)
 
-    for base_definition in data["base_definitions"]:
+    for _,base_definition in data["base_definitions"].items():
         report_data = []
         for base_version in base_definition["versions"]:
             base_id = "{base_definition_id}:{base_version}".format(
@@ -622,44 +622,72 @@ def generate_reports_bases_releases(data, output):
             file.write(table_report)
 
 
+def generate_reports_bases_definitions(data, output):
+    log("Generating reports: Base definitions")
+
+    template_loader = jinja2.FileSystemLoader(searchpath="./templates/")
+    template_env = jinja2.Environment(loader=template_loader)
+
+    for _,base_definition in data["base_definitions"].items():
+        for base_version in base_definition["versions"]:
+            report_template = template_env.get_template("report_base_definition.html")
+            report = report_template.render(
+                    base_definition=base_definition,
+                    base_version=base_version,
+                    data=data)
+
+            filename = "report-base-definition--{base_id}--{base_version}.html".format(
+                base_id=base_definition["id"], base_version=base_version)
+
+            with open(os.path.join(output, filename), "w") as file:
+                file.write(report)
+
+
+def generate_reports_use_cases_definitions(data, output):
+    log("Generating reports: use_case definitions")
+
+    template_loader = jinja2.FileSystemLoader(searchpath="./templates/")
+    template_env = jinja2.Environment(loader=template_loader)
+
+    for _,use_case_definition in data["use_case_definitions"].items():
+        report_template = template_env.get_template("report_use_case_definition.html")
+        report = report_template.render(
+                use_case_definition=use_case_definition,
+                data=data)
+
+        filename = "report-use-case-definition--{use_case_id}.html".format(
+            use_case_id=use_case_definition["id"])
+
+        with open(os.path.join(output, filename), "w") as file:
+            file.write(report)
+
+
 def generate_pages(data, output):
     log("Generating common pages")
 
-    data = sort_definitions(data)
+    data = sort_definitions(copy.deepcopy(data))
     template_loader = jinja2.FileSystemLoader(searchpath="./templates/")
     template_env = jinja2.Environment(loader=template_loader)
-    
-    # homepage
-    homepage_template = template_env.get_template("homepage.html")
-    homepage = homepage_template.render()
-    with open(os.path.join(output, "index.html"), "w") as file:
-        file.write(homepage)
+  
+    pages = [
+        # Template name                             # Output file
+        ("homepage.html",                           "index.html"),
+        ("view.html",                               "views.html"),
+        ("view_bases_definitions.html",             "view--bases-definitions.html"),
+        ("view_bases_compare_releases.html",        "view--bases-by-releases.html"),
+        ("view_use_cases_definitions.html",         "view--use-cases-definitions.html"),
+        ("view_use_cases_compare_bases.html",       "view--use-cases-on-bases.html"),
+        ("view_use_cases_compare_releases.html",    "view--use-cases-by-releases.html"),
+        ("view_use_cases_use_cases_by_base.html",   "view--bases-with-use-cases.html"),
+    ]
 
-    # views pages
-    views_page_template = template_env.get_template("views.html")
-    views_page = views_page_template.render(data=data)
-    with open(os.path.join(output, "views.html"), "w") as file:
-        file.write(views_page)
 
-    views_page_template = template_env.get_template("view_bases_with_use_cases.html")
-    views_page = views_page_template.render(data=data)
-    with open(os.path.join(output, "view--bases-with-use-cases.html"), "w") as file:
-        file.write(views_page)
+    for template_name, output_file in pages:
+        template = template_env.get_template(template_name)
+        page = template.render(data=data)
+        with open(os.path.join(output, output_file), "w") as file:
+            file.write(page)
 
-    views_page_template = template_env.get_template("view_use_cases_on_bases.html")
-    views_page = views_page_template.render(data=data)
-    with open(os.path.join(output, "view--use-cases-on-bases.html"), "w") as file:
-        file.write(views_page)
-
-    views_page_template = template_env.get_template("view_bases_by_releases.html")
-    views_page = views_page_template.render(data=data)
-    with open(os.path.join(output, "view--bases-by-releases.html"), "w") as file:
-        file.write(views_page)
-
-    views_page_template = template_env.get_template("view_use_cases_by_releases.html")
-    views_page = views_page_template.render(data=data)
-    with open(os.path.join(output, "view--use-cases-by-releases.html"), "w") as file:
-        file.write(views_page)
 
 
 def dump_data(path, data):
@@ -715,6 +743,8 @@ def main():
     generate_reports_by_base(data, args.output)
     generate_reports_by_use_case(data, args.output)
     generate_reports_bases_releases(data, args.output)
+    generate_reports_bases_definitions(data, args.output)
+    generate_reports_use_cases_definitions(data, args.output)
 
     
     

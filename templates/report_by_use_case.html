@@ -3,140 +3,151 @@
 {% block content %}
 
 <style>
-td, th {
-    padding-left: 10px;
-    padding-right: 10px;
-}
-td {
-    white-space: nowrap!important;
-}
-.in-base th {
-    background-color: #accad6;
-    text-align: center;
-}
-.in-base td {
-    background-color: #d4e3ea;
-    color: #CC0066;
-    font-family: monospace;
-}
-tr.in-base td.all-pkgs {
-    background-color: #accad6!important;
-}
-.not-in-base th {
-    background-color: #e9ecef;
-    text-align: center;
-}
-.not-in-base td {
-    background-color: #fff;
-    font-family: monospace;
-}
-tr.not-in-base td.all-pkgs {
-    background-color: #e9ecef!important;
-}
-thead td, thead th {
-    background-color: #e9ecef;
-    text-align: center;
-}
-tbody tr, tbody th {
-    border-bottom: #6c757d 1px solid;
-    border-top: #6c757d 1px solid;
-}
+    td,
+    th {
+        padding-left: 10px;
+        padding-right: 10px;
+    }
+
+    td {
+        white-space: nowrap !important;
+    }
+
+    .in-base th {
+        background-color: #accad6;
+        text-align: center;
+    }
+
+    .in-base td {
+        background-color: #d4e3ea;
+        color: #CC0066;
+        font-family: monospace;
+    }
+
+    tr.in-base td.all-pkgs {
+        background-color: #accad6 !important;
+    }
+
+    .not-in-base th {
+        background-color: #e9ecef;
+        text-align: center;
+    }
+
+    .not-in-base td {
+        background-color: #fff;
+        font-family: monospace;
+    }
+
+    tr.not-in-base td.all-pkgs {
+        background-color: #e9ecef !important;
+    }
+
+    thead td,
+    thead th {
+        background-color: #e9ecef;
+        text-align: center;
+    }
+
+    tbody tr,
+    tbody th {
+        border-bottom: #6c757d 1px solid;
+        border-top: #6c757d 1px solid;
+    }
 </style>
 
 <br>
 
 <div class="container-fluid">
-
     <nav aria-label="breadcrumb">
-      <ol class="breadcrumb">
-        <li class="breadcrumb-item"><a href="./">Home</a></li>
-        <li class="breadcrumb-item"><a href="./views.html">Views</a></li>
-        <li class="breadcrumb-item"><a href="./view--use-cases-on-bases.html">Use cases on bases</a></li>
-        <li class="breadcrumb-item active" aria-current="page">{{base.name}}</li>
-        <li class="breadcrumb-item active" aria-current="page">Fedora {{base.version}}</li>
-      </ol>
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="./">Home</a></li>
+            <li class="breadcrumb-item"><a href="./views.html">Views</a></li>
+            <li class="breadcrumb-item"><a href="./view--use-cases-definitions.html">Use Cases</a></li>
+            <li class="breadcrumb-item"><a href="./view--use-cases-on-bases.html">Compare Bases</a></li>
+            <li class="breadcrumb-item active" aria-current="page">{{base.name}} (Fedora {{base.version}})</li>
+        </ol>
     </nav>
 
 
-<h1> {{base.name}} (Fedora {{base.version}})
-{% if images %}
-    <small class="text-muted">
-    {% if images | length > 1 %}
-        on {{images | length}} bases </h1>
+    <h1> {{base.name}} (Fedora {{base.version}})
+        {% if images %}
+        <small class="text-muted">
+            {% if images | length > 1 %}
+            on {{images | length}} bases </h1>
     {% else %}
-        on 1 base </h1>
+    on 1 base </h1>
     {% endif %}
     </small>
-{% else %}
+    {% else %}
     </h1>
-{% endif %}
-<p> Generated at {{timestamp}}. </p>
+    {% endif %}
+    <p> Generated at {{timestamp}}. </p>
 
-<hr>
+    <hr>
 
-<table>
-    <thead>
-        <tr>
-            <td rowspan="4" style="background-color:#cad1d8">All packages in this report</td>
-            <td rowspan="4" style="background-color:#cad1d8"></td>
-            {% for image in images %}
-            <th>{{base.name}}</th>
+    <table>
+        <thead>
+            <tr>
+                <td rowspan="4" style="background-color:#cad1d8">All packages in this report</td>
+                <td rowspan="4" style="background-color:#cad1d8"></td>
+                {% for image in images %}
+                <th>{{base.name}}</th>
+                {% endfor %}
+            </tr>
+            <tr>
+                {% for image in images %}
+                <th>on {{image.name}}</th>
+                {% endfor %}
+            </tr>
+            <tr>
+                {% for image in images %}
+                <td>{{image.size}}</td>
+                {% endfor %}
+            </tr>
+            <tr>
+                {% for image in images %}
+                <td>
+                    <a href="./graph--{{image.file_id}}.svg">graph</a> |
+                    <a href="./graph-simple--{{image.file_id}}.svg">simple graph</a>
+                </td>
+                {% endfor %}
+            </tr>
+        </thead>
+        <tbody>
+            <tr class="in-base">
+                <th colspan="{{images | length + 3}}">--- Required packages ---</th>
+            </tr>
+            {% for pkg in base.packages %}
+            <tr class="in-base">
+                <td class="all-pkgs">{{pkg}}</td>
+                <td class="all-pkgs">{{pkg_sizes[pkg]}}</td>
+                {% for image in images %}
+                {% if pkg in image.required_pkgs %}
+                <td>{{pkg}}</td>
+                {% else %}
+                <td> - </td>
+                {% endif %}
+                {% endfor %}
+            </tr>
             {% endfor %}
-        </tr>
-        <tr>
-            {% for image in images %}
-            <th>on {{image.name}}</th>
+            <tr class="not-in-base">
+                <th colspan="{{images | length + 3}}">--- All other packages (dependencies) ---</th>
+            </tr>
+            {% for pkg in extra_pkgs %}
+            <tr class="not-in-base">
+                <td class="all-pkgs">{{pkg}}</td>
+                <td class="all-pkgs">{{pkg_sizes[pkg]}}</td>
+                {% for image in images %}
+                {% if pkg in image.packages %}
+                <td>{{pkg}}</td>
+                {% else %}
+                <td> - </td>
+                {% endif %}
+                {% endfor %}
+            </tr>
             {% endfor %}
-        </tr>
-        <tr>
-            {% for image in images %}
-            <td>{{image.size}}</td>
-            {% endfor %}
-        </tr>
-        <tr>
-            {% for image in images %}
-            <td>
-              <a href="./graph--{{image.file_id}}.svg">graph</a> |
-              <a href="./graph-simple--{{image.file_id}}.svg">simple graph</a>
-            </td>
-            {% endfor %}
-        </tr>
-    </thead>
-    <tbody>
-        <tr class="in-base">
-            <th colspan="{{images | length + 3}}">--- Required packages ---</th>
-        </tr>
-        {% for pkg in base.packages %}
-        <tr class="in-base">
-            <td class="all-pkgs">{{pkg}}</td>
-            <td class="all-pkgs">{{pkg_sizes[pkg]}}</td>
-            {% for image in images %}
-            {% if pkg in image.required_pkgs %}
-            <td>{{pkg}}</td>
-            {% else %}
-            <td> - </td>
-            {% endif %}
-            {% endfor %}
-        </tr>
-        {% endfor %}
-        <tr class="not-in-base">
-            <th colspan="{{images | length + 3}}">--- All other packages (dependencies) ---</th>
-        </tr>
-        {% for pkg in extra_pkgs %}
-        <tr class="not-in-base">
-            <td class="all-pkgs">{{pkg}}</td>
-            <td class="all-pkgs">{{pkg_sizes[pkg]}}</td>
-            {% for image in images %}
-            {% if pkg in image.packages %}
-            <td>{{pkg}}</td>
-            {% else %}
-            <td> - </td>
-            {% endif %}
-            {% endfor %}
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
+        </tbody>
+    </table>
 
 </div>
 

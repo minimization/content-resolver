@@ -17,6 +17,8 @@ def main():
     generate_reports_by_base(data, args.output)
     generate_reports_by_use_case(data, args.output)
     generate_reports_bases_releases(data, args.output)
+    generate_reports_bases_definitions(data, args.output)
+    generate_reports_use_cases_definitions(data, args.output)
 
 if __name__ == "__main__":
     main()

@@ -1,0 +1,70 @@
+{% extends "layout.html" %}
+
+{% block content %}
+
+<style>
+
+</style>
+
+<br>
+
+<div class="container">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="./">Home</a></li>
+            <li class="breadcrumb-item"><a href="./views.html">Views</a></li>
+            <li class="breadcrumb-item"><a href="./view--bases-definitions.html">Bases</a></li>
+            <li class="breadcrumb-item"><a href="./view--bases-definitions.html">Definitions</a></li>
+            <li class="breadcrumb-item active" aria-current="page">{{base_definition.name}} (Fedora {{base_version}})
+            </li>
+        </ol>
+    </nav>
+
+    <a class="btn btn-primary float-right" href="https://github.com/minimization/feedback-pipeline-config/blob/master/{{base_definition.id}}.yaml">Edit</a>
+
+    <h1> {{base_definition.name}} (Fedora {{base_version}}) <small class="text-muted">definition</small> </h1>
+    <p> Generated at {{data.timestamp}}. </p>
+
+    <hr>
+
+    <div class="row">
+        <div class="col-lg-4">
+            <div class="card">
+                <h5 class="card-header">Required Packages</h5>
+                <ul class="list-group list-group-flush">
+                    {% for package in base_definition["versions"][base_version]["packages"] %}
+                    <li class="list-group-item">{{package}}</li>
+                    {% endfor %}
+                </ul>
+            </div><br>
+        </div>
+        <div class="col-lg-4">
+            <div class="card">
+                <h5 class="card-header">Install Options</h5>
+                <ul class="list-group list-group-flush">
+                    {% for option in base_definition["versions"][base_version]["options"] %}
+                    <li class="list-group-item">{{option}}</li>
+                    {% endfor %}
+                </ul>
+            </div><br>
+        </div>
+        <div class="col-lg-4">
+            <div class="card">
+                <h5 class="card-header">Other Releases</h5>
+                <ul class="list-group list-group-flush">
+                    {% for version in base_definition["versions"] %}
+                    <li class="list-group-item"><a
+                            href="report-base-definition--{{base_definition.id}}--{{version}}.html">
+                                <span class="{% if version == base_version %}text-muted{% endif %}">Fedora {{version}}</span>
+                            </a></li>
+                    {% endfor %}
+                </ul>
+            </div><br>
+        </div>
+    </div>
+
+
+
+</div>
+
+{% endblock %}

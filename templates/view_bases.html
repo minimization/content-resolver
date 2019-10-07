@@ -1,0 +1,30 @@
+{% extends "view.html" %}
+
+{% block active_view_bases %}active{% endblock %}
+
+
+{% block breadcrumbs %}
+<nav aria-label="breadcrumb">
+  <ol class="breadcrumb">
+    <li class="breadcrumb-item"><a href="./">Home</a></li>
+    <li class="breadcrumb-item"><a href="./views.html">Views</a></li>
+    <li class="breadcrumb-item"><a href="./view--bases-definitions.html">Bases</a></li>
+    <li class="breadcrumb-item active" aria-current="page">{% block breadcrumb_title %}{% endblock %}</li>
+  </ol>
+</nav>
+{% endblock %}
+
+{% block view_second_level_menu %}
+<ul class="nav nav-tabs">
+  <li class="nav-item">
+    <a class="nav-link {% block active_view_bases_definitions %}{% endblock %}"
+      href="./view--bases-definitions.html">Definitions</a>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link {% block active_view_bases_compare_releases %}{% endblock %}"
+      href="./view--bases-by-releases.html">Compare Releases</a>
+  </li>
+
+
+</ul>
+{% endblock %}

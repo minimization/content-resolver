@@ -1,0 +1,29 @@
+{% extends "view_bases.html" %}
+
+{% block breadcrumb_title %}Definitions{% endblock %}
+
+{% block active_view_bases_definitions %}active{% endblock %}
+
+{% block view_content %}
+
+<div class="row">
+  {% for base in data.base_definitions %}
+  <div class="col-lg-6">
+    <div class="card">
+      <div class="card-body">
+        <h5 class="card-title">{{base.name}}</h5>
+        <h6 class="card-subtitle mb-2 text-muted">
+          base definition
+        </h6>
+      </div>
+      <div class="card-footer">
+        {% for version in base.versions %}
+        <a class="card-link" href="report-base-definition--{{base.id}}--{{version}}.html">Fedora {{version}}</a>
+        {% endfor %}
+      </div>
+    </div><br>
+  </div>
+  {% endfor %}
+</div>
+
+{% endblock %}

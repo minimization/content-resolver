@@ -1,8 +1,8 @@
-{% extends "views_layout.html" %}
+{% extends "view_use_cases.html" %}
 
-{% block view_title %}Bases by releases{% endblock %}
+{% block breadcrumb_title %}Compare Use Cases by Base{% endblock %}
 
-{% block view_active_bases_by_releases %}active{% endblock %}
+{% block active_view_use_cases_use_cases_by_base %}active{% endblock %}
 
 {% block view_content %}
 
@@ -13,11 +13,13 @@
         <div class="card-body">
           <h5 class="card-title">{{base.name}}</h5>
           <h6 class="card-subtitle mb-2 text-muted">
-             with relevant use cases on top of it.
+            multiple use cases on this base
           </h6>
         </div>
         <div class="card-footer">
-          <a class="card-link" href="report-base-releases--{{base.id}}.html">All releases</a>
+          {% for version in base.versions %}
+          <a class="card-link" href="report-by-base--{{base.id}}--{{version}}.html">Fedora {{version}}</a>
+          {% endfor %}
         </div>
       </div><br>
     </div>
