@@ -13,34 +13,43 @@
         white-space: nowrap !important;
     }
 
-    .in-base th {
+    .required th {
         background-color: #accad6;
         text-align: center;
     }
 
-    .in-base td {
+    .required td {
         background-color: #d4e3ea;
         color: #CC0066;
         font-family: monospace;
     }
 
-    tr.in-base td.all-pkgs {
+    tr.required td.all-pkgs {
         background-color: #accad6 !important;
     }
 
-    .not-in-base th {
+    .not-required th {
         background-color: #e9ecef;
         text-align: center;
     }
 
-    .not-in-base td {
+    .not-required td {
         background-color: #fff;
         font-family: monospace;
     }
 
-    tr.not-in-base td.all-pkgs {
+    tr.not-required td.all-pkgs {
         background-color: #e9ecef !important;
     }
+
+    th.in-base  {
+        background-color: #e3ece1!important;
+    }
+
+    td.in-base  {
+        background-color: #e3ece1!important;
+    }
+
 
     thead td,
     thead th {
@@ -96,7 +105,9 @@
             </tr>
             <tr>
                 {% for image in images %}
-                <th>on {{image.name}}</th>
+                <th>on <a
+                        href="./report-base-definition--{{image.definition_id}}--{{base.version}}.html">{{image.name}}</a>
+                </th>
                 {% endfor %}
             </tr>
             <tr>
@@ -114,32 +125,40 @@
             </tr>
         </thead>
         <tbody>
-            <tr class="in-base">
+            <tr class="required">
                 <th colspan="{{images | length + 3}}">--- Required packages ---</th>
             </tr>
             {% for pkg in base.packages %}
-            <tr class="in-base">
+            <tr class="required">
                 <td class="all-pkgs">{{pkg}}</td>
                 <td class="all-pkgs">{{pkg_sizes[pkg]}}</td>
                 {% for image in images %}
                 {% if pkg in image.required_pkgs %}
+                {% if pkg in image.pkgs_in_base %}
+                <td>{{pkg}} <span class="float-right text-muted">(in base)</span></td>
+                {% else %}
                 <td>{{pkg}}</td>
+                {% endif %}
                 {% else %}
                 <td> - </td>
                 {% endif %}
                 {% endfor %}
             </tr>
             {% endfor %}
-            <tr class="not-in-base">
+            <tr class="not-required">
                 <th colspan="{{images | length + 3}}">--- All other packages (dependencies) ---</th>
             </tr>
             {% for pkg in extra_pkgs %}
-            <tr class="not-in-base">
+            <tr class="not-required">
                 <td class="all-pkgs">{{pkg}}</td>
                 <td class="all-pkgs">{{pkg_sizes[pkg]}}</td>
                 {% for image in images %}
                 {% if pkg in image.packages %}
+                {% if pkg in image.pkgs_in_base %}
+                <td class="in-base">{{pkg}} <span class="float-right text-muted">(in base)</span></td>
+                {% else %}
                 <td>{{pkg}}</td>
+                {% endif %}
                 {% else %}
                 <td> - </td>
                 {% endif %}

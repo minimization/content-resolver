@@ -312,6 +312,7 @@ def get_data(configs, installs):
                 use_case_id=use_case_definition["id"],
                 base_id=base_definition["id"],
                 base_version=base_version)
+        use_case["definition_id"] = use_case_definition["id"]
 
         # Related data
         use_case["base_name"] = base_definition["name"]
@@ -361,6 +362,7 @@ def get_data(configs, installs):
         base["file_id"] = "{id}--{version}".format(
                 id=base_definition["id"],
                 version=base_version)
+        base["definition_id"] = base_definition["id"]
 
         # Related data
         use_case_ids = []
@@ -474,6 +476,7 @@ def generate_reports_by_base(data, output):
 
             use_case_report_data = {
                 "name": use_case["name"],
+                "definition_id": use_case["definition_id"],
                 "size": showme.size(use_case["total_size"]),
                 "pkgs_in_base": use_case["packages_in_base"],
                 "pkgs_not_in_base": use_case["packages_not_in_base"],
@@ -546,8 +549,10 @@ def generate_reports_by_use_case(data, output):
 
                 base_report_data = {
                     "name": base["name"],
+                    "definition_id": base["definition_id"],
                     "size": showme.size(use_case["total_size"]),
                     "required_pkgs": required_package_names,
+                    "pkgs_in_base": use_case["packages_in_base"],
                     "dependencies": dependencies,
                     "packages": use_case["packages"],
                     "file_id": use_case["file_id"]

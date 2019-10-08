@@ -3,7 +3,16 @@
 {% block content %}
 
 <style>
+    div.package-name {
+        font-family: monospace;
+        color: #CC0066;
+        border-bottom: #6c757d 1px solid;
 
+    }
+
+    div.package-name:first-child {
+        border-top: #6c757d 1px solid;
+    }
 </style>
 
 <br>
@@ -20,27 +29,59 @@
         </ol>
     </nav>
 
-    <a class="btn btn-primary float-right" href="https://github.com/minimization/feedback-pipeline-config/blob/master/{{base_definition.id}}.yaml">Edit</a>
+    <a class="btn btn-primary float-right"
+        href="https://github.com/minimization/feedback-pipeline-config/blob/master/{{base_definition.id}}.yaml">Edit</a>
 
-    <h1> {{base_definition.name}} (Fedora {{base_version}}) <small class="text-muted">definition</small> </h1>
+    <h1> {{base_definition.name}} (Fedora {{base_version}}) <small class="text-muted">base definition</small> </h1>
     <p> Generated at {{data.timestamp}}. </p>
 
     <hr>
 
+    <ul class="nav nav-tabs">
+        {% for version in base_definition["versions"] | sort %}
+        <li class="nav-item"><a class="nav-link {% if version == base_version %}active{% endif %}"
+                href="report-base-definition--{{base_definition.id}}--{{version}}.html">
+                Fedora {{version}}
+            </a></li>
+        {% endfor %}
+    </ul>
+
+    <br>
+
+    <div class="card">
+        <div class="card-body">
+            <br>
+            <span class="text-muted">TBD: A graph showing size changes over time will be included here.</span>
+            <br><br>
+        </div>
+    </div>
+
+    <br>
+
     <div class="row">
         <div class="col-lg-4">
             <div class="card">
-                <h5 class="card-header">Required Packages</h5>
-                <ul class="list-group list-group-flush">
-                    {% for package in base_definition["versions"][base_version]["packages"] %}
-                    <li class="list-group-item">{{package}}</li>
+                <h5 class="card-header">
+                    Required Packages
+                    <span class="badge badge-pill float-right badge-dark">
+                        {{ base_definition["versions"][base_version]["packages"] | count }}
+                    </span>
+                </h5>
+                <div class="card-body">
+                    {% for package in base_definition["versions"][base_version]["packages"] |sort %}
+                    <div class="package-name">{{package}}</div>
                     {% endfor %}
-                </ul>
+                </div>
             </div><br>
         </div>
         <div class="col-lg-4">
             <div class="card">
-                <h5 class="card-header">Install Options</h5>
+                <h5 class="card-header">
+                    Install Options
+                    <span class="badge badge-pill float-right badge-dark">
+                        {{ base_definition["versions"][base_version]["options"] | count }}
+                    </span>
+                </h5>
                 <ul class="list-group list-group-flush">
                     {% for option in base_definition["versions"][base_version]["options"] %}
                     <li class="list-group-item">{{option}}</li>
@@ -50,14 +91,14 @@
         </div>
         <div class="col-lg-4">
             <div class="card">
-                <h5 class="card-header">Other Releases</h5>
+                <h5 class="card-header">
+                    Associated Use Cases
+                    <span class="badge badge-pill float-right badge-dark">
+                        ?
+                    </span>
+                </h5>
                 <ul class="list-group list-group-flush">
-                    {% for version in base_definition["versions"] %}
-                    <li class="list-group-item"><a
-                            href="report-base-definition--{{base_definition.id}}--{{version}}.html">
-                                <span class="{% if version == base_version %}text-muted{% endif %}">Fedora {{version}}</span>
-                            </a></li>
-                    {% endfor %}
+                    <li class="list-group-item">TBD</li>
                 </ul>
             </div><br>
         </div>

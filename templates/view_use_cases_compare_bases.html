@@ -18,7 +18,7 @@
           </h6>
         </div>
         <div class="card-footer">
-          {% for version in use_case.base_versions %}
+          {% for version in use_case.base_versions |sort %}
           <a class="card-link" href="report-by-use-case--{{use_case.id}}--{{version}}.html">Fedora {{version}}</a>
           {% endfor %}
         </div>

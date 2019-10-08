@@ -17,7 +17,7 @@
         </h6>
       </div>
       <div class="card-footer">
-        {% for version in base.versions %}
+        {% for version in base.versions | sort %}
         <a class="card-link" href="report-base-definition--{{base.id}}--{{version}}.html">Fedora {{version}}</a>
         {% endfor %}
       </div>
