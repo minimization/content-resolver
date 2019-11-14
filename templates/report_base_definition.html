@@ -17,6 +17,7 @@
 
 <br>
 
+
 <div class="container">
     <nav aria-label="breadcrumb">
         <ol class="breadcrumb">
@@ -51,9 +52,7 @@
 
     <div class="card">
         <div class="card-body">
-            <br>
-            <span class="text-muted">TBD: A graph showing size changes over time will be included here.</span>
-            <br><br>
+            <canvas id="chLine"></canvas>
         </div>
     </div>
 
@@ -108,5 +107,42 @@
 
 
 </div>
+
+<script type="text/javascript">
+    function plot_graph(data_x, data_y) {
+        var chartData = {
+            labels: data_x,
+            datasets: [{
+                data: data_y,
+                label: "Fedora 31"
+            }]
+        };
+
+        var chLine = document.getElementById("chLine");
+        if (chLine) {
+            new Chart(chLine, {
+                type: 'line',
+                data: chartData,
+                options: {
+                    scales: {
+                        yAxes: [{
+                            ticks: {
+                                beginAtZero: false,
+                                callback: function (value, index, values) {
+                                    return value + " MB";
+                                }
+                            }
+                        }]
+                    },
+                    legend: {
+                        display: false
+                    }
+                }
+            });
+        }
+    }
+
+    plot_graph({{ chart_data_x|safe }}, {{ chart_data_y|safe }})
+</script>
 
 {% endblock %}

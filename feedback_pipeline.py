@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 
-import argparse, yaml, tempfile, os, subprocess, json, jinja2, datetime, copy
+import argparse, yaml, tempfile, os, subprocess, json, jinja2, datetime, copy, re
 import rpm_showme as showme
 
 
@@ -325,6 +325,10 @@ def get_data(configs, installs):
             total_size += package["size"]
         use_case["total_size"] = total_size
 
+        # Total install size history TODO
+        size_history = None
+        use_case["size_history"] = size_history
+
         # Packages
         use_case["packages"] = use_case_install["packages"]
         package_names = []
@@ -376,6 +380,10 @@ def get_data(configs, installs):
         for _,package in base_install["packages"].items():
             total_size += package["size"]
         base["total_size"] = total_size
+
+        # Total install size history TODO
+        size_history = None
+        base["size_history"] = size_history
 
         # Packages
         base["packages"] = base_install["packages"]
@@ -634,18 +642,70 @@ def generate_reports_bases_releases(data, output):
             file.write(table_report)
 
 
+def load_historic_data(data, output):
+    directory = os.path.join(output, "history")
+
+    all_filenames = os.listdir(directory)
+    all_filenames.sort()
+
+    historic_data = {}
+
+    #FIXME: This only needs to load a limited number of data.
+    #       But for now it's ok, we don't have that much. (This is going to end up badly, right?)
+
+    for filename in all_filenames:
+        with open(os.path.join(directory, filename), "r") as file:
+            document = json.load(file)
+
+            date = datetime.datetime.strptime(document["timestamp"],"%d/%m/%Y %H:%M")
+            key = datetime.datetime.strftime(date, "%Y-%m-%d-%H%M")
+
+            historic_data[key] = document
+
+    return historic_data
+
+
+def get_historic_chart_data(data, output):
+    log("Loading historic size data from disk")
+    historic_data = load_historic_data(data, output)
+    log("Generating historic size chart data")
+
+    for base_id, base in data["bases"].items():
+        size_history = {}
+
+        for timestamp, historic_data_instance in historic_data.items():
+            size = historic_data_instance["bases"][base_id]["total_size"]
+
+            size_history[timestamp] = size
+        
+        base["size_history"] = size_history
+
+
 def generate_reports_bases_definitions(data, output):
+    #TODO: this needs to be called somewhere else
+    get_historic_chart_data(data, output)
+
     log("Generating reports: Base definitions")
 
     template_loader = jinja2.FileSystemLoader(searchpath="./templates/")
     template_env = jinja2.Environment(loader=template_loader)
 
-    for _,base_definition in data["base_definitions"].items():
+    for base_id, base_definition in data["base_definitions"].items():
         for base_version in base_definition["versions"]:
             report_template = template_env.get_template("report_base_definition.html")
+            base = data["bases"][base_id+":"+base_version]
+
+            chart_data_x = []
+            chart_data_y = []
+            for x, y in base["size_history"].items():
+                chart_data_x.append(x)
+                chart_data_y.append(round(y / 1024 / 1024,2))
             report = report_template.render(
                     base_definition=base_definition,
                     base_version=base_version,
+                    base=base,
+                    chart_data_x=chart_data_x,
+                    chart_data_y=chart_data_y,
                     data=data)
 
             filename = "report-base-definition--{base_id}--{base_version}.html".format(
@@ -756,8 +816,8 @@ def main():
     dump_data(os.path.join(args.output, "installs.json"), installs)
     dump_data(os.path.join(args.output, "data.json"), data)
 
-    date = datetime.strptime(data["timestamp"],"%d/%m/%Y %H:%M")
-    filedate = datetime.strftime(date, "%Y-%m-%d-%H%M")
+    date = datetime.datetime.strptime(data["timestamp"],"%d/%m/%Y %H:%M")
+    filedate = datetime.datetime.strftime(date, "%Y-%m-%d-%H%M")
     filename = "data-{}.json".format(filedate)
     dump_data(os.path.join(args.output, "history", filename), data)
 
