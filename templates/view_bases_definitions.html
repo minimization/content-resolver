@@ -6,24 +6,39 @@
 
 {% block view_content %}
 
-<div class="row">
-  {% for base in data.base_definitions %}
-  <div class="col-lg-6">
-    <div class="card">
-      <div class="card-body">
-        <h5 class="card-title">{{base.name}}</h5>
-        <h6 class="card-subtitle mb-2 text-muted">
-          base definition
-        </h6>
-      </div>
-      <div class="card-footer">
+
+<table class="table table-striped" id="table_packages">
+  <thead>
+    <tr class="sort_control_row">
+      <th>Name</th>
+      <th>Fedora Releases</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for base in data.base_definitions %}
+    <tr>
+      <td>{{base.name}}</td>
+      <td>
         {% for version in base.versions | sort %}
         <a class="card-link" href="report-base-definition--{{base.id}}--{{version}}.html">Fedora {{version}}</a>
         {% endfor %}
-      </div>
-    </div><br>
-  </div>
-  {% endfor %}
-</div>
+      </td>
+
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+
+<script>
+  $(document).ready(function () {
+    $('#table_packages').DataTable({
+      paging: false,
+      filter: false,
+      info: false
+    });
+  });
+</script>
+
 
 {% endblock %}

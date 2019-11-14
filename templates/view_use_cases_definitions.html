@@ -7,23 +7,33 @@
 {% block view_content %}
 
 
-<div class="row">
-    {% for use_case in data.use_case_definitions %}
-    <div class="col-lg-6">
-        <div class="card">
-            <div class="card-body">
-                <h5 class="card-title">{{use_case.name}}</h5>
-                <h6 class="card-subtitle mb-2 text-muted">
-                    use case definition
-                </h6>
-            </div>
-            <div class="card-footer">
-                <a class="card-link" href="./report-use-case-definition--{{use_case.id}}.html">Definition</a>
 
-            </div>
-        </div><br>
-    </div>
+<table class="table table-striped" id="table_packages">
+    <thead>
+        <tr class="sort_control_row">
+            <th>Name</th>
+            <th>Fedora Releases</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for use_case in data.use_case_definitions %}
+        <tr>
+            <td>{{use_case.name}}</td>
+            <td><a href="./report-use-case-definition--{{use_case.id}}.html">All Fedora Releases</a></td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
 
-    {% endfor %}
-</div>
+
+<script>
+    $(document).ready(function () {
+        $('#table_packages').DataTable({
+            paging: false,
+            filter: false,
+            info: false
+        });
+    });
+</script>
+
 {% endblock %}
