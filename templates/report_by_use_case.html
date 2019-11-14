@@ -141,7 +141,7 @@
             </tr-->
             {% for pkg in base.packages %}
             <tr class="required">
-                <td class="all-pkgs" data-order="0">required</td>
+                <td class="all-pkgs text-muted" data-order="0">(required)</td>
                 <td class="all-pkgs">{{pkg}}</td>
                 <td class="all-pkgs" data-order="{{pkg_sizes_num[pkg]}}">{{pkg_sizes[pkg]}}</td>
                 {% for image in images %}
@@ -154,7 +154,7 @@
                 <td></td>
                 {% endif %}
                 {% else %}
-                <td> - </td>
+                <td data-order="zzzzz"> - </td>
                 <td></td>
                 {% endif %}
                 {% endfor %}

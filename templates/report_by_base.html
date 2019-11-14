@@ -3,44 +3,55 @@
 {% block content %}
 
 <style>
-td, th {
-    padding-left: 8px;
-    padding-right: 8px;
-}
-td {
-    white-space: nowrap!important;
-}
-.in-base th {
-    background-color: #b8cfb3;
-    text-align: center;
-}
-.in-base td {
-    background-color: #e3ece1;
-    font-family: monospace;
-}
-tr.in-base td.all-pkgs {
-    background-color: #b8cfb3!important;
-}
-.not-in-base th {
-    background-color: #e9ecef;
-    text-align: center;
-}
-.not-in-base td {
-    background-color: #fff;
-    font-family: monospace;
-}
-tr.not-in-base td.all-pkgs {
-    background-color: #e9ecef!important;
-}
-thead td, thead th {
-    background-color: #e9ecef;
-    text-align: center;
-}
-tbody tr, tbody th {
-    border-bottom: #6c757d 1px solid;
-    border-top: #6c757d 1px solid;
-}
+    td,
+    th {
+        padding-left: 8px;
+        padding-right: 8px;
+    }
 
+    td {
+        white-space: nowrap !important;
+    }
+
+    .in-base th {
+        background-color: #b8cfb3;
+        text-align: center;
+    }
+
+    .in-base td {
+        background-color: #e3ece1;
+        font-family: monospace;
+    }
+
+    tr.in-base td.all-pkgs {
+        background-color: #b8cfb3 !important;
+    }
+
+    .not-in-base th {
+        background-color: #e9ecef;
+        text-align: center;
+    }
+
+    .not-in-base td {
+        background-color: #fff;
+        font-family: monospace;
+    }
+
+    tr.not-in-base td.all-pkgs {
+        background-color: #e9ecef !important;
+    }
+
+    thead td,
+    thead th {
+        background-color: #e9ecef;
+        text-align: center;
+    }
+
+    tbody tr,
+    tbody th {
+        border-bottom: #6c757d 1px solid;
+        border-top: #6c757d 1px solid;
+    }
 </style>
 
 <br>
@@ -48,104 +59,124 @@ tbody tr, tbody th {
 <div class="container-fluid">
 
     <nav aria-label="breadcrumb">
-      <ol class="breadcrumb">
-        <li class="breadcrumb-item"><a href="./">Home</a></li>
-        <li class="breadcrumb-item"><a href="./views.html">Views</a></li>
-        <li class="breadcrumb-item"><a href="./view--use-cases-definitions.html">Use Cases</a></li>
-        <li class="breadcrumb-item"><a href="./view--bases-with-use-cases.html">Compare Use Cases by Base</a></li>
-        <li class="breadcrumb-item active" aria-current="page">{{base.name}} (Fedora {{base.version}})</li>
-      </ol>
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="./">Home</a></li>
+            <li class="breadcrumb-item"><a href="./views.html">Views</a></li>
+            <li class="breadcrumb-item"><a href="./view--use-cases-definitions.html">Use Cases</a></li>
+            <li class="breadcrumb-item"><a href="./view--bases-with-use-cases.html">Compare Use Cases by Base</a></li>
+            <li class="breadcrumb-item active" aria-current="page">{{base.name}} (Fedora {{base.version}})</li>
+        </ol>
     </nav>
 
 
-<h1> {{base.name}} (Fedora {{base.version}})
-{% if images %}
-    <small class="text-muted">
-    {% if images | length > 1 %}
-        with {{images | length}} use cases </h1>
+    <h1> {{base.name}} (Fedora {{base.version}})
+        {% if images %}
+        <small class="text-muted">
+            {% if images | length > 1 %}
+            with {{images | length}} use cases </h1>
     {% else %}
-        with {{images[0].name}} </h1>
+    with {{images[0].name}} </h1>
     {% endif %}
     </small>
-{% else %}
+    {% else %}
     </h1>
-{% endif %}
-<p> Generated at {{timestamp}}. </p>
+    {% endif %}
+    <p> Generated at {{timestamp}}. </p>
 
-<hr>
+    <hr>
 
-<table>
-    <thead>
-        <tr>
-            <td rowspan="3" style="background-color:#cad1d8">All packages in this report</td>
-            <td rowspan="3" style="background-color:#cad1d8"></td>
-            <th>{{base.name}}</th>
-            {% for image in images %}
-            <th><a href="./report-use-case-definition--{{image.definition_id}}.html">{{image.name}}</a></th>
-            {% endfor %}
-        </tr>
-        <tr>
-            <td>{{base.size}}</td>
-            {% for image in images %}
-            <td>{{image.size}}</td>
-            {% endfor %}
-        </tr>
-        <tr>
-            <td><a href="./graph--{{base.file_id}}.svg">graph</a></td>
-            {% for image in images %}
-            <td>
-              <a href="./graph--{{image.file_id}}.svg">graph</a> |
-              <a href="./graph-simple--{{image.file_id}}.svg">simple graph</a>
-            </td>
-            {% endfor %}
-        </tr>
-    </thead>
-    <tbody>
-        <tr class="in-base">
-            <th colspan="{{images | length + 3}}">--- Packages in base ---</th>
-        </tr>
-        {% for pkg in base.packages %}
-        <tr class="in-base">
-            <td class="all-pkgs">{{pkg}}</td>
-            <td class="all-pkgs">{{pkg_sizes[pkg]}}</td>
-            <td>{{pkg}}</td>
-            {% for image in images %}
-            {% if pkg in image.pkgs_in_base %}
-            {% if pkg in image.required_pkgs %}
-                    <td style="color:#CC0066">{{pkg}} <span class="float-right text-muted">(required)</span></td>
-                {% else %}
-                    <td>{{pkg}}</td>
-                {% endif %}
-            {% else %}
-            <td> - </td>
-            {% endif %}
-            {% endfor %}
-        </tr>
-        {% endfor %}
-        <tr class="not-in-base">
-            <th colspan="{{images | length + 3}}">--- Packages not in base ---</th>
-        </tr>
-        {% for pkg in extra_pkgs %}
-        <tr class="not-in-base">
-            <td class="all-pkgs">{{pkg}}</td>
-            <td class="all-pkgs">{{pkg_sizes[pkg]}}</td>
-            <td> - </td>
-            {% for image in images %}
-            {% if pkg in image.packages %}
+    <table id="table_packages">
+        <thead>
+            <tr>
+                <td rowspan="3" style="background-color:#cad1d8"></td>
+                <td rowspan="3" style="background-color:#cad1d8">All packages in this report</td>
+                <td rowspan="3" style="background-color:#cad1d8"></td>
+                <th>{{base.name}}</th>
+                {% for image in images %}
+                <th><a href="./report-use-case-definition--{{image.definition_id}}.html">{{image.name}}</a></th>
+                {% endfor %}
+            </tr>
+            <tr>
+                <td>{{base.size}}</td>
+                {% for image in images %}
+                <td>{{image.size}}</td>
+                {% endfor %}
+            </tr>
+            <tr>
+                <td><a href="./graph--{{base.file_id}}.svg">graph</a></td>
+                {% for image in images %}
+                <td>
+                    <a href="./graph--{{image.file_id}}.svg">graph</a> |
+                    <a href="./graph-simple--{{image.file_id}}.svg">simple graph</a>
+                </td>
+                {% endfor %}
+            </tr>
+            <tr>
+                <th>Why</th>
+                <th>Name</th>
+                <th>Size</th>
+                <th>Name</th>
+                {% for image in images %}
+                <th>Name</th>
+                {% endfor %}
+            </tr>
+        </thead>
+        <tbody>
+            <!--tr class="in-base">
+                <th colspan="{{images | length + 3}}">--- Packages in base ---</th>
+            </tr-->
+            {% for pkg in base.packages %}
+            <tr class="in-base">
+                <td class="all-pkgs text-muted" data-order="0">(in base)</td>
+                <td class="all-pkgs">{{pkg}}</td>
+                <td class="all-pkgs" data-order="{{pkg_sizes_num[pkg]}}">{{pkg_sizes[pkg]}}</td>
+                <td>{{pkg}}</td>
+                {% for image in images %}
+                {% if pkg in image.pkgs_in_base %}
                 {% if pkg in image.required_pkgs %}
-                    <td style="color:#CC0066">{{pkg}} <span class="float-right text-muted">(required)</span></td>
+                <td style="color:#CC0066">{{pkg}} <span class="float-right text-muted">(required)</span></td>
                 {% else %}
-                    <td>{{pkg}}</td>
+                <td>{{pkg}}</td>
                 {% endif %}
-            {% else %}
-            <td> - </td>
-            {% endif %}
+                {% else %}
+                <td> - </td>
+                {% endif %}
+                {% endfor %}
+            </tr>
             {% endfor %}
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
+            <!--tr class="not-in-base">
+                <th colspan="{{images | length + 3}}">--- Packages not in base ---</th>
+            </tr-->
+            {% for pkg in extra_pkgs %}
+            <tr class="not-in-base">
+                <td class="all-pkgs" data-order="1"></td>
+                <td class="all-pkgs">{{pkg}}</td>
+                <td class="all-pkgs" data-order="{{pkg_sizes_num[pkg]}}">{{pkg_sizes[pkg]}}</td>
+                <td> - </td>
+                {% for image in images %}
+                {% if pkg in image.packages %}
+                {% if pkg in image.required_pkgs %}
+                <td style="color:#CC0066">{{pkg}} <span class="float-right text-muted">(required)</span></td>
+                {% else %}
+                <td>{{pkg}}</td>
+                {% endif %}
+                {% else %}
+                <td> - </td>
+                {% endif %}
+                {% endfor %}
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
 
 </div>
+
+<script>
+    $(document).ready(function () {
+        $('#table_packages').DataTable({
+            paging: false
+        });
+    });
+</script>
 
 {% endblock %}

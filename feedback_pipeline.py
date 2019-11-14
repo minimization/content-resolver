@@ -458,11 +458,13 @@ def generate_reports_by_base(data, output):
         }
 
         pkg_sizes = {}
+        pkg_sizes_num = {}
 
         # Get sizes of all packags in the base
         for _,pkg in base["packages"].items():
             if pkg["name"] not in pkg_sizes:
                 pkg_sizes[pkg["name"]] = showme.size(pkg["size"])
+                pkg_sizes_num[pkg["name"]] = pkg["size"]
                 
 
         other_install_data = []
@@ -473,6 +475,7 @@ def generate_reports_by_base(data, output):
             for _,pkg in use_case["packages"].items():
                 if pkg["name"] not in pkg_sizes:
                     pkg_sizes[pkg["name"]] = showme.size(pkg["size"])
+                    pkg_sizes_num[pkg["name"]] = pkg["size"]
 
             use_case_report_data = {
                 "name": use_case["name"],
@@ -499,6 +502,7 @@ def generate_reports_by_base(data, output):
                 images=other_install_data,
                 extra_pkgs=extra_pkgs,
                 pkg_sizes=pkg_sizes,
+                pkg_sizes_num=pkg_sizes_num,
                 timestamp=data["timestamp"])
 
         filename = "report-by-base--{file_id}.html".format(
