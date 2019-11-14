@@ -9,37 +9,32 @@
   <nav aria-label="breadcrumb">
     <ol class="breadcrumb">
       <li class="breadcrumb-item"><a href="./">Home</a></li>
-      <li class="breadcrumb-item active" aria-current="page">Views</li>
+      <li class="breadcrumb-item active" aria-current="page">Results</li>
     </ol>
   </nav>
   {% endblock %}
 
 
-  <h1> Views </h1>
+  <h1> Results </h1>
 
-  <hr>
 
-  <ul class="nav nav-tabs">
-    <li class="nav-item">
-      <a class="nav-link {% block active_view_use_cases %}{% endblock %}"
-        href="./view--use-cases-definitions.html"><b>Use Cases</b></a>
-    </li>
-    <li class="nav-item">
-      <a class="nav-link {% block active_view_bases %}{% endblock %}"
-        href="./view--bases-definitions.html"><b>Base Images (Eivironments)</b></a>
-    </li>
 
-  </ul>
-
-  <br>
-
-  {% block view_second_level_menu %}
-  {% endblock %}
-
-  <br>
-
-  {% block view_content %}
-  {% endblock %}
+  <div class="card">
+    <div class="row no-gutters">
+      <div class="col-sm-4">
+        <img src="_static/images/graph_image.png" class="card-img" alt="...">
+      </div>
+      <div class="col-sm-8">
+        <div class="card-body">
+          <h5 class="card-title">Dependency Reports</h5>
+          <h6 class="card-subtitle mb-2 text-muted">of popular use cases and base images.</h6>
+          <p class="card-text">These reports include detailed package lists, interactive dependency graphs, and sizes of
+            individual packages as well as complete use cases.</p>
+          <a class="btn btn-primary" href="./view--use-cases-definitions.html">See Dependency Reports</a>
+        </div>
+      </div>
+    </div>
+  </div>
 
 </div>
 {% endblock %}
