@@ -701,9 +701,9 @@ def generate_pages(data, output):
             file.write(page)
     
 
-    src_static_dir = os.path.join("templates", "static")
-    output_static_dir = os.path.join(output, "_static")
-    subprocess.run(["cp", "-r", src_static_dir, output_static_dir])
+    src_static_dir = os.path.join("templates", "_static")
+    output_static_dir = os.path.join(output)
+    subprocess.run(["cp", "-R", src_static_dir, output_static_dir])
 
 
 

@@ -74,7 +74,7 @@
 
     <hr>
 
-    <table>
+    <table id="table_packages">
         <thead>
             <tr>
                 <td rowspan="3" style="background-color:#cad1d8">All packages in this report</td>
@@ -96,6 +96,13 @@
                 </td>
                 {% endfor %}
             </tr>
+            <tr class="sort_control_row">
+                <td style="background-color:#cad1d8">Name</td>
+                {% for image in report_data %}
+                <th>Name</th>
+                <th>Size</th>
+                {% endfor %}
+            </tr>
         </thead>
         <tbody>
             {% for pkg in all_packages %}
@@ -105,14 +112,14 @@
                 {% if pkg in image.packages %}
                 {% if pkg in image.required_pkgs %}
                 <td style="color:#CC0066; border-left: #555 1px solid">{{pkg}}</td>
-                <td style="color:#CC0066">{{size_function(image.packages[pkg].size)}}</td>
+                <td style="color:#CC0066" data-order="{{image.packages[pkg].size}}">{{size_function(image.packages[pkg].size)}}</td>
                 {% else %}
                 <td style="border-left: #555 1px solid">{{pkg}}</td>
-                <td>{{size_function(image.packages[pkg].size)}}</td>
+                <td data-order="{{image.packages[pkg].size}}">{{size_function(image.packages[pkg].size)}}</td>
                 {% endif %}
                 {% else %}
                 <td style="border-left: #555 1px solid"> - </td>
-                <td> </td>
+                <td data-order="0"> </td>
                 {% endif %}
                 {% endfor %}
             </tr>
@@ -121,5 +128,13 @@
     </table>
 
 </div>
+
+<script>
+    $(document).ready(function () {
+        $('#table_packages').DataTable({
+            paging: false
+        });
+    });
+</script>
 
 {% endblock %}
