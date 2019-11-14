@@ -94,73 +94,93 @@
 
     <hr>
 
-    <table>
+    <table id="table_packages">
         <thead>
             <tr>
+                <td rowspan="4" style="background-color:#cad1d8"></td>
                 <td rowspan="4" style="background-color:#cad1d8">All packages in this report</td>
                 <td rowspan="4" style="background-color:#cad1d8"></td>
                 {% for image in images %}
-                <th>{{base.name}}</th>
+                <th colspan="2">{{base.name}}</th>
                 {% endfor %}
             </tr>
             <tr>
                 {% for image in images %}
-                <th>on <a
+                <th colspan="2">on <a
                         href="./report-base-definition--{{image.definition_id}}--{{base.version}}.html">{{image.name}}</a>
                 </th>
                 {% endfor %}
             </tr>
             <tr>
                 {% for image in images %}
-                <td>{{image.size}}</td>
+                <td colspan="2">{{image.size}}</td>
                 {% endfor %}
             </tr>
             <tr>
                 {% for image in images %}
-                <td>
+                <td colspan="2">
                     <a href="./graph--{{image.file_id}}.svg">graph</a> |
                     <a href="./graph-simple--{{image.file_id}}.svg">simple graph</a>
                 </td>
                 {% endfor %}
             </tr>
+            <tr>
+
+                <td style="background-color:#cad1d8">Why</td>
+                <td style="background-color:#cad1d8">Name</td>
+                <td style="background-color:#cad1d8">Size</td>
+                {% for image in images %}
+                <th>Name</th>
+                <th>Flag</th>
+                {% endfor %}
+            </tr>
         </thead>
         <tbody>
-            <tr class="required">
+            <!--tr class="required">
                 <th colspan="{{images | length + 3}}">--- Required packages ---</th>
-            </tr>
+            </tr-->
             {% for pkg in base.packages %}
             <tr class="required">
+                <td class="all-pkgs" data-order="0">required</td>
                 <td class="all-pkgs">{{pkg}}</td>
-                <td class="all-pkgs">{{pkg_sizes[pkg]}}</td>
+                <td class="all-pkgs" data-order="{{pkg_sizes_num[pkg]}}">{{pkg_sizes[pkg]}}</td>
                 {% for image in images %}
                 {% if pkg in image.required_pkgs %}
                 {% if pkg in image.pkgs_in_base %}
-                <td>{{pkg}} <span class="float-right text-muted">(in base)</span></td>
+                <td>{{pkg}}</td>
+                <td><span class="float-right text-muted">(in base)</span></td>
                 {% else %}
                 <td>{{pkg}}</td>
+                <td></td>
                 {% endif %}
                 {% else %}
                 <td> - </td>
+                <td></td>
                 {% endif %}
                 {% endfor %}
             </tr>
             {% endfor %}
-            <tr class="not-required">
+            <!--tr class="not-required">
                 <th colspan="{{images | length + 3}}">--- All other packages (dependencies) ---</th>
-            </tr>
+            </tr-->
             {% for pkg in extra_pkgs %}
             <tr class="not-required">
+                <td class="all-pkgs" data-order="1"></td>
                 <td class="all-pkgs">{{pkg}}</td>
-                <td class="all-pkgs">{{pkg_sizes[pkg]}}</td>
+                <td class="all-pkgs" data-order="{{pkg_sizes_num[pkg]}}">{{pkg_sizes[pkg]}}</td>
+                
                 {% for image in images %}
                 {% if pkg in image.packages %}
                 {% if pkg in image.pkgs_in_base %}
-                <td class="in-base">{{pkg}} <span class="float-right text-muted">(in base)</span></td>
+                <td class="in-base">{{pkg}}</td>
+                <td class="in-base"><span class="float-right text-muted">(in base)</span></td>
                 {% else %}
                 <td>{{pkg}}</td>
+                <td></td>
                 {% endif %}
                 {% else %}
                 <td> - </td>
+                <td></td>
                 {% endif %}
                 {% endfor %}
             </tr>
@@ -169,5 +189,13 @@
     </table>
 
 </div>
+
+<script>
+    $(document).ready(function () {
+        $('#table_packages').DataTable({
+            paging: false
+        });
+    });
+</script>
 
 {% endblock %}

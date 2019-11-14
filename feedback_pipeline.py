@@ -523,6 +523,7 @@ def generate_reports_by_use_case(data, output):
             }
 
             pkg_sizes = {}
+            pkg_sizes_num = {}
 
 
             other_install_data = []
@@ -541,6 +542,7 @@ def generate_reports_by_use_case(data, output):
                 for _,pkg in use_case["packages"].items():
                     if pkg["name"] not in pkg_sizes:
                         pkg_sizes[pkg["name"]] = showme.size(pkg["size"])
+                        pkg_sizes_num[pkg["name"]] = pkg["size"]
 
                 required_package_names = use_case["required_package_names"]
                 all_package_names = use_case["package_names"]
@@ -571,6 +573,7 @@ def generate_reports_by_use_case(data, output):
                     images=other_install_data,
                     extra_pkgs=extra_pkgs,
                     pkg_sizes=pkg_sizes,
+                    pkg_sizes_num=pkg_sizes_num,
                     timestamp=data["timestamp"])
 
             file_id = "{use_case}--{version}".format(
