@@ -16,54 +16,85 @@
     integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM"
     crossorigin="anonymous"></script>
 
-    <!-- Datatables test begin -->
-    <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.10.20/css/jquery.dataTables.css">
+  <!-- Datatables test begin -->
+  <!--link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.10.20/css/jquery.dataTables.css"-->
 
-    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css"
-        integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
-    <script src="https://code.jquery.com/jquery-3.4.1.min.js"
-        integrity="sha256-CSXorXvZcTkaix6Yvo6HppcZGetbYMGWSFlBw8HfCJo=" crossorigin="anonymous"></script>
-    <script type="text/javascript" charset="utf8"
-        src="https://cdn.datatables.net/1.10.20/js/jquery.dataTables.js"></script>
-    <!-- Datatables test end -->
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css"
+    integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+  <script src="https://code.jquery.com/jquery-3.4.1.min.js"
+    integrity="sha256-CSXorXvZcTkaix6Yvo6HppcZGetbYMGWSFlBw8HfCJo=" crossorigin="anonymous"></script>
+  <script type="text/javascript" charset="utf8"
+    src="https://cdn.datatables.net/1.10.20/js/jquery.dataTables.js"></script>
+  <!-- Datatables test end -->
   <style>
-      .jumbotron {
-          margin-bottom: 0 !important;
-      }
-  
-      .jumbotron-minimization {
-          background-color: #631a38!important;
-          color: white;
-          padding: 30px 0;
-      }
-  
-      .jumbotron-home {
-          background-color: #072b61;
-          color: white;
-      }
-  
-  
-  
-      .jumbotron-about {
-  
-          padding: 30px 0;
-      }
-  
-      a.btn-minimization {
-          background-color: #942653;
-          border-color: #942653;
-          color: white;
-      }
-  
-      a.btn-minimization:hover {
-          background-color: #7b1f45;
-          border-color: #7b1f45;
-          color: white;
-      }
+    .jumbotron {
+      margin-bottom: 0 !important;
+    }
 
-      #table_packages_filter {
-        float: left;
-      }
+    .jumbotron-minimization {
+      background-color: #631a38 !important;
+      color: white;
+      padding: 30px 0;
+    }
+
+    .jumbotron-home {
+      background-color: #072b61;
+      color: white;
+    }
+
+
+
+    .jumbotron-about {
+
+      padding: 30px 0;
+    }
+
+    a.btn-minimization {
+      background-color: #942653;
+      border-color: #942653;
+      color: white;
+    }
+
+    a.btn-minimization:hover {
+      background-color: #7b1f45;
+      border-color: #7b1f45;
+      color: white;
+    }
+
+    #table_packages_filter {
+      float: none;
+    }
+
+    table.dataTable thead .sorting,
+    table.dataTable thead .sorting_asc,
+    table.dataTable thead .sorting_desc,
+    table.dataTable thead .sorting_asc_disabled,
+    table.dataTable thead .sorting_desc_disabled {
+      cursor: pointer;
+      *cursor: hand;
+      background-repeat: no-repeat;
+      background-position: center right;
+    }
+
+    table.dataTable thead .sorting {
+      background-image: url("_static/images/sort_both.png");
+    }
+
+    table.dataTable thead .sorting_asc {
+      background-image: url("_static/images/sort_asc.png");
+    }
+
+    table.dataTable thead .sorting_desc {
+      background-image: url("_static/images/sort_desc.png");
+    }
+
+    table.dataTable thead .sorting_asc_disabled {
+      background-image: url("_static/images/sort_asc_disabled.png");
+    }
+
+    table.dataTable thead .sorting_desc_disabled {
+      background-image: url("_static/images/sort_desc_disabled.png");
+    }
   </style>
 </head>
 
@@ -72,7 +103,7 @@
     <span class="navbar-brand mb-0 h1">Feedback Pipeline <span class="text-muted">prototype</span></span>
   </nav>
   {% block content %}{% endblock %}
-<br><br>
+  <br><br>
 </body>
 
 </html>

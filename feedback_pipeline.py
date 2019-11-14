@@ -699,6 +699,12 @@ def generate_pages(data, output):
         page = template.render(data=data)
         with open(os.path.join(output, output_file), "w") as file:
             file.write(page)
+    
+
+    src_static_dir = os.path.join("templates", "static")
+    output_static_dir = os.path.join(output, "_static")
+    subprocess.run(["cp", "-r", src_static_dir, output_static_dir])
+
 
 
 
