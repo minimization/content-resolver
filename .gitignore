@@ -3,3 +3,4 @@ out
 *.swp
 installs-cache.json
 __pycache__
+output
