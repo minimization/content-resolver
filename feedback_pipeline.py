@@ -756,6 +756,11 @@ def main():
     dump_data(os.path.join(args.output, "installs.json"), installs)
     dump_data(os.path.join(args.output, "data.json"), data)
 
+    date = datetime.strptime(data["timestamp"],"%d/%m/%Y %H:%M")
+    filedate = datetime.strftime(date, "%d-%m-%Y-%H%M")
+    filename = "data-{}.json".format(filedate)
+    dump_data(os.path.join(args.output, "history", filename), data)
+
     generate_graphs(data, args.output)
     generate_pages(data, args.output)
     generate_reports_by_base(data, args.output)
