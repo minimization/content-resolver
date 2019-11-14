@@ -757,7 +757,7 @@ def main():
     dump_data(os.path.join(args.output, "data.json"), data)
 
     date = datetime.strptime(data["timestamp"],"%d/%m/%Y %H:%M")
-    filedate = datetime.strftime(date, "%d-%m-%Y-%H%M")
+    filedate = datetime.strftime(date, "%Y-%m-%d-%H%M")
     filename = "data-{}.json".format(filedate)
     dump_data(os.path.join(args.output, "history", filename), data)
 
