@@ -4,14 +4,82 @@
 
 <style>
     div.package-name {
-        font-family: monospace;
         color: #CC0066;
+    }
+
+    div.install-option {
+        color: rgb(68, 68, 68);
+    }
+
+    div.package-name,
+    div.install-option {
+        font-family: monospace;
+
         border-bottom: #6c757d 1px solid;
 
     }
 
-    div.package-name:first-child {
+    div.package-name:first-child,
+    div.install-option:first-child {
         border-top: #6c757d 1px solid;
+    }
+</style>
+
+<style>
+    td,
+    th {
+        padding-left: 10px;
+        padding-right: 10px;
+    }
+
+    td {
+        white-space: nowrap !important;
+    }
+
+    .in-base th {
+        background-color: #accad6;
+        text-align: center;
+    }
+
+    .in-base td {
+        background-color: #d4e3ea;
+        color: #CC0066;
+        font-family: monospace;
+    }
+
+    tr.in-base td.all-pkgs {
+        background-color: #accad6 !important;
+    }
+
+    .not-in-base th {
+        background-color: #e9ecef;
+        text-align: center;
+    }
+
+    .not-in-base td {
+        background-color: #fff;
+        font-family: monospace;
+    }
+
+    tr.not-in-base td.all-pkgs {
+        background-color: #e9ecef !important;
+    }
+
+    thead td,
+    thead th {
+        background-color: #e9ecef;
+        text-align: center;
+    }
+
+    tbody tr,
+    tbody th {
+        border-bottom: #6c757d 1px solid;
+        border-top: #6c757d 1px solid;
+    }
+
+    #table_packages_filter {
+        padding: 12px 12px 0;
+        background-color: #e9ecef;	
     }
 </style>
 
@@ -25,16 +93,15 @@
             <li class="breadcrumb-item"><a href="./views.html">Results</a></li>
             <li class="breadcrumb-item"><a href="./view--use-cases-definitions.html">Dependency Reports</a></li>
             <li class="breadcrumb-item"><a href="./view--bases-definitions.html">Base Images (Eivironments)</a></li>
-            <li class="breadcrumb-item"><a href="./view--bases-definitions.html">Definitions</a></li>
+            <li class="breadcrumb-item"><a href="./view--bases-definitions.html">Details</a></li>
             <li class="breadcrumb-item active" aria-current="page">{{base_definition.name}} (Fedora {{base_version}})
             </li>
         </ol>
     </nav>
 
-    <a class="btn btn-primary float-right"
-        href="https://github.com/minimization/feedback-pipeline-config/blob/master/{{base_definition.id}}.yaml">Edit</a>
 
-    <h1> {{base_definition.name}} (Fedora {{base_version}}) <small class="text-muted">base definition</small> </h1>
+
+    <h1> {{base_definition.name}} (Fedora {{base_version}}) <small class="text-muted">details</small> </h1>
     <p> Generated at {{data.timestamp}}. </p>
 
     <hr>
@@ -51,12 +118,94 @@
     <br>
 
     <div class="card">
+        <h5 class="card-header">
+            Size History
+        </h5>
         <div class="card-body">
             <canvas id="chLine"></canvas>
         </div>
     </div>
 
     <br>
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="card">
+                <h5 class="card-header">
+                    Current State
+                </h5>
+                <div class="card-body">
+                    <a class="float-right" href="./graph--{{base.file_id}}.svg">Dependency Graph</a>
+                    <h5 class="card-title">All Packages ({{size_function(base.total_size)}})</h5>
+                    <table id="table_packages" style="width:100%">
+                        <thead>
+                            <tr class="sort_control_row">
+                                <th>Why</th>
+                                <th>Name</th>
+                                <th>Size</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for _, package in base.packages.items() %}
+                            <tr class="not-in-base">
+                                {% if package.name in base.required_package_names %}
+                                <td style="color:#CC0066" data-order="0">(required)</td>
+                                <td style="color:#CC0066">{{package.nevra}}</td>
+                                <td style="color:#CC0066" data-order="{{package.size}}">
+                                    {{size_function(package.size)}}</td>
+                                {% else %}
+                                <td data-order="1"></td>
+                                <td>{{package.nevra}}</td>
+                                <td data-order="{{package.size}}">{{size_function(package.size)}}</td>
+                                {% endif %}
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div><br>
+
+        </div>
+
+        <div class="col-lg-4">
+            <div class="card">
+                <h5 class="card-header">
+                    Definition
+                    <a class="btn btn-primary btn-sm float-right"
+                        href="https://github.com/minimization/feedback-pipeline-config/blob/master/{{base_definition.id}}.yaml">Edit</a>
+
+                </h5>
+                <div class="card-body">
+                    <h5 class="card-title">Required Packages</h5>
+                    <div>
+                        {% if base_definition["versions"][base_version]["packages"] %}
+                        {% for package in base_definition["versions"][base_version]["packages"] | sort %}
+                        <div class="package-name">{{package}}</div>
+                        {% endfor %}
+                        {% else %}
+                        <div class="package-name"> - </div>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="card-body">
+                    <h5 class="card-title">Install Options</h5>
+                    <div>
+                        {% if base_definition["versions"][base_version]["options"] %}
+                        {% for option in base_definition["versions"][base_version]["options"] | sort %}
+                        <div class="install-option">{{option}}</div>
+                        {% endfor %}
+                        {% else %}
+                        <div class="install-option"> - </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div><br>
+
+        </div>
+    </div>
+
+
+
+    <br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br>
 
     <div class="row">
         <div class="col-lg-4">
@@ -68,7 +217,7 @@
                     </span>
                 </h5>
                 <div class="card-body">
-                    {% for package in base_definition["versions"][base_version]["packages"] |sort %}
+                    {% for package in base_definition["versions"][base_version]["packages"] | sort %}
                     <div class="package-name">{{package}}</div>
                     {% endfor %}
                 </div>
@@ -142,7 +291,16 @@
         }
     }
 
-    plot_graph({{ chart_data_x|safe }}, {{ chart_data_y|safe }})
+    plot_graph({{ chart_data_x| safe }}, {{ chart_data_y| safe }})
+</script>
+
+<script>
+    $(document).ready(function () {
+        $('#table_packages').DataTable({
+            paging: false,
+            info: false
+        });
+    });
 </script>
 
 {% endblock %}

@@ -706,6 +706,7 @@ def generate_reports_bases_definitions(data, output):
                     base=base,
                     chart_data_x=chart_data_x,
                     chart_data_y=chart_data_y,
+                    size_function=showme.size,
                     data=data)
 
             filename = "report-base-definition--{base_id}--{base_version}.html".format(

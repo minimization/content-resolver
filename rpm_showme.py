@@ -497,7 +497,7 @@ def dot_to_graph_svg(dot):
 
     stage2 = subprocess.run(["gvmap", "-e", "-d", "3"], capture_output=True, input=stage1.stdout, encoding="UTF-8")
 
-    stage3 = subprocess.run(["neato", "-Gstart=3", "-n", "-Ecolor=#44444455", "-Tsvg"], capture_output=True, input=stage2.stdout, encoding="UTF-8")
+    stage3 = subprocess.run(["neato", "-Gstart=3", "-n", "-Ecolor=#44444455", "-Tsvg", "-Gdpi=60"], capture_output=True, input=stage2.stdout, encoding="UTF-8")
 
     svg = str(stage3.stdout)
 
@@ -506,7 +506,7 @@ def dot_to_graph_svg(dot):
 
 def dot_to_directed_graph_svg(dot):
 
-    stage1 = subprocess.run(["dot", "-Tsvg"], capture_output=True, input=dot, encoding="UTF-8")
+    stage1 = subprocess.run(["dot", "-Tsvg", "-Gdpi=60"], capture_output=True, input=dot, encoding="UTF-8")
 
     svg = str(stage1.stdout)
 
