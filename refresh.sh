@@ -25,6 +25,7 @@ cd feedback-pipeline || exit 1
 git clone git@github.com:minimization/feedback-pipeline-config.git configs || exit 1
 
 mkdir $WORK_DIR/feedback-pipeline/out || exit 1
+cp -r $WORK_DIR/reports/docs/history $WORK_DIR/feedback-pipeline/out/ || exit 1
 CMD="./feedback_pipeline.py configs out" || exit 1
 podman run --rm -it -v $WORK_DIR/feedback-pipeline:/workspace:z asamalik/feedback-pipeline-env $CMD || exit 1
 
