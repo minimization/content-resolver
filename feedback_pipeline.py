@@ -643,6 +643,8 @@ def generate_reports_bases_releases(data, output):
 
 
 def load_historic_data(data, output):
+
+    log("Loading historic size data from disk")
     directory = os.path.join(output, "history")
 
     all_filenames = os.listdir(directory)
@@ -665,9 +667,7 @@ def load_historic_data(data, output):
     return historic_data
 
 
-def get_historic_chart_data(data, output):
-    log("Loading historic size data from disk")
-    historic_data = load_historic_data(data, output)
+def get_historic_chart_data(historic_data, data):
     log("Generating historic size chart data")
 
     for base_id, base in data["bases"].items():
@@ -683,9 +683,6 @@ def get_historic_chart_data(data, output):
 
 
 def generate_reports_bases_definitions(data, output):
-    #TODO: this needs to be called somewhere else
-    get_historic_chart_data(data, output)
-
     log("Generating reports: Base definitions")
 
     template_loader = jinja2.FileSystemLoader(searchpath="./templates/")
@@ -822,6 +819,9 @@ def main():
     filedate = datetime.datetime.strftime(date, "%Y-%m-%d-%H%M")
     filename = "data-{}.json".format(filedate)
     dump_data(os.path.join(args.output, "history", filename), data)
+
+    historic_data = load_historic_data(data, args.output)
+    get_historic_chart_data(historic_data, data)
 
     generate_graphs(data, args.output)
     generate_pages(data, args.output)
