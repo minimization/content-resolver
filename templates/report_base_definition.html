@@ -79,7 +79,7 @@
 
     #table_packages_filter {
         padding: 12px 12px 0;
-        background-color: #e9ecef;	
+        background-color: #e9ecef;
     }
 </style>
 
@@ -198,109 +198,56 @@
                         {% endif %}
                     </div>
                 </div>
-            </div><br>
+            </div>
 
         </div>
     </div>
 
 
+    <script type="text/javascript">
+        function plot_graph(data_x, data_y) {
+            var chartData = {
+                labels: data_x,
+                datasets: [{
+                    data: data_y,
+                    label: "Fedora 31"
+                }]
+            };
 
-    <br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br>
-
-    <div class="row">
-        <div class="col-lg-4">
-            <div class="card">
-                <h5 class="card-header">
-                    Required Packages
-                    <span class="badge badge-pill float-right badge-dark">
-                        {{ base_definition["versions"][base_version]["packages"] | count }}
-                    </span>
-                </h5>
-                <div class="card-body">
-                    {% for package in base_definition["versions"][base_version]["packages"] | sort %}
-                    <div class="package-name">{{package}}</div>
-                    {% endfor %}
-                </div>
-            </div><br>
-        </div>
-        <div class="col-lg-4">
-            <div class="card">
-                <h5 class="card-header">
-                    Install Options
-                    <span class="badge badge-pill float-right badge-dark">
-                        {{ base_definition["versions"][base_version]["options"] | count }}
-                    </span>
-                </h5>
-                <ul class="list-group list-group-flush">
-                    {% for option in base_definition["versions"][base_version]["options"] %}
-                    <li class="list-group-item">{{option}}</li>
-                    {% endfor %}
-                </ul>
-            </div><br>
-        </div>
-        <div class="col-lg-4">
-            <div class="card">
-                <h5 class="card-header">
-                    Associated Use Cases
-                    <span class="badge badge-pill float-right badge-dark">
-                        ?
-                    </span>
-                </h5>
-                <ul class="list-group list-group-flush">
-                    <li class="list-group-item">TBD</li>
-                </ul>
-            </div><br>
-        </div>
-    </div>
-
-
-
-</div>
-
-<script type="text/javascript">
-    function plot_graph(data_x, data_y) {
-        var chartData = {
-            labels: data_x,
-            datasets: [{
-                data: data_y,
-                label: "Fedora 31"
-            }]
-        };
-
-        var chLine = document.getElementById("chLine");
-        if (chLine) {
-            new Chart(chLine, {
-                type: 'line',
-                data: chartData,
-                options: {
-                    scales: {
-                        yAxes: [{
-                            ticks: {
-                                beginAtZero: false,
-                                callback: function (value, index, values) {
-                                    return value + " MB";
+            var chLine = document.getElementById("chLine");
+            if (chLine) {
+                new Chart(chLine, {
+                    type: 'line',
+                    data: chartData,
+                    options: {
+                        scales: {
+                            yAxes: [{
+                                ticks: {
+                                    beginAtZero: true,
+                                    callback: function (value, index, values) {
+                                        return value + " MB";
+                                    }
                                 }
-                            }
-                        }]
-                    },
-                    legend: {
-                        display: false
+                            }]
+                        },
+                        legend: {
+                            display: false
+                        }
                     }
-                }
-            });
+                });
+            }
         }
-    }
 
-    plot_graph({{ chart_data_x| safe }}, {{ chart_data_y| safe }})
-</script>
+        plot_graph({{ chart_data_x| safe }}, {{ chart_data_y| safe }})
+    </script>
 
-<script>
-    $(document).ready(function () {
-        $('#table_packages').DataTable({
-            paging: false,
-            info: false
+    <script>
+        $(document).ready(function () {
+            $('#table_packages').DataTable({
+                paging: false,
+                info: false
+            });
         });
-    });
-</script>
+    </script>
 
-{% endblock %}
+    {% endblock %}

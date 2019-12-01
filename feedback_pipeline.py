@@ -672,8 +672,9 @@ def get_historic_chart_data(data, output):
 
     for base_id, base in data["bases"].items():
         size_history = {}
-
-        for timestamp, historic_data_instance in historic_data.items():
+        for timestamp in sorted(historic_data):
+            historic_data_instance = historic_data[timestamp]
+        #for timestamp, historic_data_instance in historic_data.items():
             size = historic_data_instance["bases"][base_id]["total_size"]
 
             size_history[timestamp] = size
