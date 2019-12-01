@@ -288,6 +288,15 @@ def get_data(configs, installs):
         use_case_definition["base_versions"] = base_versions
         use_case_definition["base_ids"] = base_ids
 
+        base_ids = use_case_definition["install_on"]
+        base_names = {}
+        for base_id in base_ids:
+            base_name, base_version = base_id.split(":")
+            if base_version not in base_names:
+                base_names[base_version] = []            
+            base_names[base_version].append(base_name)
+        use_case_definition["base_names"] = base_names
+
     # Data focused on use cases
     use_cases = {}
     for _, use_case_install in data["use_case_installs"].items():
@@ -318,6 +327,7 @@ def get_data(configs, installs):
         use_case["base_name"] = base_definition["name"]
         use_case["base_version"] = base_version
         use_case["base_id"] = base_install_id
+        use_case["base_definition_id"] = use_case_install["base_id"]
 
         # Total install size
         total_size = 0
@@ -674,13 +684,21 @@ def get_historic_chart_data(historic_data, data):
         size_history = {}
         for timestamp in sorted(historic_data):
             historic_data_instance = historic_data[timestamp]
-        #for timestamp, historic_data_instance in historic_data.items():
             size = historic_data_instance["bases"][base_id]["total_size"]
 
             size_history[timestamp] = size
         
         base["size_history"] = size_history
 
+    for use_case_id, use_case in data["use_cases"].items():
+        size_history = {}
+        for timestamp in sorted(historic_data):
+            historic_data_instance = historic_data[timestamp]
+            size = historic_data_instance["use_cases"][use_case_id]["total_size"]
+
+            size_history[timestamp] = size
+
+        use_case["size_history"] = size_history
 
 def generate_reports_bases_definitions(data, output):
     log("Generating reports: Base definitions")
@@ -721,16 +739,58 @@ def generate_reports_use_cases_definitions(data, output):
     template_env = jinja2.Environment(loader=template_loader)
 
     for _,use_case_definition in data["use_case_definitions"].items():
-        report_template = template_env.get_template("report_use_case_definition.html")
-        report = report_template.render(
-                use_case_definition=use_case_definition,
-                data=data)
+        
+        for base_version, base_ids in use_case_definition["base_names"].items():
 
-        filename = "report-use-case-definition--{use_case_id}.html".format(
-            use_case_id=use_case_definition["id"])
+            use_cases = []
+            for base_id in base_ids:
+                use_case = data["use_cases"]["{use_case}:{base}:{version}".format(
+                    use_case=use_case_definition["id"],
+                    base=base_id,
+                    version=base_version
+                )]
+                use_cases.append(use_case)
+            
+            graph_timestamps_set = set()
+            for use_case in use_cases:
+                for timestamp, size in use_case["size_history"].items():
+                    graph_timestamps_set.add(timestamp)
+            
+            graph_sizes = {}
+            graph_timestamps = sorted(list(graph_timestamps_set))
+            for timestamp in graph_timestamps:
+                for use_case in use_cases:
+                    base_id = use_case["base_definition_id"]
 
-        with open(os.path.join(output, filename), "w") as file:
-            file.write(report)
+                    if base_id not in graph_sizes:
+                        graph_sizes[base_id] = []
+
+                    # The size is string because I need to be able to carry either
+                    # the number or "null" that will be put into Javascript code
+                    # in the jinja2 template. I know it's horrible.
+                    if timestamp in use_case["size_history"]:
+                        size_bytes = use_case["size_history"][timestamp]
+                        size = str(round(size_bytes / 1024 / 1024,2))
+                    else:
+                        size = "null"
+
+                    graph_sizes[base_id].append(size)
+            
+            report_template = template_env.get_template("report_use_case_definition.html")
+            report = report_template.render(
+                    use_case_definition=use_case_definition,
+                    base_version=base_version,
+                    graph_timestamps=graph_timestamps,
+                    graph_sizes=graph_sizes,
+                    data=data)
+
+            filename = "report-use-case-definition--{use_case_id}--{base_version}.html".format(
+                use_case_id=use_case_definition["id"],
+                base_version=base_version
+            )
+
+            with open(os.path.join(output, filename), "w") as file:
+                file.write(report)
 
 
 def generate_pages(data, output):

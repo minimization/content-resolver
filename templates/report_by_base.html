@@ -93,7 +93,7 @@
                 <td rowspan="3" style="background-color:#cad1d8">All packages in this report</td>
                 <td rowspan="3" style="background-color:#cad1d8"></td>
                 {% for image in images %}
-                <th colspan="2"><a href="./report-use-case-definition--{{image.definition_id}}.html">{{image.name}}</a></th>
+                <th colspan="2"><a href="./report-use-case-definition--{{image.definition_id}}--{{base.version}}.html">{{image.name}}</a></th>
                 {% endfor %}
             </tr>
             <tr>

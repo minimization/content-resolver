@@ -19,7 +19,12 @@
         {% for use_case in data.use_case_definitions %}
         <tr>
             <td>{{use_case.name}}</td>
-            <td><a href="./report-use-case-definition--{{use_case.id}}.html">All Fedora Releases</a></td>
+            <td>
+                <!--a href="./report-use-case-definition--{{use_case.id}}.html">All Fedora Releases</a-->
+                {% for version in use_case.base_versions | sort %}
+                <a class="card-link" href="./report-use-case-definition--{{use_case.id}}--{{version}}.html">Fedora {{version}}</a>
+                {% endfor %}
+            </td>
         </tr>
         {% endfor %}
     </tbody>
