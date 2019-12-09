@@ -684,7 +684,10 @@ def get_historic_chart_data(historic_data, data):
         size_history = {}
         for timestamp in sorted(historic_data):
             historic_data_instance = historic_data[timestamp]
-            size = historic_data_instance["bases"][base_id]["total_size"]
+            try:
+                size = historic_data_instance["bases"][base_id]["total_size"]
+            except KeyError:
+                continue
 
             size_history[timestamp] = size
         
@@ -694,7 +697,10 @@ def get_historic_chart_data(historic_data, data):
         size_history = {}
         for timestamp in sorted(historic_data):
             historic_data_instance = historic_data[timestamp]
-            size = historic_data_instance["use_cases"][use_case_id]["total_size"]
+            try:
+                size = historic_data_instance["use_cases"][use_case_id]["total_size"]
+            except KeyError:
+                continue
 
             size_history[timestamp] = size
 
