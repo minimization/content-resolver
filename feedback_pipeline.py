@@ -485,7 +485,7 @@ def generate_reports_by_base(data, output):
                 pkg_sizes_num[pkg["name"]] = pkg["size"]
                 
 
-        other_install_data = []
+        use_case_data = []
         for use_case_id in base["use_case_ids"]:
             use_case = data["use_cases"][use_case_id]
 
@@ -506,10 +506,13 @@ def generate_reports_by_base(data, output):
                 "file_id": use_case["file_id"]
             } 
 
-            other_install_data.append(use_case_report_data)
+            use_case_data.append(use_case_report_data)
+        
+        # Sort use cases by name
+        use_case_data_sorted = sorted(use_case_data, key=lambda k: k["name"])
 
         extra_pkgs = []
-        for install_data in other_install_data:
+        for install_data in use_case_data_sorted:
             extra_pkgs += install_data["pkgs_not_in_base"]
         extra_pkgs = list(set(extra_pkgs))
         extra_pkgs.sort()
@@ -517,7 +520,7 @@ def generate_reports_by_base(data, output):
         table_report_template = template_env.get_template("report_by_base.html")
         table_report = table_report_template.render(
                 base=base_report_data,
-                images=other_install_data,
+                images=use_case_data_sorted,
                 extra_pkgs=extra_pkgs,
                 pkg_sizes=pkg_sizes,
                 pkg_sizes_num=pkg_sizes_num,
