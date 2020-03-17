@@ -157,121 +157,121 @@ def _install_packages(installroot, pkgs_to_install, options, releasever, cachedi
     log("    number of pkgs:  {}".format(len(pkgs_to_install)))
     log("    empty base:      {}".format(empty_base))
 
-    base = dnf.Base()
+    with dnf.Base() as base:
 
-    if cachedir:
-        base.conf.cachedir = cachedir
+        if cachedir:
+            base.conf.cachedir = cachedir
 
-    base.conf.substitutions['releasever'] = releasever
-    if "no-weak-deps" in options:
-        base.conf.install_weak_deps = False
+        base.conf.substitutions['releasever'] = releasever
+        if "no-weak-deps" in options:
+            base.conf.install_weak_deps = False
 
-    base.conf.tsflags = []
-    if "no-docs" in options:
-        base.conf.tsflags.append('nodocs')
-    # Base image? We're writing things down. This makes the transaction to only write
-    # them down without installing to save time and resources.
-    if installing_base_image:
-        base.conf.tsflags.append('justdb')
+        base.conf.tsflags = []
+        if "no-docs" in options:
+            base.conf.tsflags.append('nodocs')
+        # Base image? We're writing things down. This makes the transaction to only write
+        # them down without installing to save time and resources.
+        if installing_base_image:
+            base.conf.tsflags.append('justdb')
 
-    base.conf.installroot = installroot
+        base.conf.installroot = installroot
 
-    log("    Reading repos...")
-    base.read_all_repos()
+        log("    Reading repos...")
+        base.read_all_repos()
 
-    # Base image? Starting fresh == don't read the local RPMBD.
-    # Use case? Load it. But only if the base is not empty, otherwise there would be an OSError
-    # about not being able to read the RPMDB (it doesn't get created for empty base images).
-    if installing_base_image or empty_base:
-        base.fill_sack(load_system_repo=False)
-    else:
-        base.fill_sack(load_system_repo=True)
+        # Base image? Starting fresh == don't read the local RPMBD.
+        # Use case? Load it. But only if the base is not empty, otherwise there would be an OSError
+        # about not being able to read the RPMDB (it doesn't get created for empty base images).
+        if installing_base_image or empty_base:
+            base.fill_sack(load_system_repo=False)
+        else:
+            base.fill_sack(load_system_repo=True)
 
-    log("    Adding packages to the install list...")
-    for pkg in pkgs_to_install:
-        # the following can throw dnf.exceptions.MarkingError
-        # when the requested package doesn't exist
-        try:
-            base.install(pkg)
-        except dnf.exceptions.MarkingError:
-            err_log("Package '{}' could not be found!".format(pkg))
-            continue
+        log("    Adding packages to the install list...")
+        for pkg in pkgs_to_install:
+            # the following can throw dnf.exceptions.MarkingError
+            # when the requested package doesn't exist
+            try:
+                base.install(pkg)
+            except dnf.exceptions.MarkingError:
+                err_log("Package '{}' could not be found!".format(pkg))
+                continue
 
-    # the following can throw dnf.exceptions.DepsolveError
-    # if dependencies can't be resolved     
-    log("    Resolving dependnecies...")   
-    base.resolve()
+        # the following can throw dnf.exceptions.DepsolveError
+        # if dependencies can't be resolved     
+        log("    Resolving dependnecies...")   
+        base.resolve()
 
-    if installing_base_image:
-        log("    Base image dependency resolution.")
-        # Write the result intoi RPMDB.
-        # The transaction needs us to download all the packages. :(
-        # So let's do that to make it happy.
-        log("    Downloading packages...")
-        base.download_packages(base.transaction.install_set)
-        log("    Running transaction...")
-        base.do_transaction()
-        # The query in this case is just the resolve install set. Easy peasy!
-        log(    "Creating the query object...")
-        query = base.sack.query().filterm(pkg=base.transaction.install_set)
-    
-    else:
-        log("    Use case dependency resolution.")
-        # The query here is the combinaton of the pre-installed base image
-        # and the resolved install set. So let's get both of those,
-        # merge them, and make a query out of that!
-        log("    Creating the query object...")
-        query_base = base.sack.query()
-        base_installed = set(query_base.installed())
-        use_case_installed = set(base.transaction.install_set)
-        all_installed = set.union(base_installed, use_case_installed)
-        query = base.sack.query().filterm(pkg=all_installed)
+        if installing_base_image:
+            log("    Base image dependency resolution.")
+            # Write the result intoi RPMDB.
+            # The transaction needs us to download all the packages. :(
+            # So let's do that to make it happy.
+            log("    Downloading packages...")
+            base.download_packages(base.transaction.install_set)
+            log("    Running transaction...")
+            base.do_transaction()
+            # The query in this case is just the resolve install set. Easy peasy!
+            log(    "Creating the query object...")
+            query = base.sack.query().filterm(pkg=base.transaction.install_set)
+        
+        else:
+            log("    Use case dependency resolution.")
+            # The query here is the combinaton of the pre-installed base image
+            # and the resolved install set. So let's get both of those,
+            # merge them, and make a query out of that!
+            log("    Creating the query object...")
+            query_base = base.sack.query()
+            base_installed = set(query_base.installed())
+            use_case_installed = set(base.transaction.install_set)
+            all_installed = set.union(base_installed, use_case_installed)
+            query = base.sack.query().filterm(pkg=all_installed)
 
-    # And finally, the reason we went through all that trouble, was to get
-    # some interesting data! So let's finally get it.
-    log("    Saving package data...")
-    packages = {}
-    for pkg in query:
-        package = {}
-        package["name"] = pkg.name
-        package["epoch"] = pkg.epoch
-        package["version"] = pkg.version
-        package["release"] = pkg.release
-        package["arch"] = pkg.arch
-        package["nevra"] = str(pkg)
-        package["size"] = pkg.installsize
-        package["requires"] = []
-        package["requires_resolved"] = []
-        package["recommends"] = []
-        package["recommends_resolved"] = []
-        package["suggests"] = []
-        package["suggests_resolved"] = []
+        # And finally, the reason we went through all that trouble, was to get
+        # some interesting data! So let's finally get it.
+        log("    Saving package data...")
+        packages = {}
+        for pkg in query:
+            package = {}
+            package["name"] = pkg.name
+            package["epoch"] = pkg.epoch
+            package["version"] = pkg.version
+            package["release"] = pkg.release
+            package["arch"] = pkg.arch
+            package["nevra"] = str(pkg)
+            package["size"] = pkg.installsize
+            package["requires"] = []
+            package["requires_resolved"] = []
+            package["recommends"] = []
+            package["recommends_resolved"] = []
+            package["suggests"] = []
+            package["suggests_resolved"] = []
 
-        for req in pkg.requires:
-            package["requires"].append(str(req))
+            for req in pkg.requires:
+                package["requires"].append(str(req))
 
-        for req in pkg.recommends:
-            package["recommends"].append(str(req))
+            for req in pkg.recommends:
+                package["recommends"].append(str(req))
 
-        for req in pkg.suggests:
-            package["suggests"].append(str(req))
+            for req in pkg.suggests:
+                package["suggests"].append(str(req))
 
-        deps = query.filter(provides=pkg.requires)
-        for dep in deps:
-            package["requires_resolved"].append(dep.name)
+            deps = query.filter(provides=pkg.requires)
+            for dep in deps:
+                package["requires_resolved"].append(dep.name)
 
-        deps = query.filter(provides=pkg.recommends)
-        for dep in deps:
-            package["recommends_resolved"].append(dep.name)
+            deps = query.filter(provides=pkg.recommends)
+            for dep in deps:
+                package["recommends_resolved"].append(dep.name)
 
-        deps = query.filter(provides=pkg.suggests)
-        for dep in deps:
-            package["suggests_resolved"].append(dep.name)
+            deps = query.filter(provides=pkg.suggests)
+            for dep in deps:
+                package["suggests_resolved"].append(dep.name)
 
-        packages[package["name"]] = package
+            packages[package["name"]] = package
 
-    log("    DONE!")
-    log("")
+        log("    DONE!")
+        log("")
     return packages
 
 
