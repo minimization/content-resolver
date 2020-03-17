@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 
-import argparse, yaml, tempfile, os, subprocess, json, jinja2, datetime, copy, re
+import argparse, yaml, tempfile, os, subprocess, json, jinja2, datetime, copy, re, dnf
 import rpm_showme as showme
 
 
@@ -70,6 +70,9 @@ import rpm_showme as showme
 def log(msg):
     print(msg)
 
+def err_log(msg):
+    print("ERROR LOG:  {}".format(msg))
+
 def get_configs(directory):
     configs = {}
     configs["bases"] = {}
@@ -135,31 +138,141 @@ def get_configs(directory):
 
     return configs
 
+def _install_packages(installroot, pkgs_to_install, options, releasever, cachedir=None, installing_base_image=False, empty_base=False):
 
-def _install_packages(installroot, packages, options, releasever):
-    # DNF flags out of options
-    additional_flags = []
-    if "no-docs" in options:
-        additional_flags.append("--nodocs")
+    # Explanation of installing_base_image:
+    #  - There are two types of installation:
+    #       1/ Base image
+    #       2/ Use case
+    #  - Base image installation needs to start fresh in an empty installrot,
+    #    and the result needs to be written into RPMDB, so a use case installation
+    #    can then consume it. It can't read it, though, because it doesn't exist.
+    #  - Use case installation needs to then read it, but it won't write it again
+    #    because for writing it, it would need to download all packages. A high
+    #    and unneccessary price to pay. 
+
+    # Some logging
+    log("    installroot:     {}".format(installroot))
+    log("    cachedir:        {}".format(cachedir))
+    log("    number of pkgs:  {}".format(len(pkgs_to_install)))
+    log("    empty base:      {}".format(empty_base))
+
+    base = dnf.Base()
+
+    if cachedir:
+        base.conf.cachedir = cachedir
+
+    base.conf.substitutions['releasever'] = releasever
     if "no-weak-deps" in options:
-        additional_flags.append("--setopt=install_weak_deps=False")
+        base.conf.install_weak_deps = False
 
-    # Prepare the installation command
-    cmd = []
-    cmd += ["dnf", "-y", "--installroot", installroot,
-                        "--releasever", releasever]
-    cmd += additional_flags
+    base.conf.tsflags = []
+    if "no-docs" in options:
+        base.conf.tsflags.append('nodocs')
+    # Base image? We're writing things down. This makes the transaction to only write
+    # them down without installing to save time and resources.
+    if installing_base_image:
+        base.conf.tsflags.append('justdb')
 
-    # If there are no packages, only create the DNF cache
-    if packages:
-        cmd += ["install"]
-        cmd += packages
+    base.conf.installroot = installroot
+
+    log("    Reading repos...")
+    base.read_all_repos()
+
+    # Base image? Starting fresh == don't read the local RPMBD.
+    # Use case? Load it. But only if the base is not empty, otherwise there would be an OSError
+    # about not being able to read the RPMDB (it doesn't get created for empty base images).
+    if installing_base_image or empty_base:
+        base.fill_sack(load_system_repo=False)
     else:
-        cmd += ["makecache"]
+        base.fill_sack(load_system_repo=True)
 
-    # Do the installation
-    subprocess.run(cmd)
-    #print(cmd)
+    log("    Adding packages to the install list...")
+    for pkg in pkgs_to_install:
+        # the following can throw dnf.exceptions.MarkingError
+        # when the requested package doesn't exist
+        try:
+            base.install(pkg)
+        except dnf.exceptions.MarkingError:
+            err_log("Package '{}' could not be found!".format(pkg))
+            continue
+
+    # the following can throw dnf.exceptions.DepsolveError
+    # if dependencies can't be resolved     
+    log("    Resolving dependnecies...")   
+    base.resolve()
+
+    if installing_base_image:
+        log("    Base image dependency resolution.")
+        # Write the result intoi RPMDB.
+        # The transaction needs us to download all the packages. :(
+        # So let's do that to make it happy.
+        log("    Downloading packages...")
+        base.download_packages(base.transaction.install_set)
+        log("    Running transaction...")
+        base.do_transaction()
+        # The query in this case is just the resolve install set. Easy peasy!
+        log(    "Creating the query object...")
+        query = base.sack.query().filterm(pkg=base.transaction.install_set)
+    
+    else:
+        log("    Use case dependency resolution.")
+        # The query here is the combinaton of the pre-installed base image
+        # and the resolved install set. So let's get both of those,
+        # merge them, and make a query out of that!
+        log("    Creating the query object...")
+        query_base = base.sack.query()
+        base_installed = set(query_base.installed())
+        use_case_installed = set(base.transaction.install_set)
+        all_installed = set.union(base_installed, use_case_installed)
+        query = base.sack.query().filterm(pkg=all_installed)
+
+    # And finally, the reason we went through all that trouble, was to get
+    # some interesting data! So let's finally get it.
+    log("    Saving package data...")
+    packages = {}
+    for pkg in query:
+        package = {}
+        package["name"] = pkg.name
+        package["epoch"] = pkg.epoch
+        package["version"] = pkg.version
+        package["release"] = pkg.release
+        package["arch"] = pkg.arch
+        package["nevra"] = str(pkg)
+        package["size"] = pkg.installsize
+        package["requires"] = []
+        package["requires_resolved"] = []
+        package["recommends"] = []
+        package["recommends_resolved"] = []
+        package["suggests"] = []
+        package["suggests_resolved"] = []
+
+        for req in pkg.requires:
+            package["requires"].append(str(req))
+
+        for req in pkg.recommends:
+            package["recommends"].append(str(req))
+
+        for req in pkg.suggests:
+            package["suggests"].append(str(req))
+
+        deps = query.filter(provides=pkg.requires)
+        for dep in deps:
+            package["requires_resolved"].append(dep.name)
+
+        deps = query.filter(provides=pkg.recommends)
+        for dep in deps:
+            package["recommends_resolved"].append(dep.name)
+
+        deps = query.filter(provides=pkg.suggests)
+        for dep in deps:
+            package["suggests_resolved"].append(dep.name)
+
+        packages[package["name"]] = package
+
+    log("    DONE!")
+    log("")
+    return packages
 
 
 def install_and_load(configs):
@@ -174,12 +287,15 @@ def install_and_load(configs):
     use_cases = configs["use_cases"]
 
     with tempfile.TemporaryDirectory() as root:
+        # Step 1: Let's do all the base images!
         for base_id, base in bases.items():
             for base_version, base_version_data in base["versions"].items():
                 base_install_id = "{id}:{version}".format(
                         id=base_id, version=base_version)
 
                 # Where to install
+                # We're writing data in the installroot, so each base image
+                # needs its own space.
                 dirname = "{id}--{version}".format(
                         id=base_id, version=base_version)
                 installroot = os.path.join(root, dirname)
@@ -189,20 +305,24 @@ def install_and_load(configs):
                 options = base_version_data["options"]
                 releasever = base_version_data["source"]["releasever"]
 
-                # Do the installation
-                _install_packages(installroot=installroot,
-                                  packages=packages,
-                                  options=options,
-                                  releasever=releasever)
+                # DNF cache directory
+                # Loading repodata only once speeds things up quite a bit
+                cachedir = os.path.join(root, "dnf-cache-{releasever}".format(releasever=releasever))
 
-                # Analysis
-                # This command would fail on an empty installation
-                # so this gets us the right result
-                if packages:
-                    installed_packages = showme.get_packages(installroot)
-                else:
-                    installed_packages = {}
-                    
+                # Log!
+                log("Analyzing a base image: {name} {release} ({number_pkgs} packages)".format(
+                        name=base["name"],
+                        release=base_version,
+                        number_pkgs=len(packages)
+                ))
+
+                # Do the installation
+                installed_packages = _install_packages(installroot=installroot,
+                                                       pkgs_to_install=packages,
+                                                       options=options,
+                                                       releasever=releasever,
+                                                       cachedir=cachedir,
+                                                       installing_base_image=True)
 
                 # Save
                 base_installation = {}
@@ -212,7 +332,7 @@ def install_and_load(configs):
                 base_installation["packages"] = installed_packages
                 installs["bases"][base_install_id] = base_installation
 
-
+        # Step 2: Let's do all the use cases on top of the base images!
         for use_case_id, use_case in use_cases.items():
             for base_install_id in use_case["install_on"]:
                 use_case_install_id = "{use_case_id}:{base_install_id}".format(
@@ -220,13 +340,10 @@ def install_and_load(configs):
                         base_install_id=base_install_id)
 
                 # Where to install
+                # Since we're not writing anything into the installroot,
+                # let's just use the base image's installroot!
                 base_id = installs["bases"][base_install_id]["base_id"]
                 base_version = installs["bases"][base_install_id]["base_version"]
-                dirname = "{use_case_id}--{base_id}--{base_version}".format(
-                        use_case_id=use_case_id,
-                        base_id=base_id,
-                        base_version=base_version)
-                installroot = os.path.join(root, dirname)
                 base_dirname = "{base_id}--{base_version}".format(
                         base_id=base_id,
                         base_version=base_version)
@@ -237,17 +354,32 @@ def install_and_load(configs):
                 options = use_case["options"]
                 releasever = bases[base_id]["versions"][base_version]["source"]["releasever"]
 
-                # First get the base
-                subprocess.run(["cp", "-r", base_installroot, installroot])
+                # DNF cache directory
+                # Loading repodata only once speeds things up quite a bit
+                cachedir = os.path.join(root, "dnf-cache-{releasever}".format(releasever=releasever))
+                
+                # Log!
+                log("Analyzing a use case: {name} on {base_name} {release} ({number_pkgs} packages)".format(
+                        name=use_case["name"],
+                        base_name=bases[base_id]["name"],
+                        release=base_version,
+                        number_pkgs=len(packages)
+                ))
 
-                # And then do the final installation
-                _install_packages(installroot=installroot,
-                                  packages=packages,
-                                  options=options,
-                                  releasever=releasever)
+                # Empty base?
+                number_of_base_pkgs = len(installs["bases"][base_install_id]["packages"])
+                empty_base = False
+                if number_of_base_pkgs == 0:
+                    empty_base = True
 
-                # Analysis
-                installed_packages = showme.get_packages(installroot)
+                # Do the installation
+                installed_packages = _install_packages(installroot=base_installroot,
+                                                       pkgs_to_install=packages,
+                                                       options=options,
+                                                       releasever=releasever,
+                                                       cachedir=cachedir,
+                                                       installing_base_image=False,
+                                                       empty_base=empty_base)
 
                 # Save
                 use_case_installation = {}
