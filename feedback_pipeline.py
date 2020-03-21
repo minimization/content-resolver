@@ -212,7 +212,7 @@ def _install_packages(installroot, pkgs_to_install, options, releasever, cachedi
             log("    Running transaction...")
             base.do_transaction()
             # The query in this case is just the resolve install set. Easy peasy!
-            log(    "Creating the query object...")
+            log("    Creating the query object...")
             query = base.sack.query().filterm(pkg=base.transaction.install_set)
         
         else:

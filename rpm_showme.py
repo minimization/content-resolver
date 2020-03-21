@@ -111,6 +111,9 @@ import dnf, json, subprocess, tempfile, argparse, jinja2
 #     ],
 # }
 
+def log(msg):
+    print("    (rpm-showme)  " + str(msg))
+
 
 def _create_packages_structure(installed, query):
     # Make it into a list of my Package structures
@@ -196,6 +199,8 @@ def load_packages_from_container_image(image):
 
 def compute_graph(packages, groups=None):
 
+    log("computing graph data...")
+
     graph = {}
 
     for _, package in packages.items():
@@ -275,6 +280,9 @@ def size(num, suffix='B'):
 
 
 def graph_to_dot(graph, sizes=False, highlights=None):
+
+    log("computing a dot graph file...")
+
     if not highlights:
         highlights = []
 
@@ -493,13 +501,24 @@ document.addEventListener('click', function(e) {
 
 def dot_to_graph_svg(dot):
 
+    log("computing the svg:")
+
+    log("    running sfdp...")
+
     stage1 = subprocess.run(["sfdp", "-Gstart=3", "-Goverlap=prism"], capture_output=True, input=dot, encoding="UTF-8")
 
-    stage2 = subprocess.run(["gvmap", "-e", "-d", "3"], capture_output=True, input=stage1.stdout, encoding="UTF-8")
+    log("    running gvmap...")
+
+    #stage2 = subprocess.run(["gvmap", "-e", "-d", "3"], capture_output=True, input=stage1.stdout, encoding="UTF-8")
+    stage2 = stage1
+
+    log("    running neato...")
 
     stage3 = subprocess.run(["neato", "-Gstart=3", "-n", "-Ecolor=#44444455", "-Tsvg", "-Gdpi=60"], capture_output=True, input=stage2.stdout, encoding="UTF-8")
 
     svg = str(stage3.stdout)
+
+    log("    svg done!")
 
     return _add_javascript_to_svg(svg)
 
