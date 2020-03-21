@@ -509,7 +509,7 @@ def dot_to_graph_svg(dot):
 
     log("    running gvmap...")
 
-    #stage2 = subprocess.run(["gvmap", "-e", "-d", "3"], capture_output=True, input=stage1.stdout, encoding="UTF-8")
+    stage2 = subprocess.run(["gvmap", "-e", "-d", "3"], capture_output=True, input=stage1.stdout, encoding="UTF-8")
     stage2 = stage1
 
     log("    running neato...")
