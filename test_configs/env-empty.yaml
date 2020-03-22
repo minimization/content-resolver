@@ -18,7 +18,7 @@ data:
   # Name is an identifier for humans
   #
   # (mandatory field)
-  name: Empty
+  name: Empty Environment
   
   # A short description, perhaps hinting the purpose
   #

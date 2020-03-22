@@ -18,7 +18,7 @@ data:
   # Name is an identifier for humans
   #
   # (mandatory field)
-  name: Tiny
+  name: Minimal Environment
   
   # A short description, perhaps hinting the purpose
   #
@@ -35,7 +35,7 @@ data:
   #
   # (mandatory field)
   repositories:
-  - repo-fedora-31
+  #- repo-fedora-31
   - repo-fedora-rawhide
 
   # Packages defining this environment.
@@ -55,6 +55,7 @@ data:
   labels:
   - label-fedora-31-all
   - label-fedora-rawhide-all
+  - label-eln-compose
 
 
   ### OPTIONAL FIELDS ###

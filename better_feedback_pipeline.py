@@ -11,6 +11,30 @@ import rpm_showme as showme
 # - user-defined views
 
 
+###############################################################################
+### Help ######################################################################
+###############################################################################
+
+
+# Configs:
+#   TYPE:           KEY:          ID:
+# - repo            repos         repo_id
+# - env_conf        envs          env_id
+# - workload_conf   workloads     workload_id
+# - label           labels        label_id
+# - conf_view       views         view_id
+#
+# Data:
+#   TYPE:         KEY:                 ID:
+# - pkg           pkgs/repo_id/arch    NEVR
+# - env           envs                 env_id:repo_id:arch_id
+# - workload      workloads            workload_id:env_id:repo_id:arch_id
+# - view          views                view_id:repo_id:arch_id
+#
+#
+#
+
+
 
 ###############################################################################
 ### Some initial stuff ########################################################
@@ -36,12 +60,28 @@ def log(msg):
 def err_log(msg):
     print("ERROR LOG:  {}".format(msg))
 
-# FIXME: This is hardcorded, and it shouldn't be!
+def size(num, suffix='B'):
+    for unit in ['','k','M','G']:
+        if abs(num) < 1024.0:
+            return "%3.1f %s%s" % (num, unit, suffix)
+        num /= 1024.0
+    return "%.1f %s%s" % (num, 'T', suffix)
+
 def load_settings():
     settings = {}
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("configs", help="Directory with YAML configuration files. Only files ending with '.yaml' are accepted.")
+    parser.add_argument("output", help="Directory to contain the output.")
+    args = parser.parse_args()
+
+    settings["configs"] = args.configs
+    settings["output"] = args.output
+
+    # FIXME: This is hardcorded, and it shouldn't be!
     #settings["allowed_arches"] = ["armv7hl","aarch64","i686","ppc64le","s390x","x86_64"]
-    # FIXME desabling i686
-    settings["allowed_arches"] = ["armv7hl","aarch64","ppc64le","s390x","x86_64"]
+    # FIXME Limiting arches for faster results during development
+    settings["allowed_arches"] = ["aarch64","x86_64"]
     return(settings)
 
 
@@ -295,13 +335,14 @@ def _load_config_view(document_id, document, settings):
     return config
 
 
-def get_configs(directory, settings):
+def get_configs(settings):
     log("")
     log("###############################################################################")
     log("### Loading user-provided configs #############################################")
     log("###############################################################################")
     log("")
 
+    directory = settings["configs"]
 
     if "allowed_arches" not in settings:
         err_log("System error: allowed_arches not configured")
@@ -385,8 +426,8 @@ def get_configs(directory, settings):
 # Configs:
 #   TYPE:           KEY:          ID:
 # - repo            repos         repo_id
-# - conf_env        envs          env_id
-# - conf_workload   workloads     workload_id
+# - env_conf        envs          env_id
+# - workload_conf   workloads     workload_id
 # - label           labels        label_id
 # - conf_view       views         view_id
 #
@@ -400,7 +441,7 @@ def get_configs(directory, settings):
 # tmp contents:
 # - dnf_cachedir-{repo}-{arch}
 # - dnf_generic_installroot-{repo}-{arch}
-# - dnf_env_installroot-{conf_env}-{repo}-{arch}
+# - dnf_env_installroot-{env_conf}-{repo}-{arch}
 #
 #
 
@@ -468,6 +509,7 @@ def _analyze_pkgs(tmp, repo, arch):
         for pkg_object in all_pkgs_set:
             pkg_nevr = "{name}-{evr}".format(name=pkg_object.name, evr=pkg_object.evr)
             pkg = {}
+            pkg["id"] = pkg_nevr
             pkg["name"] = pkg_object.name
             pkg["installsize"] = pkg_object.installsize
             pkg["description"] = pkg_object.description
@@ -486,11 +528,13 @@ def _analyze_pkgs(tmp, repo, arch):
     return pkgs
 
 
-def _analyze_env(tmp, conf_env, repo, arch):
+def _analyze_env(tmp, env_conf, repo, arch):
     env = {}
     
-    env["conf_env_id"] = conf_env["id"]
+    env["env_conf_id"] = env_conf["id"]
     env["pkg_ids"] = []
+    env["repo_id"] = repo["id"]
+    env["arch"] = arch
 
     env["errors"] = {}
     env["errors"]["non_existing_pkgs"] = []
@@ -507,8 +551,8 @@ def _analyze_env(tmp, conf_env, repo, arch):
         base.conf.cachedir = os.path.join(tmp, cachedir_name)
 
         # Environment installroot
-        root_name = "dnf_env_installroot-{conf_env}-{repo}-{arch}".format(
-            conf_env=conf_env["id"],
+        root_name = "dnf_env_installroot-{env_conf}-{repo}-{arch}".format(
+            env_conf=env_conf["id"],
             repo=repo["id"],
             arch=arch
         )
@@ -525,9 +569,9 @@ def _analyze_env(tmp, conf_env, repo, arch):
         base.conf.tsflags.append('justdb')
 
         # Environment config
-        if "include-weak-deps" not in conf_env["options"]:
+        if "include-weak-deps" not in env_conf["options"]:
             base.conf.install_weak_deps = False
-        if "include-docs" not in conf_env["options"]:
+        if "include-docs" not in env_conf["options"]:
             base.conf.tsflags.append('nodocs')
 
         # Load repos
@@ -547,8 +591,8 @@ def _analyze_env(tmp, conf_env, repo, arch):
                 attempts +=1
                 log("  Failed to download repodata. Trying again!")
         if not success:
-            err = "Failed to download repodata while analyzing environment '{conf_env}' from '{repo}' {arch}:".format(
-                conf_env=conf_env["id"],
+            err = "Failed to download repodata while analyzing environment '{env_conf}' from '{repo}' {arch}:".format(
+                env_conf=env_conf["id"],
                 repo=repo["id"],
                 arch=arch
             )
@@ -558,7 +602,7 @@ def _analyze_env(tmp, conf_env, repo, arch):
 
         # Packages
         log("  Adding packages...")
-        for pkg in conf_env["packages"]:
+        for pkg in env_conf["packages"]:
             try:
                 base.install(pkg)
             except dnf.exceptions.MarkingError:
@@ -566,7 +610,7 @@ def _analyze_env(tmp, conf_env, repo, arch):
                 continue
 
         # Architecture-specific packages
-        for pkg in conf_env["arch_packages"][arch]:
+        for pkg in env_conf["arch_packages"][arch]:
             try:
                 base.install(pkg)
             except dnf.exceptions.MarkingError:
@@ -586,8 +630,8 @@ def _analyze_env(tmp, conf_env, repo, arch):
         try:
             base.do_transaction()
         except dnf.exceptions.TransactionCheckError as err:
-            err_log("Failed to analyze environment '{conf_env}' from '{repo}' {arch}:".format(
-                    conf_env=conf_env["id"],
+            err_log("Failed to analyze environment '{env_conf}' from '{repo}' {arch}:".format(
+                    env_conf=env_conf["id"],
                     repo=repo["id"],
                     arch=arch
                 ))
@@ -617,34 +661,44 @@ def _analyze_env(tmp, conf_env, repo, arch):
 def _analyze_envs(tmp, configs):
     envs = {}
 
-    for conf_env_id, conf_env in configs["envs"].items():
-        for repo_id in conf_env["repositories"]:
+    # Look at all env configs...
+    for env_conf_id, env_conf in configs["envs"].items():
+        # For each of those, look at all repos it lists...
+        for repo_id in env_conf["repositories"]:
+            # And for each of the repo, look at all arches it supports.
             repo = configs["repos"][repo_id]
             for arch in repo["source"]["architectures"]:
+                # Now it has
+                #    all env confs *
+                #    repos each config lists *
+                #    archeas each repo supports
+                # Analyze all of that!
                 log("Analyzing {env_name} ({env_id}) from {repo_name} ({repo}) {arch}...".format(
-                    env_name=conf_env["name"],
-                    env_id=conf_env_id,
+                    env_name=env_conf["name"],
+                    env_id=env_conf_id,
                     repo_name=repo["name"],
                     repo=repo_id,
                     arch=arch
                 ))
 
-                env_id = "{conf_env_id}:{repo_id}:{arch}".format(
-                    conf_env_id=conf_env_id,
+                env_id = "{env_conf_id}:{repo_id}:{arch}".format(
+                    env_conf_id=env_conf_id,
                     repo_id=repo_id,
                     arch=arch
                 )
-                envs[env_id] = _analyze_env(tmp, conf_env, repo, arch)
+                envs[env_id] = _analyze_env(tmp, env_conf, repo, arch)
                 
     
     return envs
 
 
-def _analyze_workload(tmp, conf_workload, conf_env, repo, arch):
+def _analyze_workload(tmp, workload_conf, env_conf, repo, arch):
     workload = {}
 
-    workload["conf_workload_id"] = conf_workload["id"]
-    workload["conf_env_id"] = conf_env["id"]
+    workload["workload_conf_id"] = workload_conf["id"]
+    workload["env_conf_id"] = env_conf["id"]
+    workload["repo_id"] = repo["id"]
+    workload["arch"] = arch
 
     workload["pkg_env_ids"] = []
     workload["pkg_added_ids"] = []
@@ -666,8 +720,8 @@ def _analyze_workload(tmp, conf_workload, conf_env, repo, arch):
         # Environment installroot
         # Since we're not writing anything into the installroot,
         # let's just use the base image's installroot!
-        root_name = "dnf_env_installroot-{conf_env}-{repo}-{arch}".format(
-            conf_env=conf_env["id"],
+        root_name = "dnf_env_installroot-{env_conf}-{repo}-{arch}".format(
+            env_conf=env_conf["id"],
             repo=repo["id"],
             arch=arch
         )
@@ -681,9 +735,9 @@ def _analyze_workload(tmp, conf_workload, conf_env, repo, arch):
         base.conf.substitutions['releasever'] = repo["source"]["fedora_release"]
 
         # Environment config
-        if "include-weak-deps" not in conf_workload["options"]:
+        if "include-weak-deps" not in workload_conf["options"]:
             base.conf.install_weak_deps = False
-        if "include-docs" not in conf_workload["options"]:
+        if "include-docs" not in workload_conf["options"]:
             base.conf.tsflags.append('nodocs')
 
         # Load repos
@@ -693,7 +747,7 @@ def _analyze_workload(tmp, conf_workload, conf_env, repo, arch):
         # Now I need to load the local RPMDB.
         # However, if the environment is empty, it wasn't created, so I need to treat
         # it differently. So let's check!
-        if len(conf_env["packages"]) or len(conf_env["arch_packages"][arch]):
+        if len(env_conf["packages"]) or len(env_conf["arch_packages"][arch]):
             # It's not empty! Load local data.
             base.fill_sack(load_system_repo=True)
         else:
@@ -713,8 +767,8 @@ def _analyze_workload(tmp, conf_workload, conf_env, repo, arch):
                     log("  Failed to download repodata. Trying again!")
             if not success:
                 err = "Failed to download repodata while analyzing workload '{workload_id} on '{env_id}' from '{repo}' {arch}...".format(
-                        workload_id=conf_workload_id,
-                        env_id=conf_env_id,
+                        workload_id=workload_conf_id,
+                        env_id=env_conf_id,
                         repo_name=repo["name"],
                         repo=repo_id,
                         arch=arch)
@@ -723,7 +777,7 @@ def _analyze_workload(tmp, conf_workload, conf_env, repo, arch):
         
         # Packages
         log("  Adding packages...")
-        for pkg in conf_workload["packages"]:
+        for pkg in workload_conf["packages"]:
             try:
                 base.install(pkg)
             except dnf.exceptions.MarkingError:
@@ -731,7 +785,7 @@ def _analyze_workload(tmp, conf_workload, conf_env, repo, arch):
                 continue
 
         # Architecture-specific packages
-        for pkg in conf_workload["arch_packages"][arch]:
+        for pkg in workload_conf["arch_packages"][arch]:
             try:
                 base.install(pkg)
             except dnf.exceptions.MarkingError:
@@ -782,37 +836,53 @@ def _analyze_workloads(tmp, configs):
 
     # Here, I need to mix and match workloads & envs based on labels
     workload_env_map = {}
-    for conf_workload_id, conf_workload in configs["workloads"].items():
-        workload_env_map[conf_workload_id] = set()
-        for label in conf_workload["labels"]:
-            for conf_env_id, conf_env in configs["envs"].items():
-                if label in conf_env["labels"]:
-                    workload_env_map[conf_workload_id].add(conf_env_id)
+    # Look at all workload configs...
+    for workload_conf_id, workload_conf in configs["workloads"].items():
+        workload_env_map[workload_conf_id] = set()
+        # ... and all of their labels.
+        for label in workload_conf["labels"]:
+            # And for each label, find all env configs...
+            for env_conf_id, env_conf in configs["envs"].items():
+                # ... that also have the label.
+                if label in env_conf["labels"]:
+                    # And save those.
+                    workload_env_map[workload_conf_id].add(env_conf_id)
     
-    for conf_workload_id, conf_workload in configs["workloads"].items():
-        for conf_env_id in workload_env_map[conf_workload_id]:
-            conf_env = configs["envs"][conf_env_id]
-            for repo_id in conf_env["repositories"]:
+    # And now, look at all workload configs...
+    for workload_conf_id, workload_conf in configs["workloads"].items():
+        # ... and for each, look at all env configs it should be analyzed in.
+        for env_conf_id in workload_env_map[workload_conf_id]:
+            # Each of those envs can have multiple repos associated...
+            env_conf = configs["envs"][env_conf_id]
+            for repo_id in env_conf["repositories"]:
+                # ... and each repo probably has multiple architecture.
                 repo = configs["repos"][repo_id]
                 for arch in repo["source"]["architectures"]:
+
+                    # And now it has:
+                    #   all workload configs *
+                    #   all envs that match those *
+                    #   all repos of those envs *
+                    #   all arches of those repos.
+                    # That's a lot of stuff! Let's analyze all of that!
                     log("Analyzing {workload_name} ({workload_id}) on {env_name} ({env_id}) from {repo_name} ({repo}) {arch}...".format(
-                        workload_name=conf_workload["name"],
-                        workload_id=conf_workload_id,
-                        env_name=conf_env["name"],
-                        env_id=conf_env_id,
+                        workload_name=workload_conf["name"],
+                        workload_id=workload_conf_id,
+                        env_name=env_conf["name"],
+                        env_id=env_conf_id,
                         repo_name=repo["name"],
                         repo=repo_id,
                         arch=arch
                     ))
 
-                    workload_id = "{conf_workload_id}:{conf_env_id}:{repo_id}:{arch}".format(
-                        conf_workload_id=conf_workload_id,
-                        conf_env_id=conf_env_id,
+                    workload_id = "{workload_conf_id}:{env_conf_id}:{repo_id}:{arch}".format(
+                        workload_conf_id=workload_conf_id,
+                        env_conf_id=env_conf_id,
                         repo_id=repo_id,
                         arch=arch
                     )
 
-                    workloads[workload_id] = _analyze_workload(tmp, conf_workload, conf_env, repo, arch)
+                    workloads[workload_id] = _analyze_workload(tmp, workload_conf, env_conf, repo, arch)
 
 
     return workloads
@@ -866,10 +936,481 @@ def analyze_things(configs, settings):
     return data
 
 ###############################################################################
-### Create useful information! ################################################
+### Generateing a key to access the data! #####################################
+###############################################################################
+
+# I will need an access key here, like
+# Workload results by env
+# Workload results by arch
+# - this will be just a key, pointing to data, and completely constructable from data
+
+
+class Query():
+    def __init__(self, data, configs, settings):
+        self.data = data
+        self.configs = configs
+        self.settings = settings
+
+    def workloads(self, workload_conf_id, env_conf_id, repo_id, arch, list_all=False, output_change=None):
+        # accepts none in any argument, and in those cases, answers for all instances
+
+        # It can output just one part of the id.
+        # That's useful to, for example, list all arches associated with a workload_conf_id
+        if output_change:
+            if not list_all:
+                raise ValueError("output_change must be used together with list_all")
+            if output_change not in ["workload_conf_ids", "env_conf_ids", "repo_ids", "arches"]:
+                raise ValueError('output_change must be one of: "workload_conf_ids", "env_conf_ids", "repo_ids", "arches"')
+
+        matching_ids = set()
+
+        # list considered workload_conf_ids
+        if workload_conf_id:
+            workload_conf_ids = [workload_conf_id]
+        else:
+            workload_conf_ids = self.configs["workloads"].keys()
+
+        # list considered env_conf_ids
+        if env_conf_id:
+            env_conf_ids = [env_conf_id]
+        else:
+            env_conf_ids = self.configs["envs"].keys()
+        
+        # list considered repo_ids
+        if repo_id:
+            repo_ids = [repo_id]
+        else:
+            repo_ids = self.configs["repos"].keys()
+            
+        # list considered arches
+        if arch:
+            arches = [arch]
+        else:
+            arches = self.settings["allowed_arches"]
+        
+        # And now try looping through all of that, and return True on a first occurance
+        # This is a terrible amount of loops. But most cases will have just one item
+        # in most of those, anyway. No one is expected to run this method with
+        # a "None" for every argument!
+        for workload_conf_id in workload_conf_ids:
+            for env_conf_id in env_conf_ids:
+                for repo_id in repo_ids:
+                    for arch in arches:
+                        workload_id = "{workload_conf_id}:{env_conf_id}:{repo_id}:{arch}".format(
+                            workload_conf_id=workload_conf_id,
+                            env_conf_id=env_conf_id,
+                            repo_id=repo_id,
+                            arch=arch
+                        )
+                        if workload_id in self.data["workloads"].keys():
+                            if not list_all:
+                                return True
+                            if output_change:
+                                if output_change == "workload_conf_ids":
+                                    matching_ids.add(workload_conf_id)
+                                if output_change == "env_conf_ids":
+                                    matching_ids.add(env_conf_id)
+                                if output_change == "repo_ids":
+                                    matching_ids.add(repo_id)
+                                if output_change == "arches":
+                                    matching_ids.add(arch)
+                            else:
+                                matching_ids.add(workload_id)
+        
+        if not list_all:
+            return False
+        return matching_ids
+    
+    def workloads_id(self, id, list_all=False):
+        # Accepts both env and workload ID, and returns workloads that match that
+        id_components = id.split(":")
+
+        # It's an env!
+        if len(id_components) == 3:
+            env_conf_id = id_components[0]
+            repo_id = id_components[1]
+            arch = id_components[2]
+            return self.workloads(None, env_conf_id, repo_id, arch, list_all)
+        
+        # It's a workload! Why would you want that, anyway?!
+        if len(id_components) == 4:
+            workload_conf_id = id_components[0]
+            env_conf_id = id_components[1]
+            repo_id = id_components[2]
+            arch = id_components[3]
+            return self.workloads(workload_conf_id, env_conf_id, repo_id, arch, list_all)
+        
+        raise ValueError("That seems to be an invalid ID!")
+
+    def envs(self, env_conf_id, repo_id, arch, list_all=False, output_change=None):
+        # accepts none in any argument, and in those cases, answers for all instances
+
+        # It can output just one part of the id.
+        # That's useful to, for example, list all arches associated with a workload_conf_id
+        if output_change:
+            if not list_all:
+                raise ValueError("output_change must be used together with list_all")
+            if output_change not in ["env_conf_ids", "repo_ids", "arches"]:
+                raise ValueError('output_change must be one of: "env_conf_ids", "repo_ids", "arches"')
+        
+        matching_ids = set()
+
+        # list considered env_conf_ids
+        if env_conf_id:
+            env_conf_ids = [env_conf_id]
+        else:
+            env_conf_ids = self.configs["envs"].keys()
+        
+        # list considered repo_ids
+        if repo_id:
+            repo_ids = [repo_id]
+        else:
+            repo_ids = self.configs["repos"].keys()
+            
+        # list considered arches
+        if arch:
+            arches = [arch]
+        else:
+            arches = self.settings["allowed_arches"]
+        
+        # And now try looping through all of that, and return True on a first occurance
+        # This is a terrible amount of loops. But most cases will have just one item
+        # in most of those, anyway. No one is expected to run this method with
+        # a "None" for every argument!
+        for env_conf_id in env_conf_ids:
+            for repo_id in repo_ids:
+                for arch in arches:
+                    env_id = "{env_conf_id}:{repo_id}:{arch}".format(
+                        env_conf_id=env_conf_id,
+                        repo_id=repo_id,
+                        arch=arch
+                    )
+                    if env_id in self.data["envs"].keys():
+                        if not list_all:
+                            return True
+                        if output_change:
+                            if output_change == "env_conf_ids":
+                                matching_ids.add(env_conf_id)
+                            if output_change == "repo_ids":
+                                matching_ids.add(repo_id)
+                            if output_change == "arches":
+                                matching_ids.add(arch)
+                        else:
+                            matching_ids.add(env_id)
+        
+        # This means nothing has been found!
+        if not list_all:
+            return False
+        return matching_ids
+    
+    def envs_id(self, id, list_all=False):
+        # Accepts both env and workload ID, and returns workloads that match that
+        id_components = id.split(":")
+
+        # It's an env!
+        if len(id_components) == 3:
+            env_conf_id = id_components[0]
+            repo_id = id_components[1]
+            arch = id_components[2]
+            return self.envs(env_conf_id, repo_id, arch, list_all)
+        
+        # It's a workload!
+        if len(id_components) == 4:
+            workload_conf_id = id_components[0]
+            env_conf_id = id_components[1]
+            repo_id = id_components[2]
+            arch = id_components[3]
+            return self.envs(env_conf_id, repo_id, arch, list_all)
+        
+        raise ValueError("That seems to be an invalid ID!")
+
+
+
+def generate_key(data, configs, settings):
+    log("")
+    log("###############################################################################")
+    log("### Generateing a key to access the data! #####################################")
+    log("###############################################################################")
+    log("")
+
+    key = {}
+
+    key["workloads"] = {}
+    for workload_conf_id, workload_conf in configs["workloads"].items():
+        key["workloads"][workload_conf_id] = {}
+    for workload_id, workload in data["workloads"].items():
+        key["workloads"][workload_id] = {}
+
+    key["views"] = {}
+    for view_conf_id, view_conf in configs["views"].items():
+        key["views"][view_conf_id] = {}
+    for view_id, view in data["views"].items():
+        key["views"][view_id] = {}
+
+    # workload_conf -> env_conf_ids
+    # key["workloads"][workload_conf_id]["env_conf_ids"]
+    log("Generating 'workload_conf -> env_conf_ids' key...")
+    for workload_conf_id, workload_conf in configs["workloads"].items():
+        key["workloads"][workload_conf_id]["env_conf_ids"] = set()
+        for label in workload_conf["labels"]:
+            for env_conf_id, env_conf in configs["envs"].items():
+                if label in env_conf["labels"]:
+                    key["workloads"][workload_conf_id]["env_conf_ids"].add(env_conf_id)
+    log("  Done!")
+    log("")
+
+    # workload_conf -> repo_ids
+    # key["workloads"][workload_conf_id]["repo_ids"]
+    log("Generating 'workload_conf -> repo_ids' key...")
+    for workload_conf_id, workload_conf in configs["workloads"].items():
+        key["workloads"][workload_conf_id]["repo_ids"] = set()
+        for env_conf_id in key["workloads"][workload_conf_id]["env_conf_ids"]:
+            for repo_id in configs["envs"][env_conf_id]["repositories"]:
+                key["workloads"][workload_conf_id]["repo_ids"].add(repo_id)
+    log("  Done!")
+    log("")
+
+    # workload total size & package counts
+    # key["workloads"][workload_id]["total_size"]
+    # key["workloads"][workload_id]["total_size_text"]
+    # key["workloads"][workload_id]["pkg_count"]
+    # key["workloads"][workload_id]["env_pkg_count"]
+    # key["workloads"][workload_id]["added_pkg_count"]
+    log("Generating 'workload total size & package counts' key...")
+    for workload_id, workload in data["workloads"].items():
+        repo_id = workload["repo_id"]
+        arch = workload["arch"]
+        # Total size
+        total_size = 0
+        for pkg_id in workload["pkg_env_ids"]:
+            total_size += data["pkgs"][repo_id][arch][pkg_id]["installsize"]
+        for pkg_id in workload["pkg_added_ids"]:
+            total_size += data["pkgs"][repo_id][arch][pkg_id]["installsize"]
+        key["workloads"][workload_id]["total_size"] = total_size
+        key["workloads"][workload_id]["total_size_text"] = size(total_size)
+        # Package count
+        env_pkg_count = len(workload["pkg_env_ids"])
+        added_pkg_count = len(workload["pkg_added_ids"])
+        pkg_count = env_pkg_count + added_pkg_count
+        key["workloads"][workload_id]["pkg_count"] = pkg_count
+        key["workloads"][workload_id]["env_pkg_count"] = env_pkg_count
+        key["workloads"][workload_id]["added_pkg_count"] = added_pkg_count
+    log("  Done!")
+    log("")
+
+    # view_conf -> env_conf_ids
+    # key["views"][view_conf_id]["env_conf_ids"]
+    log("Generating 'view_conf -> env_conf_ids' key...")
+    for view_conf_id, view_conf in configs["views"].items():
+        key["views"][view_conf_id]["env_conf_ids"] = set()
+        for label in view_conf["labels"]:
+            for env_conf_id, env_conf in configs["envs"].items():
+                if label in env_conf["labels"]:
+                    key["views"][view_conf_id]["env_conf_ids"].add(env_conf_id)
+    log("  Done!")
+    log("")
+
+    # view_conf -> workload_conf_ids
+    # key["views"][view_conf_id]["workload_conf_ids"]
+    log("Generating 'view_conf -> workload_conf_ids' key...")
+    for view_conf_id, view_conf in configs["views"].items():
+        key["views"][view_conf_id]["workload_conf_ids"] = set()
+        for label in view_conf["labels"]:
+            for workload_conf_id, workload_conf in configs["workloads"].items():
+                if label in workload_conf["labels"]:
+                    key["views"][view_conf_id]["workload_conf_ids"].add(workload_conf_id)
+    log("  Done!")
+    log("")
+
+    # view_conf -> repo_ids
+    # key["views"][view_conf_id]["repo_ids"]
+    log("Generating 'view_conf -> repo_ids' key...")
+    for view_conf_id, view_conf in configs["views"].items():
+        key["views"][view_conf_id]["repo_ids"] = set()
+        for env_conf_id in key["views"][view_conf_id]["env_conf_ids"]:
+            for repo_id in configs["envs"][env_conf_id]["repositories"]:
+                key["views"][view_conf_id]["repo_ids"].add(repo_id)
+        for repo_id in key["workloads"][workload_conf_id]["repo_ids"]:
+            key["views"][view_conf_id]["repo_ids"].add(repo_id)
+    log("  Done!")
+    log("")
+
+
+
+    return key
+
+
+###############################################################################
+### Generating html pages! ####################################################
 ###############################################################################
 
 
+def _generate_html_page(template_name, template_data, page_name, settings):
+    log("Generating the '{page_name}' page...".format(
+        page_name=page_name
+    ))
+
+    output = settings["output"]
+
+    template_loader = jinja2.FileSystemLoader(searchpath="./templates/")
+    template_env = jinja2.Environment(loader=template_loader)
+
+    template = template_env.get_template("{template_name}.html".format(
+        template_name=template_name
+    ))
+
+    if template_data:
+        page = template.render(**template_data)
+    else:
+        page = template.render()
+
+    filename = ("{page_name}.html".format(
+        page_name=page_name.replace(":", "--")
+    ))
+
+    log("  Writing file...  ({filename})".format(
+        filename=filename
+    ))
+    with open(os.path.join(output, filename), "w") as file:
+        file.write(page)
+    
+    log("  Done!")
+    log("")
+
+
+def _generate_workload_overview_pages(key, data, configs, settings):
+    log("Generating workload overview pages...")
+
+    for workload_conf_id, workload_conf in configs["workloads"].items():
+
+        for repo_id in key["workloads"][workload_conf_id]["repo_ids"]:
+            template_data = {
+                "repo_id": repo_id,
+                "repo_ids": key["workloads"][workload_conf_id]["repo_ids"],
+                "all_arches": settings["allowed_arches"],
+                "all_env_conf_ids": key["workloads"][workload_conf_id]["env_conf_ids"],
+                "configs": configs,
+                "workload_conf": workload_conf,
+                "key": key,
+                "data": data
+
+            }
+
+            page_name = "workload-overview--{workload_conf_id}--{repo_id}".format(
+                workload_conf_id=workload_conf_id,
+                repo_id=repo_id
+            )
+            _generate_html_page("workload_overview", template_data, page_name, settings)
+
+    
+    log("  Done!")
+    log("")
+
+
+def _generate_workload_pages(key, data, configs, settings):
+    log("Generating workload pages...")
+
+    for workload_id, workload in data["workloads"].items():
+
+        arch = workload["arch"]
+        repo_id = workload["repo_id"]
+        workload_conf_id = workload["workload_conf_id"]
+        workload_conf = configs["workloads"][workload_conf_id]
+
+        all_pkgs = {}
+
+        for pkg_id in workload["pkg_env_ids"]:
+            pkg = data["pkgs"][repo_id][arch][pkg_id]
+            pkg["is_required"] = False
+            pkg["is_env"] = True
+            pkg["size_text"] = size(pkg["installsize"])
+            all_pkgs[pkg_id] = pkg
+        
+        for pkg_id in workload["pkg_added_ids"]:
+            pkg = data["pkgs"][repo_id][arch][pkg_id]
+            pkg["is_required"] = bool(
+                pkg["name"] in workload_conf["packages"] \
+                or \
+                pkg["name"] in workload_conf["arch_packages"][arch]
+            )
+            pkg["is_env"] = False
+            pkg["size_text"] = size(pkg["installsize"])
+            all_pkgs[pkg_id] = pkg
+
+        template_data = {
+            "arch": arch,
+            "repo_id": repo_id,
+            "workload_conf_id": workload_conf_id,
+            "workload_conf": workload_conf,
+            "workload_id": workload_id,
+            "workload": workload,
+            "all_pkgs": all_pkgs,
+            "configs": configs,
+            "key": key
+        }
+
+        page_name = "workload--{workload_id}".format(
+            workload_id=workload_id
+        )
+
+        _generate_html_page("workload", template_data, page_name, settings)
+
+    log("  Done!")
+    log("")
+
+
+def generate_pages(key, data, configs, settings):
+    log("")
+    log("###############################################################################")
+    log("### Generating html pages! ####################################################")
+    log("###############################################################################")
+    log("")
+
+    # Copy static files
+    log("Copying static files...")
+    src_static_dir = os.path.join("templates", "_static")
+    output_static_dir = os.path.join(settings["output"])
+    subprocess.run(["cp", "-R", src_static_dir, output_static_dir])
+    log("  Done!")
+    log("")
+
+    # Generate the landing page
+    _generate_html_page("homepage", None, "index", settings)
+
+    # Generate the main menu page
+    _generate_html_page("results", None, "results", settings)
+
+    # Generate the workloads page
+    template_data = {
+        "configs": configs,
+        "key": key
+    }
+    _generate_html_page("workloads", template_data, "workloads", settings)
+
+    # Generate workload_overview pages
+    _generate_workload_overview_pages(key, data, configs, settings)
+
+    # Generate workload pages
+    _generate_workload_pages(key, data, configs, settings)
+
+    # Generate the environments page
+    template_data = {
+        "configs": configs,
+        "key": key
+    }
+    _generate_html_page("envs", template_data, "envs", settings)
+
+    # Generate the views page
+    template_data = {
+        "configs": configs,
+        "key": key
+    }
+    _generate_html_page("views", template_data, "views", settings)
+
+
+
+
+    return None
 
 
 
@@ -896,14 +1437,169 @@ def load_data(path):
 
 
 def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("configs", help="Directory with YAML configuration files. Only files ending with '.yaml' are accepted.")
-    parser.add_argument("output", help="Directory to contain the output.")
-    args = parser.parse_args()
-
     settings = load_settings()
-    configs = get_configs(args.configs, settings)
+    configs = get_configs(settings)
     data = analyze_things(configs, settings)
+
+    query = Query(data, configs, settings)
+
+    print("")
+    print("")
+    print("")
+    print("test test test")
+    print("test test test")
+    print("test test test")
+    print("test test test")
+    print("")
+    print("")
+
+
+    # does_workload_exist(self, workload_conf_id, env_conf_id, repo_id, arch):
+
+    #   env-empty 
+    #   env-minimal 
+    #   label-eln-compose 
+    #   label-fedora-31-all 
+    #   label-fedora-rawhide-all 
+    #   repo-fedora-31 
+    #   repo-fedora-rawhide 
+    #   view-eln-compose 
+    #   workload-httpd 
+    #   workload-nginx 
+    #   x86_64
+    #   aarch64
+
+    print("Should be False:")
+    print(query.workloads("mleko","mleko","mleko","mleko"))
+    print("")
+
+    print("Should be True:")
+    print(query.workloads("workload-httpd","env-empty","repo-fedora-31","x86_64"))
+    print("")
+
+    print("Should be False:")
+    print(query.workloads("workload-httpd","env-empty","repo-fedora-31","aarch64"))
+    print("")
+
+    print("Should be True:")
+    print(query.workloads("workload-httpd","env-empty","repo-fedora-31",None))
+    print("")
+
+    print("Should be True:")
+    print(query.workloads("workload-nginx",None, None, None))
+    print("")
+
+    print("Should be True:")
+    print(query.workloads(None,"env-minimal",None,"x86_64"))
+    print("")
+
+    print("Should be True:")
+    print(query.workloads(None,"env-minimal",None,"aarch64"))
+    print("")
+
+    print("Should be False:")
+    print(query.workloads(None,"env-minimal","repo-fedora-31","x86_64"))
+    print("")
+
+    print("Should be False:")
+    print(query.workloads(None,"env-minimal","repo-fedora-31","aarch64"))
+    print("")
+
+    print("----------")
+    print("")
+    print("")
+
+    print("Should be 7:")
+    print(len(query.workloads(None,None,None,None,list_all=True)))
+    print("")
+
+    print("Should be 3:")
+    print(len(query.workloads(None,None,None,"aarch64",list_all=True)))
+    print("")
+
+    print("Should be 2:")
+    print(len(query.workloads("workload-nginx",None,None,None,list_all=True)))
+    print("")
+
+    print("----------")
+    print("")
+    print("")
+
+    print("Should be 2 workload-nginx:")
+    for id in query.workloads("workload-nginx",None,None,None,list_all=True):
+        print(id)
+    print("")
+
+    print("Should be all 7:")
+    for id in query.workloads(None,None,None,None,list_all=True):
+        print(id)
+    print("")
+
+    print("Should be all 6 rawhide:")
+    for id in query.workloads(None,None,"repo-fedora-rawhide",None,list_all=True):
+        print(id)
+    print("")
+
+    print("Should be all 2 empty rawhide:")
+    for id in query.workloads(None,"env-empty","repo-fedora-rawhide",None,list_all=True):
+        print(id)
+    print("")
+
+    print("Should be nothing:")
+    for id in query.workloads("workload-nginx","env-empty","repo-fedora-rawhide",None,list_all=True):
+        print(id)
+    print("")
+
+    print("----------")
+    print("")
+    print("")
+
+    print("Should be env-empty:repo-fedora-31:x86_64")
+    for id in query.envs_id("workload-httpd:env-empty:repo-fedora-31:x86_64", list_all=True):
+        print(id)
+    print("")
+
+    print("Should be workload-httpd:env-empty:repo-fedora-31:x86_64")
+    for id in query.workloads_id("workload-httpd:env-empty:repo-fedora-31:x86_64", list_all=True):
+        print(id)
+    print("")
+
+    print("Should be two, workload-httpd:env-minimal:repo-fedora-rawhide:x86_64 and workload-nginx:...")
+    for id in query.workloads_id("env-minimal:repo-fedora-rawhide:x86_64", list_all=True):
+        print(id)
+    print("")
+
+    print("----------")
+    print("")
+    print("")
+
+    print("Should be all 2 arches:")
+    for id in query.workloads("workload-httpd",None, None,None,list_all=True,output_change="arches"):
+        print(id)
+    print("")
+
+    print("Should be all 2 arches:")
+    for id in query.workloads("workload-nginx",None, None,None,list_all=True,output_change="arches"):
+        print(id)
+    print("")
+
+    print("Should be all 2 env_conf_ids:")
+    for id in query.workloads("workload-httpd",None, None,None,list_all=True,output_change="env_conf_ids"):
+        print(id)
+    print("")
+
+    print("Should be all 1 env_conf_id:")
+    for id in query.workloads("workload-nginx",None, None,None,list_all=True,output_change="env_conf_ids"):
+        print(id)
+    print("")
+
+
+
+
+
+
+    #key = generate_key(data, configs, settings)
+    #generate_pages(key, data, configs, settings)
 
     #dump_data("data.json", data)
 

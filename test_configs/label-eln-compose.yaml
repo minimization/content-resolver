@@ -17,12 +17,12 @@ data:
   # Name is an identifier for humans
   #
   # (mandatory field)
-  name: Fedora ELN Compose label
+  name: Fedora ELN Compose
   
   # A short description, perhaps hinting the purpose
   #
   # (mandatory field)
-  description: Content for ELN.
+  description: Content for ELN
 
   # Who maintains it? This is just a freeform string
   # for humans to read. In Fedora, a FAS nick is recommended.

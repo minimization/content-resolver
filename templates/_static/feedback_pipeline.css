@@ -1,0 +1,130 @@
+
+
+.jumbotron {
+  margin-bottom: 0 !important;
+}
+
+
+.jumbotron-home {
+  background-color: #072b61;
+  color: white;
+  padding: 120px 0;
+}
+
+.jumbotron-home a.btn {
+  margin-top: 30px;
+}
+
+
+.jumbotron-about {
+  padding: 80px 0;
+}
+
+.jumbotron-feature {
+  background: white;
+
+}
+
+.jumbotron-feature .row {
+  margin-top: 26px;
+}
+
+a.btn-minimization {
+  background-color: #942653;
+  border-color: #942653;
+  color: white;
+}
+
+a.btn-minimization:hover {
+  background-color: #7b1f45;
+  border-color: #7b1f45;
+  color: white;
+}
+
+#table_packages_filter {
+  float: none;
+}
+
+div.footer {
+  background-color: #212529;
+  padding-bottom: 60px;
+}
+
+div.footer h5 {
+  color: white;
+}
+
+div.footer div.row {
+  margin-bottom: 40px;
+}
+
+/*  General table */
+
+table.dataTable thead td,
+table.dataTable thead th {
+  padding-left: 30px;
+}
+
+
+/*  Package tables  */
+
+table.table-packages {
+width: 100%;
+font-family: monospace;
+}
+
+table.table-packages tr {
+border-bottom: #6c757d 1px solid;
+}
+
+table.table-packages td,
+table.table-packages th {
+padding-left: 10px;
+padding-right: 10px;
+}
+
+table.table-packages td {
+  white-space: nowrap !important;
+}
+
+table.table-packages tr.required {
+  background-color: #d4e3ea;
+  color: #CC0066;
+}
+
+table.table-packages tr.env {
+  background-color: #e3ece1!important;
+}
+
+table.table-packages tr.dependency {
+  background-color: white!important;
+}
+
+table.table-packages thead td,
+table.table-packages thead th {
+  background-color: #e9ecef;
+  padding-left: 30px;
+}
+
+table.table-packages tbody tr,
+table.table-packages tbody th {
+  border-bottom: #6c757d 1px solid;
+  border-top: #6c757d 1px solid;
+}
+
+#table_packages_filter {
+  padding: 12px 12px 0;
+  background-color: #e9ecef;
+}
+
+#table_packages_filter input {
+  margin-left: 10px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  height:34px;
+}
+
+#table_packages_wrapper {
+  border: 1px solid #ccc;
+  border-radius: 5px;
+}

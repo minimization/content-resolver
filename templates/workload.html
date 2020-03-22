@@ -1,0 +1,110 @@
+{% extends "layout.html" %}
+
+{% block content %}
+
+
+<div class="container">
+
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="./">Home</a></li>
+            <li class="breadcrumb-item"><a href="./results.html">Results</a></li>
+            <li class="breadcrumb-item"><a href="./workloads.html">Workloads</a></li>
+            <li class="breadcrumb-item">
+                <a href="{{'./workload-overview--{workload_conf_id}--{repo_id}.html'.format(workload_conf_id=workload_conf_id, repo_id=repo_id)}}">
+                    {{workload_conf.name}}
+                </a>
+            </li>
+            <li class="breadcrumb-item active" aria-current="page">
+                {{workload_conf.name}} from {{configs.repos[workload.repo_id].name}} in {{configs.envs[workload.env_conf_id].name}} for {{workload.arch}}
+            </li>
+        </ol>
+    </nav>
+
+
+    <h1>
+        {{workload_conf.name}} <small class="text-muted"> workload</small>
+        <br>
+        <small class="text-muted"> from </small>
+        <small> <a href="">{{configs.repos[workload.repo_id].name}}</a> </small>
+        <small class="text-muted"> in </small>
+        <small> <a href="">{{configs.envs[workload.env_conf_id].name}}</a> </small>
+        <small class="text-muted"> for </small>
+        <small> {{workload.arch}}</small>
+    </h1>
+
+    <hr>
+
+    <p class="lead"> {{workload_conf.description}} </p>
+
+    <hr>
+
+    <div class="row">
+        <div class="col-lg-12">
+            <div class="card">
+                <h5 class="card-header">
+                    Packages
+                </h5>
+                <div class="card-body">
+                    <h5 class="card-title">{{all_pkgs | count }} Packages,
+                        {{key.workloads[workload_id].total_size_text}}</h5>
+                    <table id="table_packages" class="table-packages">
+                        <thead>
+                            <tr class="sort_control_row">
+                                <th>Why</th>
+                                <th>Name</th>
+                                <th>Size</th>
+                                <th>Summary</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for pkg_id,pkg in all_pkgs.items() %}
+                            {% if pkg.is_required and pkg.is_env %}
+                            <tr class="required">
+                                <td data-order="1">(required, env)</td>
+                                <td>{{pkg_id}}</td>
+                                <td data-order="{{pkg.installsize}}">{{pkg.size_text}}</td>
+                                <td>{{pkg.summary}}</td>
+                            </tr>
+                            {% elif pkg.is_required %}
+                            <tr class="required">
+                                <td data-order="0">(required)</td>
+                                <td>{{pkg_id}}</td>
+                                <td data-order="{{pkg.installsize}}">{{pkg.size_text}}</td>
+                                <td>{{pkg.summary}}</td>
+                            </tr>
+                            {% elif pkg.is_env %}
+                            <tr class="env">
+                                <td class="text-muted" data-order="2">(env)</td>
+                                <td>{{pkg_id}}</td>
+                                <td data-order="{{pkg.installsize}}">{{pkg.size_text}}</td>
+                                <td>{{pkg.summary}}</td>
+                            </tr>
+                            {% else %}
+                            <tr class="dependency">
+                                <td class="text-muted" data-order="3"></td>
+                                <td>{{pkg_id}}</td>
+                                <td data-order="{{pkg.installsize}}">{{pkg.size_text}}</td>
+                                <td class=>{{pkg.summary}}</td>
+                            </tr>
+                            {% endif %}
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div><br>
+
+        </div>
+    </div>
+
+</div>
+
+<script>
+    $(document).ready(function () {
+        $('#table_packages').DataTable({
+            paging: false,
+            info: false
+        });
+    });
+</script>
+{% endblock %}

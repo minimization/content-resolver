@@ -44,8 +44,8 @@ data:
   # 
   # (mandatory field)
   labels:
-  - label-fedora-31-all
-  - label-fedora-rawhide-all
+  #- label-fedora-31-all
+  #- label-fedora-rawhide-all
   - label-eln-compose
 
 

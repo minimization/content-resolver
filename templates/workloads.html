@@ -1,0 +1,51 @@
+{% extends "layout.html" %}
+
+{% block content %}
+
+<div class="container">
+
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="./">Home</a></li>
+            <li class="breadcrumb-item"><a href="./results.html">Results</a></li>
+            <li class="breadcrumb-item active" aria-current="page">Workloads</li>
+        </ol>
+    </nav>
+
+    <h1> All Workloads </h1>
+    <br>
+
+    <table class="table table-striped" id="table_packages">
+        <thead>
+            <tr class="sort_control_row">
+                <th>Name</th>
+                <th>Results</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for workload_conf_id, workload_conf in configs.workloads.items() %}
+            <tr>
+                <td>{{workload_conf.name}}</td>
+                <td>
+                    {% for repo_id in key.workloads[workload_conf_id].repo_ids %}
+                    <a class="card-link" href="workload-overview--{{workload_conf_id}}--{{repo_id}}.html">
+                        {{configs.repos[repo_id].name}}
+                    </a>
+                    {% endfor %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<script>
+    $(document).ready(function () {
+        $('#table_packages').DataTable({
+            paging: false,
+            filter: false,
+            info: false
+        });
+    });
+</script>
+{% endblock %}

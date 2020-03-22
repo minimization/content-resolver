@@ -21,57 +21,14 @@
     src="https://cdn.datatables.net/1.10.20/js/jquery.dataTables.js"></script>
   <!-- Datatables test end -->
 
-
   <!-- Chart stuff start -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.8.0/Chart.bundle.min.js"
     integrity="sha256-xKeoJ50pzbUGkpQxDYHD7o7hxe0LaOGeguUidbq6vis=" crossorigin="anonymous"></script>
   <!-- Chart stuff end -->
+
+  <link rel="stylesheet" href="_static/feedback_pipeline.css">
+
   <style>
-    .jumbotron {
-      margin-bottom: 0 !important;
-    }
-
-
-    .jumbotron-home {
-      background-color: #072b61;
-      color: white;
-      padding: 120px 0;
-    }
-
-    .jumbotron-home a.btn {
-      margin-top: 30px;
-    }
-
-
-    .jumbotron-about {
-      padding: 80px 0;
-    }
-
-    .jumbotron-feature {
-      background: white;
-
-    }
-
-    .jumbotron-feature .row {
-      margin-top: 26px;
-    }
-
-    a.btn-minimization {
-      background-color: #942653;
-      border-color: #942653;
-      color: white;
-    }
-
-    a.btn-minimization:hover {
-      background-color: #7b1f45;
-      border-color: #7b1f45;
-      color: white;
-    }
-
-    #table_packages_filter {
-      float: none;
-    }
-
     table.dataTable thead .sorting,
     table.dataTable thead .sorting_asc,
     table.dataTable thead .sorting_desc,
@@ -80,7 +37,7 @@
       cursor: pointer;
       *cursor: hand;
       background-repeat: no-repeat;
-      background-position: center right;
+      background-position: 8px;
     }
 
     table.dataTable thead .sorting {
@@ -104,30 +61,19 @@
     }
 
     table.dataTable thead .sort_control_row {
-      border-top: 2px solid black !important;
       font-weight: bold !important;
     }
-
-
-    div.footer {
-      background-color: #212529;
-      padding-bottom: 60px;
-    }
-
-    div.footer h5 {
-      color: white;
-    }
-
-    div.footer div.row {
-      margin-bottom: 40px;
-    }
   </style>
+
 </head>
 
 <body>
   <nav class="navbar navbar-dark bg-dark">
-    <span class="navbar-brand mb-0 h1">Feedback Pipeline <span class="text-muted">prototype</span></span>
+    <div class="container">
+      <span class="navbar-brand mb-0 h1"><a style="color:white" href="./">Feedback Pipeline</a></span>
+    </div>
   </nav>
+  <br>
   {% block content %}{% endblock %}
   <br><br>
 
@@ -152,7 +98,8 @@
             <h5>Fedora Minimization</h5>
             <ul class="list-unstyled text-small">
               <li>
-                <a class="text-muted" href="https://docs.fedoraproject.org/en-US/minimization/">Fedora Minimization Docs</a>
+                <a class="text-muted" href="https://docs.fedoraproject.org/en-US/minimization/">Fedora Minimization
+                  Docs</a>
               </li>
               <li>
                 <a class="text-muted" href="https://pagure.io/minimization/issues">Minimization Tracker</a>
