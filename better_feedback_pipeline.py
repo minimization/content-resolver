@@ -935,15 +935,10 @@ def analyze_things(configs, settings):
 
     return data
 
-###############################################################################
-### Generateing a key to access the data! #####################################
-###############################################################################
 
-# I will need an access key here, like
-# Workload results by env
-# Workload results by arch
-# - this will be just a key, pointing to data, and completely constructable from data
-
+###############################################################################
+### Query gives an easy access to the data! ###################################
+###############################################################################
 
 class Query():
     def __init__(self, data, configs, settings):
@@ -957,8 +952,7 @@ class Query():
         # It can output just one part of the id.
         # That's useful to, for example, list all arches associated with a workload_conf_id
         if output_change:
-            if not list_all:
-                raise ValueError("output_change must be used together with list_all")
+            list_all = True
             if output_change not in ["workload_conf_ids", "env_conf_ids", "repo_ids", "arches"]:
                 raise ValueError('output_change must be one of: "workload_conf_ids", "env_conf_ids", "repo_ids", "arches"')
 
@@ -1021,7 +1015,7 @@ class Query():
             return False
         return matching_ids
     
-    def workloads_id(self, id, list_all=False):
+    def workloads_id(self, id, list_all=False, output_change=None):
         # Accepts both env and workload ID, and returns workloads that match that
         id_components = id.split(":")
 
@@ -1030,7 +1024,7 @@ class Query():
             env_conf_id = id_components[0]
             repo_id = id_components[1]
             arch = id_components[2]
-            return self.workloads(None, env_conf_id, repo_id, arch, list_all)
+            return self.workloads(None, env_conf_id, repo_id, arch, list_all, output_change)
         
         # It's a workload! Why would you want that, anyway?!
         if len(id_components) == 4:
@@ -1038,7 +1032,7 @@ class Query():
             env_conf_id = id_components[1]
             repo_id = id_components[2]
             arch = id_components[3]
-            return self.workloads(workload_conf_id, env_conf_id, repo_id, arch, list_all)
+            return self.workloads(workload_conf_id, env_conf_id, repo_id, arch, list_all, output_change)
         
         raise ValueError("That seems to be an invalid ID!")
 
@@ -1048,8 +1042,7 @@ class Query():
         # It can output just one part of the id.
         # That's useful to, for example, list all arches associated with a workload_conf_id
         if output_change:
-            if not list_all:
-                raise ValueError("output_change must be used together with list_all")
+            list_all = True
             if output_change not in ["env_conf_ids", "repo_ids", "arches"]:
                 raise ValueError('output_change must be one of: "env_conf_ids", "repo_ids", "arches"')
         
@@ -1103,7 +1096,7 @@ class Query():
             return False
         return matching_ids
     
-    def envs_id(self, id, list_all=False):
+    def envs_id(self, id, list_all=False, output_change=None):
         # Accepts both env and workload ID, and returns workloads that match that
         id_components = id.split(":")
 
@@ -1112,7 +1105,7 @@ class Query():
             env_conf_id = id_components[0]
             repo_id = id_components[1]
             arch = id_components[2]
-            return self.envs(env_conf_id, repo_id, arch, list_all)
+            return self.envs(env_conf_id, repo_id, arch, list_all, output_change)
         
         # It's a workload!
         if len(id_components) == 4:
@@ -1120,124 +1113,22 @@ class Query():
             env_conf_id = id_components[1]
             repo_id = id_components[2]
             arch = id_components[3]
-            return self.envs(env_conf_id, repo_id, arch, list_all)
+            return self.envs(env_conf_id, repo_id, arch, list_all, output_change)
         
         raise ValueError("That seems to be an invalid ID!")
+    
+    def workload_pkgs(self, workload_conf_id, env_conf_id, repo_id, arch):
+        pass
 
+    def workload_pkgs_id(self, workload_id):
+        pass
+    
+    def env_pkgs(self, workload_conf_id, env_conf_id, repo_id, arch):
+        pass
+    
+    def env_pkgs_id(self, env_id):
+        pass
 
-
-def generate_key(data, configs, settings):
-    log("")
-    log("###############################################################################")
-    log("### Generateing a key to access the data! #####################################")
-    log("###############################################################################")
-    log("")
-
-    key = {}
-
-    key["workloads"] = {}
-    for workload_conf_id, workload_conf in configs["workloads"].items():
-        key["workloads"][workload_conf_id] = {}
-    for workload_id, workload in data["workloads"].items():
-        key["workloads"][workload_id] = {}
-
-    key["views"] = {}
-    for view_conf_id, view_conf in configs["views"].items():
-        key["views"][view_conf_id] = {}
-    for view_id, view in data["views"].items():
-        key["views"][view_id] = {}
-
-    # workload_conf -> env_conf_ids
-    # key["workloads"][workload_conf_id]["env_conf_ids"]
-    log("Generating 'workload_conf -> env_conf_ids' key...")
-    for workload_conf_id, workload_conf in configs["workloads"].items():
-        key["workloads"][workload_conf_id]["env_conf_ids"] = set()
-        for label in workload_conf["labels"]:
-            for env_conf_id, env_conf in configs["envs"].items():
-                if label in env_conf["labels"]:
-                    key["workloads"][workload_conf_id]["env_conf_ids"].add(env_conf_id)
-    log("  Done!")
-    log("")
-
-    # workload_conf -> repo_ids
-    # key["workloads"][workload_conf_id]["repo_ids"]
-    log("Generating 'workload_conf -> repo_ids' key...")
-    for workload_conf_id, workload_conf in configs["workloads"].items():
-        key["workloads"][workload_conf_id]["repo_ids"] = set()
-        for env_conf_id in key["workloads"][workload_conf_id]["env_conf_ids"]:
-            for repo_id in configs["envs"][env_conf_id]["repositories"]:
-                key["workloads"][workload_conf_id]["repo_ids"].add(repo_id)
-    log("  Done!")
-    log("")
-
-    # workload total size & package counts
-    # key["workloads"][workload_id]["total_size"]
-    # key["workloads"][workload_id]["total_size_text"]
-    # key["workloads"][workload_id]["pkg_count"]
-    # key["workloads"][workload_id]["env_pkg_count"]
-    # key["workloads"][workload_id]["added_pkg_count"]
-    log("Generating 'workload total size & package counts' key...")
-    for workload_id, workload in data["workloads"].items():
-        repo_id = workload["repo_id"]
-        arch = workload["arch"]
-        # Total size
-        total_size = 0
-        for pkg_id in workload["pkg_env_ids"]:
-            total_size += data["pkgs"][repo_id][arch][pkg_id]["installsize"]
-        for pkg_id in workload["pkg_added_ids"]:
-            total_size += data["pkgs"][repo_id][arch][pkg_id]["installsize"]
-        key["workloads"][workload_id]["total_size"] = total_size
-        key["workloads"][workload_id]["total_size_text"] = size(total_size)
-        # Package count
-        env_pkg_count = len(workload["pkg_env_ids"])
-        added_pkg_count = len(workload["pkg_added_ids"])
-        pkg_count = env_pkg_count + added_pkg_count
-        key["workloads"][workload_id]["pkg_count"] = pkg_count
-        key["workloads"][workload_id]["env_pkg_count"] = env_pkg_count
-        key["workloads"][workload_id]["added_pkg_count"] = added_pkg_count
-    log("  Done!")
-    log("")
-
-    # view_conf -> env_conf_ids
-    # key["views"][view_conf_id]["env_conf_ids"]
-    log("Generating 'view_conf -> env_conf_ids' key...")
-    for view_conf_id, view_conf in configs["views"].items():
-        key["views"][view_conf_id]["env_conf_ids"] = set()
-        for label in view_conf["labels"]:
-            for env_conf_id, env_conf in configs["envs"].items():
-                if label in env_conf["labels"]:
-                    key["views"][view_conf_id]["env_conf_ids"].add(env_conf_id)
-    log("  Done!")
-    log("")
-
-    # view_conf -> workload_conf_ids
-    # key["views"][view_conf_id]["workload_conf_ids"]
-    log("Generating 'view_conf -> workload_conf_ids' key...")
-    for view_conf_id, view_conf in configs["views"].items():
-        key["views"][view_conf_id]["workload_conf_ids"] = set()
-        for label in view_conf["labels"]:
-            for workload_conf_id, workload_conf in configs["workloads"].items():
-                if label in workload_conf["labels"]:
-                    key["views"][view_conf_id]["workload_conf_ids"].add(workload_conf_id)
-    log("  Done!")
-    log("")
-
-    # view_conf -> repo_ids
-    # key["views"][view_conf_id]["repo_ids"]
-    log("Generating 'view_conf -> repo_ids' key...")
-    for view_conf_id, view_conf in configs["views"].items():
-        key["views"][view_conf_id]["repo_ids"] = set()
-        for env_conf_id in key["views"][view_conf_id]["env_conf_ids"]:
-            for repo_id in configs["envs"][env_conf_id]["repositories"]:
-                key["views"][view_conf_id]["repo_ids"].add(repo_id)
-        for repo_id in key["workloads"][workload_conf_id]["repo_ids"]:
-            key["views"][view_conf_id]["repo_ids"].add(repo_id)
-    log("  Done!")
-    log("")
-
-
-
-    return key
 
 
 ###############################################################################
@@ -1278,30 +1169,22 @@ def _generate_html_page(template_name, template_data, page_name, settings):
     log("")
 
 
-def _generate_workload_overview_pages(key, data, configs, settings):
+def _generate_workload_overview_pages(query):
     log("Generating workload overview pages...")
 
-    for workload_conf_id, workload_conf in configs["workloads"].items():
-
-        for repo_id in key["workloads"][workload_conf_id]["repo_ids"]:
+    for workload_conf_id in query.workloads(None,None,None,None,output_change="workload_conf_ids"):
+        for repo_id in query.workloads(workload_conf_id,None,None,None,output_change="repo_ids"):
             template_data = {
-                "repo_id": repo_id,
-                "repo_ids": key["workloads"][workload_conf_id]["repo_ids"],
-                "all_arches": settings["allowed_arches"],
-                "all_env_conf_ids": key["workloads"][workload_conf_id]["env_conf_ids"],
-                "configs": configs,
-                "workload_conf": workload_conf,
-                "key": key,
-                "data": data
-
+                "query": query,
+                "workload_conf_id": workload_conf_id,
+                "repo_id": repo_id
             }
 
             page_name = "workload-overview--{workload_conf_id}--{repo_id}".format(
                 workload_conf_id=workload_conf_id,
                 repo_id=repo_id
             )
-            _generate_html_page("workload_overview", template_data, page_name, settings)
-
+            _generate_html_page("workload_overview", template_data, page_name, query.settings)
     
     log("  Done!")
     log("")
@@ -1359,7 +1242,7 @@ def _generate_workload_pages(key, data, configs, settings):
     log("")
 
 
-def generate_pages(key, data, configs, settings):
+def generate_pages(query):
     log("")
     log("###############################################################################")
     log("### Generating html pages! ####################################################")
@@ -1369,48 +1252,56 @@ def generate_pages(key, data, configs, settings):
     # Copy static files
     log("Copying static files...")
     src_static_dir = os.path.join("templates", "_static")
-    output_static_dir = os.path.join(settings["output"])
+    output_static_dir = os.path.join(query.settings["output"])
     subprocess.run(["cp", "-R", src_static_dir, output_static_dir])
     log("  Done!")
     log("")
 
     # Generate the landing page
-    _generate_html_page("homepage", None, "index", settings)
+    _generate_html_page("homepage", None, "index", query.settings)
 
     # Generate the main menu page
-    _generate_html_page("results", None, "results", settings)
+    _generate_html_page("results", None, "results", query.settings)
 
     # Generate the workloads page
+    template_data = {
+        "query": query
+    }
+    _generate_html_page("workloads", template_data, "workloads", query.settings)
+
+    # Generate workload_overview pages
+    _generate_workload_overview_pages(query)
+
+    return
+
+    # Generate the workloads page
+    _generate_workloads_page
     template_data = {
         "configs": configs,
         "key": key
     }
-    _generate_html_page("workloads", template_data, "workloads", settings)
+    _generate_html_page("workloads", template_data, "workloads", query.settings)
 
     # Generate workload_overview pages
-    _generate_workload_overview_pages(key, data, configs, settings)
+    _generate_workload_overview_pages(key, data, configs, query.settings)
 
     # Generate workload pages
-    _generate_workload_pages(key, data, configs, settings)
+    _generate_workload_pages(key, data, configs, query.settings)
 
     # Generate the environments page
     template_data = {
         "configs": configs,
         "key": key
     }
-    _generate_html_page("envs", template_data, "envs", settings)
+    _generate_html_page("envs", template_data, "envs", query.settings)
 
     # Generate the views page
     template_data = {
         "configs": configs,
         "key": key
     }
-    _generate_html_page("views", template_data, "views", settings)
+    _generate_html_page("views", template_data, "views", query.settings)
 
-
-
-
-    return None
 
 
 
@@ -1443,6 +1334,18 @@ def main():
 
     query = Query(data, configs, settings)
 
+    generate_pages(query)
+
+    #dump_data("data.json", data)
+
+
+
+
+
+
+
+
+def tests_to_be_made_actually_useful_at_some_point_because_this_is_terribble():
     print("")
     print("")
     print("")
@@ -1598,10 +1501,7 @@ def main():
 
 
 
-    #key = generate_key(data, configs, settings)
-    #generate_pages(key, data, configs, settings)
 
-    #dump_data("data.json", data)
 
 
 if __name__ == "__main__":

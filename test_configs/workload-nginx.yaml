@@ -17,12 +17,12 @@ data:
   # Name is an identifier for humans
   #
   # (mandatory field)
-  name: nginx
+  name: Nginx web server
   
   # A short description, perhaps hinting the purpose
   #
   # (mandatory field)
-  description: The nginx web server.
+  description: The Nginx web server.
 
   # Who maintains it? This is just a freeform string
   # for humans to read. In Fedora, a FAS nick is recommended.

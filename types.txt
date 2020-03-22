@@ -62,9 +62,6 @@ configs["workloads"][workload_conf_id]["labels"]
 configs["workloads"][workload_conf_id]["arch_packages"][arch]
 configs["workloads"][workload_conf_id]["options"]
 
-key["workloads"][workload_conf_id]["env_conf_ids"]
-key["workloads"][workload_conf_id]["repo_ids"]
-
 data["workloads"][workload_id]["workload_conf_id"]
 data["workloads"][workload_id]["env_conf_id"]
 data["workloads"][workload_id]["repo_id"]
@@ -73,12 +70,6 @@ data["workloads"][workload_id]["pkg_env_ids"]
 data["workloads"][workload_id]["pkg_added_ids"]
 data["workloads"][workload_id]["errors"]["non_existing_pkgs"]
 data["workloads"][workload_id]["succeeded"]
-
-key["workloads"][workload_id]["total_size"]
-key["workloads"][workload_id]["total_size_text"]
-key["workloads"][workload_id]["pkg_count"]
-key["workloads"][workload_id]["env_pkg_count"]
-key["workloads"][workload_id]["added_pkg_count"]
 
 
 
@@ -98,23 +89,3 @@ configs["views"][view_conf_id]["description"]
 configs["views"][view_conf_id]["maintainer"]
 configs["views"][view_conf_id]["labels"]
 
-key["views"][view_conf_id]["env_conf_ids"]
-key["views"][view_conf_id]["workload_conf_ids"]
-key["views"][view_conf_id]["repo_ids"]
-
-
-
-
-               
-
-
-
-
-
-===== Notes =====
-
-
-Does it exist?
-
-workload    —   workload_conf_id:env_conf_id:repo_id:arch
-env         -   env_conf_id:repo_id:arch

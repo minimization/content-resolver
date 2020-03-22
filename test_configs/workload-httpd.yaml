@@ -17,7 +17,7 @@ data:
   # Name is an identifier for humans
   #
   # (mandatory field)
-  name: Apache httpd
+  name: Apache HTTP Server
   
   # A short description, perhaps hinting the purpose
   #

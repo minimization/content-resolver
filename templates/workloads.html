@@ -23,13 +23,13 @@
             </tr>
         </thead>
         <tbody>
-            {% for workload_conf_id, workload_conf in configs.workloads.items() %}
+            {% for workload_conf_id in query.workloads(None,None,None,None,output_change="workload_conf_ids") %}
             <tr>
-                <td>{{workload_conf.name}}</td>
+                <td>{{query.configs.workloads[workload_conf_id].name}}</td>
                 <td>
-                    {% for repo_id in key.workloads[workload_conf_id].repo_ids %}
+                    {% for repo_id in query.workloads(workload_conf_id,None,None,None,output_change="repo_ids") %}
                     <a class="card-link" href="workload-overview--{{workload_conf_id}}--{{repo_id}}.html">
-                        {{configs.repos[repo_id].name}}
+                        {{query.configs.repos[repo_id].name}}
                     </a>
                     {% endfor %}
                 </td>
