@@ -1,0 +1,75 @@
+{% extends "layout.html" %}
+
+{% block content %}
+
+<div class="container">
+
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="./">Home</a></li>
+            <li class="breadcrumb-item"><a href="./configs_repos.html">Configuration Files</a></li>
+            <li class="breadcrumb-item active" aria-current="page">Repository: {{repo_conf.name}}</li>
+        </ol>
+    </nav>
+
+    <h1>
+        {{repo_conf.name}}
+        <small class="text-muted">repository configuration</small>
+    </h1>
+
+    <hr>
+
+    <div class="card">
+        <h5 class="card-header">
+            <a href="https://github.com/minimization/feedback-pipeline-config/blob/master/{{repo_conf.id}}.yaml" class="btn btn-sm btn-primary float-right">Edit Configuration</a>
+            Configuration
+        </h5>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-sm-6">
+                    <dl>
+                        <dt>Name</dt>
+                        <dd>{{repo_conf.name}}</dd>
+
+                        <dt>Description</dt>
+                        <dd>{{repo_conf.description}}</dd>
+
+                        <dt>maintainer</dt>
+                        <dd>{{repo_conf.maintainer}}</dd>
+                    </dl>
+                </div>
+                <div class="col-sm-6">
+                    <dl>
+                        <dt> Sources </dt>
+                        <dd>
+                            <ul class="list-unstyled">
+                                {% for arch in repo_conf.source.architectures %}
+                                <li>Fedora {{repo_conf.source.fedora_release}} {{arch}} repositories</li>
+                                {% endfor %}
+                            </ul>
+                        </dd>
+                    </dl>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <br>
+
+    <div class="card">
+        <h5 class="card-header"> Results </h5>
+        <div class="card-body">
+            <br>
+            <br>
+            <br>
+            <div style="text-align: center;">
+                <h1 class="text-muted">TBD</h1>
+            </div>
+            <br>
+            <br>
+            <br>
+        </div>
+    </div>
+
+</div>
+{% endblock %}

@@ -6,13 +6,34 @@
 
     <nav aria-label="breadcrumb">
         <ol class="breadcrumb">
-            <li class="breadcrumb-item"><a href="./">Home</a></li>
-            <li class="breadcrumb-item"><a href="./results.html">Results</a></li>
+            <li class="breadcrumb-item"><a href="./results.html">Home</a></li>
+            <li class="breadcrumb-item"><a href="">Results</a></li>
             <li class="breadcrumb-item active" aria-current="page">Views</li>
         </ol>
     </nav>
 
-    <h1> User-defined Views </h1>
+    <h1> Results </h1>
+
+    <hr>
+
+    <ul class="nav nav-tabs">
+        <li class="nav-item">
+            <a class="nav-link " href="repos.html">Repositories</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link " href="envs.html">Environments</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link " href="workloads.html">Workloads</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link " href="labels.html">Labels</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link active" href="views.html">Views</a>
+        </li>
+    </ul>
+
     <br>
 
     <table class="table table-striped" id="table_packages">
@@ -23,18 +44,7 @@
             </tr>
         </thead>
         <tbody>
-            {% for view_conf_id, view_conf in configs.views.items() %}
-            <tr>
-                <td>{{view_conf.name}}</td>
-                <td>
-                    {% for repo_id in key.views[view_conf_id].repo_ids %}
-                    <a class="card-link" href="view-overview--{{view_conf_id}}--{{repo_id}}.html">
-                        {{configs.repos[repo_id].name}}
-                    </a>
-                    {% endfor %}
-                </td>
-            </tr>
-            {% endfor %}
+            
         </tbody>
     </table>
 </div>

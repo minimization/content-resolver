@@ -65,6 +65,34 @@ table.dataTable thead th {
   padding-left: 30px;
 }
 
+/* Grid table */
+
+table.grid-table {
+  border: 1px solid #ccc;
+  border-radius: 5px;
+}
+
+table.grid-table th {
+  background-color: #e9ecef;
+}
+
+/*  Package lists */
+
+
+ul.list-packages li {
+  color: rgb(68, 68, 68);
+  font-family: monospace;
+  border-bottom: #6c757d 1px solid;
+}
+
+ul.list-packages li:irst-child {
+  border-top: #6c757d 1px solid;
+}
+
+ul.list-packages li.required-package {
+  color: #CC0066;
+}
+
 
 /*  Package tables  */
 

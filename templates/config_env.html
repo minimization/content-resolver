@@ -1,0 +1,111 @@
+{% extends "layout.html" %}
+
+{% block content %}
+
+<div class="container">
+
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="./">Home</a></li>
+            <li class="breadcrumb-item"><a href="./configs_repos.html">Configuration Files</a></li>
+            <li class="breadcrumb-item active" aria-current="page">Repository: {{env_conf.name}}</li>
+        </ol>
+    </nav>
+
+    <h1>
+        {{env_conf.name}}
+        <small class="text-muted">environment configuration</small>
+    </h1>
+
+    <hr>
+
+    <div class="card">
+        <h5 class="card-header">
+            <a href="https://github.com/minimization/feedback-pipeline-config/blob/master/{{env_conf.id}}.yaml" class="btn btn-sm btn-primary float-right">Edit Configuration</a>
+            Configuration
+        </h5>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-sm-6">
+                    <dl>
+                        <dt>Name</dt>
+                        <dd>{{env_conf.name}}</dd>
+
+                        <dt>Description</dt>
+                        <dd>{{env_conf.description}}</dd>
+
+                        <dt>maintainer</dt>
+                        <dd>{{env_conf.maintainer}}</dd>
+                    </dl>
+                </div>
+                <div class="col-sm-3">
+                    <dl>
+                        <dt> Repositories </dt>
+                        <dd>
+                            <ul class="list-unstyled list-packages">
+                                {% for repo_id in env_conf.repositories %}
+                                <li>{{repo_id}}</li>
+                                {% endfor %}
+                            </ul>
+                        </dd>
+
+                        <dt> Labels </dt>
+                        <dd>
+                            <ul class="list-unstyled list-packages">
+                                {% for label_id in env_conf.labels %}
+                                <li>{{label_id}}</li>
+                                {% endfor %}
+                            </ul>
+                        </dd>
+                    </dl>
+                </div>
+                <div class="col-sm-3">
+                    <dl>
+                        <dt> Packages </dt>
+                        <dd>
+                            <ul class="list-unstyled list-packages">
+                                {% for pkg_name in env_conf.packages %}
+                                <li class="required-package">{{pkg_name}}</li>
+                                {% else %}
+                                <li class="text-muted">(no packages)</li>
+                                {% endfor %}
+                            </ul>
+                        </dd>
+
+                        {% for arch, pkgs in env_conf.arch_packages.items() %}
+                        {% if pkgs %}
+                        <dt> Packages just for {{arch}} </dt>
+                        <dd>
+                            <ul class="list-unstyled list-packages">
+                                {% for pkg_name in pkgs %}
+                                <li class="required-package">{{pkg_name}}</li>
+                                {% endfor %}
+                            </ul>
+                        </dd>
+                        {% endif %}
+                        {% endfor %}
+                    </dl>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <br>
+
+    <div class="card">
+        <h5 class="card-header"> Results </h5>
+        <div class="card-body">
+            <br>
+            <br>
+            <br>
+            <div style="text-align: center;">
+                <h1 class="text-muted">TBD</h1>
+            </div>
+            <br>
+            <br>
+            <br>
+        </div>
+    </div>
+
+</div>
+{% endblock %}

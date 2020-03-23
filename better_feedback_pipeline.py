@@ -1169,8 +1169,8 @@ def _generate_html_page(template_name, template_data, page_name, settings):
     log("")
 
 
-def _generate_workload_overview_pages(query):
-    log("Generating workload overview pages...")
+def _generate_workload_pages(query):
+    log("Generating workload pages...")
 
     for workload_conf_id in query.workloads(None,None,None,None,output_change="workload_conf_ids"):
         for repo_id in query.workloads(workload_conf_id,None,None,None,output_change="repo_ids"):
@@ -1190,56 +1190,119 @@ def _generate_workload_overview_pages(query):
     log("")
 
 
-def _generate_workload_pages(key, data, configs, settings):
-    log("Generating workload pages...")
+def _generate_env_pages(query):
+    log("Generating env pages...")
 
-    for workload_id, workload in data["workloads"].items():
+    for env_conf_id in query.envs(None,None,None,output_change="env_conf_ids"):
+        for repo_id in query.envs(env_conf_id,None,None,output_change="repo_ids"):
+            template_data = {
+                "query": query,
+                "env_conf_id": env_conf_id,
+                "repo_id": repo_id
+            }
 
-        arch = workload["arch"]
-        repo_id = workload["repo_id"]
-        workload_conf_id = workload["workload_conf_id"]
-        workload_conf = configs["workloads"][workload_conf_id]
-
-        all_pkgs = {}
-
-        for pkg_id in workload["pkg_env_ids"]:
-            pkg = data["pkgs"][repo_id][arch][pkg_id]
-            pkg["is_required"] = False
-            pkg["is_env"] = True
-            pkg["size_text"] = size(pkg["installsize"])
-            all_pkgs[pkg_id] = pkg
-        
-        for pkg_id in workload["pkg_added_ids"]:
-            pkg = data["pkgs"][repo_id][arch][pkg_id]
-            pkg["is_required"] = bool(
-                pkg["name"] in workload_conf["packages"] \
-                or \
-                pkg["name"] in workload_conf["arch_packages"][arch]
+            page_name = "env-overview--{env_conf_id}--{repo_id}".format(
+                env_conf_id=env_conf_id,
+                repo_id=repo_id
             )
-            pkg["is_env"] = False
-            pkg["size_text"] = size(pkg["installsize"])
-            all_pkgs[pkg_id] = pkg
-
-        template_data = {
-            "arch": arch,
-            "repo_id": repo_id,
-            "workload_conf_id": workload_conf_id,
-            "workload_conf": workload_conf,
-            "workload_id": workload_id,
-            "workload": workload,
-            "all_pkgs": all_pkgs,
-            "configs": configs,
-            "key": key
-        }
-
-        page_name = "workload--{workload_id}".format(
-            workload_id=workload_id
-        )
-
-        _generate_html_page("workload", template_data, page_name, settings)
+            _generate_html_page("env_overview", template_data, page_name, query.settings)
 
     log("  Done!")
     log("")
+
+
+def _generate_config_pages(query):
+    log("Generating config pages...")
+
+    for conf_type in ["repos", "envs", "workloads", "labels", "views"]:
+        template_data = {
+            "query": query,
+            "conf_type": conf_type
+        }
+        page_name = "configs_{conf_type}".format(
+            conf_type=conf_type
+        )
+        _generate_html_page("configs", template_data, page_name, query.settings)
+
+    # Config repo pages
+    for repo_id,repo_conf in query.configs["repos"].items():
+        template_data = {
+            "query": query,
+            "repo_conf": repo_conf
+        }
+        page_name = "config-repo--{repo_id}".format(
+            repo_id=repo_id
+        )
+        _generate_html_page("config_repo", template_data, page_name, query.settings)
+    
+    # Config env pages
+    for env_conf_id,env_conf in query.configs["envs"].items():
+        template_data = {
+            "query": query,
+            "env_conf": env_conf
+        }
+        page_name = "config-env--{env_conf_id}".format(
+            env_conf_id=env_conf_id
+        )
+        _generate_html_page("config_env", template_data, page_name, query.settings)
+
+    # Config workload pages
+    for workload_conf_id,workload_conf in query.configs["workloads"].items():
+        template_data = {
+            "query": query,
+            "workload_conf": workload_conf
+        }
+        page_name = "config-workload--{workload_conf_id}".format(
+            workload_conf_id=workload_conf_id
+        )
+        _generate_html_page("config_workload", template_data, page_name, query.settings)
+
+    # Config label pages
+    for label_conf_id,label_conf in query.configs["labels"].items():
+        template_data = {
+            "query": query,
+            "label_conf": label_conf
+        }
+        page_name = "config-label--{label_conf_id}".format(
+            label_conf_id=label_conf_id
+        )
+        _generate_html_page("config_label", template_data, page_name, query.settings)
+
+    # Config view pages
+    for view_conf_id,view_conf in query.configs["views"].items():
+        template_data = {
+            "query": query,
+            "view_conf": view_conf
+        }
+        page_name = "config-view--{view_conf_id}".format(
+            view_conf_id=view_conf_id
+        )
+        _generate_html_page("config_view", template_data, page_name, query.settings)
+
+    log("  Done!")
+    log("")
+
+def _generate_repo_pages(query):
+    log("Generating repo pages...")
+
+    for repo_id, repo in query.configs["repos"].items():
+        for arch in repo["source"]["architectures"]:
+            template_data = {
+                "query": query,
+                "repo": repo,
+                "arch": arch
+            }
+            page_name = "repo--{repo_id}--{arch}".format(
+                repo_id=repo_id,
+                arch=arch
+            )
+            _generate_html_page("repo", template_data, page_name, query.settings)
+
+
+    log("  Done!")
+    log("")
+
+
 
 
 def generate_pages(query):
@@ -1263,44 +1326,30 @@ def generate_pages(query):
     # Generate the main menu page
     _generate_html_page("results", None, "results", query.settings)
 
-    # Generate the workloads page
+    # Generate config pages
+    _generate_config_pages(query)
+
+    # Generate the top-level results pages
     template_data = {
         "query": query
     }
-    _generate_html_page("workloads", template_data, "workloads", query.settings)
-
-    # Generate workload_overview pages
-    _generate_workload_overview_pages(query)
-
-    return
-
-    # Generate the workloads page
-    _generate_workloads_page
-    template_data = {
-        "configs": configs,
-        "key": key
-    }
-    _generate_html_page("workloads", template_data, "workloads", query.settings)
-
-    # Generate workload_overview pages
-    _generate_workload_overview_pages(key, data, configs, query.settings)
-
-    # Generate workload pages
-    _generate_workload_pages(key, data, configs, query.settings)
-
-    # Generate the environments page
-    template_data = {
-        "configs": configs,
-        "key": key
-    }
+    _generate_html_page("repos", template_data, "repos", query.settings)
     _generate_html_page("envs", template_data, "envs", query.settings)
-
-    # Generate the views page
-    template_data = {
-        "configs": configs,
-        "key": key
-    }
+    _generate_html_page("workloads", template_data, "workloads", query.settings)
+    _generate_html_page("labels", template_data, "labels", query.settings)
     _generate_html_page("views", template_data, "views", query.settings)
+
+    # Generate repo pages
+    _generate_repo_pages(query)
+
+    # Generate env_overview pages
+    _generate_env_pages(query)
+
+    # Generate workload_overview pages
+    _generate_workload_pages(query)
+
+    
+
 
 
 

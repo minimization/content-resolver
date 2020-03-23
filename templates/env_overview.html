@@ -4,90 +4,74 @@
 
 <div class="container">
 
-    <h1> {{env_conf.name}} <small class="text-muted">environment</small></h1>
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="./results.html">Home</a></li>
+            <li class="breadcrumb-item"><a href="./envs.html">Results</a></li>
+            <li class="breadcrumb-item"><a href="./envs.html">Environments</a></li>
+            <li class="breadcrumb-item active" aria-current="page">{{query.configs.envs[env_conf_id].name}}</li>
+        </ol>
+    </nav>
+
+    <h1> 
+        {{query.configs.envs[env_conf_id].name}} <small class="text-muted">env</small>
+        <br>
+        <small class="text-muted">from</small>
+        <small><a href="">{{query.configs.repos[repo_id].name}}</a></small>
+    </h1>
 
     <hr>
 
-    <p class="lead"> {{workload_conf.description}} </p>
+    <p class="lead"> {{query.configs.envs[env_conf_id].description}} </p>
 
     <div class="card">
         <div class="card-header">
             <h5 class=""> Results overview</h5>
             <ul class="nav nav-tabs card-header-tabs">
-                {% for loop_repo_id in repo_ids %}
+                {% for loop_repo_id in query.envs(env_conf_id,None,None,output_change="repo_ids") %}
                 <li class="nav-item">
                     {% if repo_id == loop_repo_id %}
-                    <a class="nav-link active" href="#">{{configs.repos[loop_repo_id].name}}</a>
+                    <a class="nav-link active" href="#">{{query.configs.repos[loop_repo_id].name}}</a>
                     {% else %}
-                    <a class="nav-link" href="#">{{configs.repos[loop_repo_id].name}}</a>
+                    <a class="nav-link" href="#">{{query.configs.repos[loop_repo_id].name}}</a>
                     {% endif %}
                 </li>
                 {% endfor %}
             </ul>
         </div>
         
+        <br>
 
-        <span class="card-body">Resolved in {{all_env_conf_ids | count }} environments accross {{all_arches | count}} architectures</span>
-        <table class="card-body table table-bordered" style="text-align: center">
+        <table class="card-body table table-bordered grid-table" style="text-align: center">
             <thead>
                 <tr class="sort_control_row">
-                    <th></th>
-                    {% for arch in all_arches %}
+                    {% for arch in query.settings.allowed_arches %}
                     <th>{{arch}}</th>
                     {% endfor %}
                     <th></th>
                 </tr>
             </thead>
             <tbody>
-                {% for env_conf_id in all_env_conf_ids %}
                 <tr>
-                    <td>
-                        <span class="text-muted">from</span> <a href="">{{configs.repos[repo_id].name}}</a>
-                        <br>
-                        <b><span class="text-muted">in</span> <a href="">{{configs.envs[env_conf_id].name}}</a></b>
-                    </td>
-                    {% for arch in all_arches %}
-                    <td>
+                    {% for arch in query.settings.allowed_arches %}
+
+                    {% if arch in query.envs(env_conf_id,repo_id,None,output_change="arches") %}
+
+                    <td class="align-middle">
                         <p>
-                        {{key.workloads["{workload_conf_id}:{env_conf_id}:{repo_id}:{arch}".format(
-                            workload_conf_id=workload_conf.id,
-                            env_conf_id=env_conf_id,
-                            repo_id=repo_id,
-                            arch=arch
-                        )].pkg_count}} packages
+                        ?? packages
                         <br>
-                        {{key.workloads["{workload_conf_id}:{env_conf_id}:{repo_id}:{arch}".format(
-                            workload_conf_id=workload_conf.id,
-                            env_conf_id=env_conf_id,
-                            repo_id=repo_id,
-                            arch=arch
-                        )].total_size_text}}
+                        ?? MB
                         </p>
-                        <b><a href="workload--{{'{workload_conf_id}--{env_conf_id}--{repo_id}--{arch}'.format(
-                            workload_conf_id=workload_conf.id,
-                            env_conf_id=env_conf_id,
-                            repo_id=repo_id,
-                            arch=arch
-                        )}}.html">Details</a></b>
+                        <b><a href="">Details</a></b>
                     </td>
+                    {% else %}
+                    <td class="align-middle text-muted"> (Excluded) </td>
+                    {% endif %}
                     {% endfor %}
-                    <td>
+                    <td class="align-middle">
                         <a href="">Compare all<br>architectures</a>
-                        <p>({{configs.envs[env_conf_id].name}})</p>
                     </td>
-                </tr>
-                {% endfor %}
-
-
-                <tr>
-                    <th></th>
-                    {% for arch in all_arches %}
-                    <td>
-                        <a href="">Compare all<br>environments</a>
-                        <p>{{arch}}</p>
-                    </td>
-                    {% endfor %}
-                    <td></td>
                 </tr>
 
 

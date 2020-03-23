@@ -2,18 +2,38 @@
 
 {% block content %}
 
-
 <div class="container">
 
     <nav aria-label="breadcrumb">
         <ol class="breadcrumb">
-            <li class="breadcrumb-item"><a href="./">Home</a></li>
-            <li class="breadcrumb-item"><a href="./results.html">Results</a></li>
+            <li class="breadcrumb-item"><a href="./results.html">Home</a></li>
+            <li class="breadcrumb-item"><a href="">Results</a></li>
             <li class="breadcrumb-item active" aria-current="page">Environments</li>
         </ol>
     </nav>
 
-    <h1> All Environments </h1>
+    <h1> Results </h1>
+
+    <hr>
+
+    <ul class="nav nav-tabs">
+        <li class="nav-item">
+            <a class="nav-link " href="repos.html">Repositories</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link active" href="envs.html">Environments</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link " href="workloads.html">Workloads</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link " href="labels.html">Labels</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link " href="views.html">Views</a>
+        </li>
+    </ul>
+
     <br>
 
     <table class="table table-striped" id="table_packages">
@@ -24,13 +44,13 @@
             </tr>
         </thead>
         <tbody>
-            {% for env_conf_id, env_conf in configs.envs.items() %}
+            {% for env_conf_id in query.envs(None,None,None,output_change="env_conf_ids") %}
             <tr>
-                <td>{{env_conf.name}}</td>
+                <td>{{query.configs.envs[env_conf_id].name}}</td>
                 <td>
-                    {% for repo_id in env_conf.repositories %}
+                    {% for repo_id in query.envs(env_conf_id,None,None,output_change="repo_ids") %}
                     <a class="card-link" href="env-overview--{{env_conf_id}}--{{repo_id}}.html">
-                        {{configs.repos[repo_id].name}}
+                        {{query.configs.repos[repo_id].name}}
                     </a>
                     {% endfor %}
                 </td>

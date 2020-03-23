@@ -6,8 +6,8 @@
 
     <nav aria-label="breadcrumb">
         <ol class="breadcrumb">
-            <li class="breadcrumb-item"><a href="./">Home</a></li>
-            <li class="breadcrumb-item"><a href="./results.html">Results</a></li>
+            <li class="breadcrumb-item"><a href="./results.html">Home</a></li>
+            <li class="breadcrumb-item"><a href="./workloads.html">Results</a></li>
             <li class="breadcrumb-item"><a href="./workloads.html">Workloads</a></li>
             <li class="breadcrumb-item active" aria-current="page">{{query.configs.workloads[workload_conf_id].name}}</li>
         </ol>
@@ -39,21 +39,14 @@
                 {% endfor %}
             </ul>
         </div>
+
+        <br>
         
-
-        <span class="card-body">
-            Resolved in
-            {{query.workloads(workload_conf_id,None,repo_id,None,output_change="env_conf_ids") | count }}
-            environments accross
-            {{query.workloads(workload_conf_id,None,repo_id,None,output_change="arches") | count}}
-            architectures
-        </span>
-
-        <table class="card-body table table-bordered" style="text-align: center">
+        <table class="card-body table table-bordered grid-table" style="text-align: center">
             <thead>
                 <tr class="sort_control_row">
                     <th></th>
-                    {% for arch in query.workloads(workload_conf_id,None,repo_id,None,output_change="arches") %}
+                    {% for arch in query.settings.allowed_arches %}
                     <th>{{arch}}</th>
                     {% endfor %}
                     <th></th>
@@ -62,12 +55,10 @@
             <tbody>
                 {% for env_conf_id in query.workloads(workload_conf_id,None,repo_id,None,output_change="env_conf_ids") %}
                 <tr>
-                    <td class="align-middle">
-                        <span class="text-muted">from</span> <a href="">{{query.configs.repos[repo_id].name}}</a>
-                        <br>
-                        <b><span class="text-muted">in</span> <a href="">{{query.configs.envs[env_conf_id].name}}</a></b>
-                    </td>
-                    {% for arch in query.workloads(workload_conf_id,None,repo_id,None,output_change="arches") %}
+                    <th class="align-middle">
+                        in {{query.configs.envs[env_conf_id].name}}
+                    </th>
+                    {% for arch in query.settings.allowed_arches %}
 
                     {% if arch in query.workloads(workload_conf_id,env_conf_id,repo_id,None,output_change="arches") %}
 
@@ -81,7 +72,7 @@
                         <b><a href="">Details</a></b>
                     </td>
                     {% else %}
-                    <td class="align-middle text-muted"> (none) </td>
+                    <td class="align-middle text-muted"> (Excluded) </td>
                     {% endif %}
                     {% endfor %}
                     <td class="align-middle">
@@ -94,11 +85,15 @@
 
                 <tr>
                     <th></th>
-                    {% for arch in query.workloads(workload_conf_id,None,repo_id,None,output_change="arches") %}
+                    {% for arch in query.settings.allowed_arches %}
+                    {% if arch in query.workloads(workload_conf_id,env_conf_id,repo_id,None,output_change="arches") %}
                     <td>
                         <a href="">Compare all<br>environments</a>
-                        <p>{{arch}}</p>
+                        <p>({{arch}})</p>
                     </td>
+                    {% else %}
+                    <td class="align-middle text-muted"> - </td>
+                    {% endif %}
                     {% endfor %}
                     <td></td>
                 </tr>

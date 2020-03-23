@@ -1,0 +1,82 @@
+{% extends "layout.html" %}
+
+{% block content %}
+
+<div class="container">
+
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="./">Home</a></li>
+            <li class="breadcrumb-item active" aria-current="page">Configuration Files</li>
+        </ol>
+    </nav>
+
+    <h1> Configuration </h1>
+
+    <hr>
+
+    <ul class="nav nav-tabs">
+        <li class="nav-item">
+            <a class="nav-link {% if conf_type == 'repos' %}active{% endif %}"
+                href="configs_repos.html">Repositories</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link {% if conf_type == 'envs' %}active{% endif %}" href="configs_envs.html">Environments</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link {% if conf_type == 'workloads' %}active{% endif %}"
+                href="configs_workloads.html">Workloads</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link {% if conf_type == 'labels' %}active{% endif %}" href="configs_labels.html">Labels</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link {% if conf_type == 'views' %}active{% endif %}" href="configs_views.html">Views</a>
+        </li>
+    </ul>
+
+    <br>
+
+    <table class="table table-striped" id="table_packages">
+        <thead>
+            <tr class="sort_control_row">
+                <th>Name</th>
+                <th>File Name</th>
+                <th>Maintainer</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for conf_id, conf in query.configs[conf_type].items() %}
+            <tr>
+                <td>
+                    {% if conf_type == 'repos' %}
+                    <a href="config-repo--{{conf.id}}.html">{{conf.name}}</a>
+                    {% elif conf_type == 'envs' %}
+                    <a href="config-env--{{conf.id}}.html">{{conf.name}}</a>
+                    {% elif conf_type == 'workloads' %}
+                    <a href="config-workload--{{conf.id}}.html">{{conf.name}}</a>
+                    {% elif conf_type == 'labels' %}
+                    <a href="config-label--{{conf.id}}.html">{{conf.name}}</a>
+                    {% elif conf_type == 'views' %}
+                    <a href="config-view--{{conf.id}}.html">{{conf.name}}</a>
+                    {% endif %}
+
+                </td>
+                <td class="text-monospace">{{conf.id}}.yaml</td>
+                <td>{{conf.maintainer}}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<script>
+    $(document).ready(function () {
+        $('#table_packages').DataTable({
+            paging: false,
+            filter: false,
+            info: false
+        });
+    });
+</script>
+{% endblock %}

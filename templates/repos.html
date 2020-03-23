@@ -8,9 +8,10 @@
         <ol class="breadcrumb">
             <li class="breadcrumb-item"><a href="./results.html">Home</a></li>
             <li class="breadcrumb-item"><a href="">Results</a></li>
-            <li class="breadcrumb-item active" aria-current="page">Workloads</li>
+            <li class="breadcrumb-item active" aria-current="page">Repositories</li>
         </ol>
     </nav>
+
 
     <h1> Results </h1>
 
@@ -18,13 +19,13 @@
 
     <ul class="nav nav-tabs">
         <li class="nav-item">
-            <a class="nav-link " href="repos.html">Repositories</a>
+            <a class="nav-link active" href="repos.html">Repositories</a>
         </li>
         <li class="nav-item">
             <a class="nav-link " href="envs.html">Environments</a>
         </li>
         <li class="nav-item">
-            <a class="nav-link active" href="workloads.html">Workloads</a>
+            <a class="nav-link " href="workloads.html">Workloads</a>
         </li>
         <li class="nav-item">
             <a class="nav-link " href="labels.html">Labels</a>
@@ -44,14 +45,16 @@
             </tr>
         </thead>
         <tbody>
-            {% for workload_conf_id in query.workloads(None,None,None,None,output_change="workload_conf_ids") %}
+            {% for repo_conf_id, repo_conf in query.configs.repos.items() %}
             <tr>
-                <td>{{query.configs.workloads[workload_conf_id].name}}</td>
+                <td>{{repo_conf.name}}</td>
                 <td>
-                    {% for repo_id in query.workloads(workload_conf_id,None,None,None,output_change="repo_ids") %}
-                    <a class="card-link" href="workload-overview--{{workload_conf_id}}--{{repo_id}}.html">
-                        {{query.configs.repos[repo_id].name}}
-                    </a>
+                    {% for arch in repo_conf.source.architectures %}
+                    <span class="card-link">
+                        <a href="repo--{{repo_conf_id}}--{{arch}}.html">{{arch}}</a>
+                        ({{query.data.pkgs[repo_conf_id][arch] | count}} pkgs)
+                    </span>
+                        
                     {% endfor %}
                 </td>
             </tr>
