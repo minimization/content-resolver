@@ -907,7 +907,7 @@ def analyze_things(configs, settings):
         # FIXME temporary override
         tmp = "/tmp/fixed-tmp"
 
-        # List of arches
+        # List of supported arches
         all_arches = settings["allowed_arches"]
 
         # Packages
@@ -917,7 +917,7 @@ def analyze_things(configs, settings):
         for _,repo in configs["repos"].items():
             repo_id = repo["id"]
             data["pkgs"][repo_id] = {}
-            for arch in all_arches:
+            for arch in repo["source"]["architectures"]:
                 data["pkgs"][repo_id][arch] = _analyze_pkgs(tmp, repo, arch)
 
         # Environments
@@ -945,6 +945,14 @@ class Query():
         self.data = data
         self.configs = configs
         self.settings = settings
+    
+    def size(self, num, suffix='B'):
+        for unit in ['','k','M','G']:
+            if abs(num) < 1024.0:
+                return "%3.1f %s%s" % (num, unit, suffix)
+            num /= 1024.0
+        return "%.1f %s%s" % (num, 'T', suffix)
+        
 
     def workloads(self, workload_conf_id, env_conf_id, repo_id, arch, list_all=False, output_change=None):
         # accepts none in any argument, and in those cases, answers for all instances
@@ -1013,7 +1021,7 @@ class Query():
         
         if not list_all:
             return False
-        return matching_ids
+        return sorted(list(matching_ids))
     
     def workloads_id(self, id, list_all=False, output_change=None):
         # Accepts both env and workload ID, and returns workloads that match that
@@ -1094,7 +1102,7 @@ class Query():
         # This means nothing has been found!
         if not list_all:
             return False
-        return matching_ids
+        return sorted(list(matching_ids))
     
     def envs_id(self, id, list_all=False, output_change=None):
         # Accepts both env and workload ID, and returns workloads that match that
@@ -1118,16 +1126,288 @@ class Query():
         raise ValueError("That seems to be an invalid ID!")
     
     def workload_pkgs(self, workload_conf_id, env_conf_id, repo_id, arch):
-        pass
+        # Warning: mixing repos and arches works, but might cause mess on the output
 
-    def workload_pkgs_id(self, workload_id):
-        pass
+        # Output is just a flat list. Extra fields will be added into each package:
+        # q_in          - set of workload_ids including this pkg
+        # q_required_in - set of workload_ids where this pkg is required (top-level)
+        # q_env_in      - set of workload_ids where this pkg is in env
+        
+        # Step 1: get all the matching workloads!
+        workload_ids = self.workloads(workload_conf_id, env_conf_id, repo_id, arch, list_all=True)
+
+        # I'll need repo_ids and arches to access the packages
+        repo_ids = self.workloads(workload_conf_id, env_conf_id, repo_id, arch, output_change="repo_ids")
+        arches = self.workloads(workload_conf_id, env_conf_id, repo_id, arch, output_change="arches")
+
+        # Replicating the same structure as in data["pkgs"]
+        # That is: [repo_id][arch][pkg_id]
+        pkgs = {}
+        for repo_id in repo_ids:
+            pkgs[repo_id] = {}
+            for arch in arches:
+                pkgs[repo_id][arch] = {}
+
+        # Workloads are already paired with envs, repos, and arches
+        # (there is one for each combination)
+        for workload_id in workload_ids:
+            workload = self.data["workloads"][workload_id]
+            workload_arch = workload["arch"]
+            workload_repo_id = workload["repo_id"]
+            workload_conf_id = workload["workload_conf_id"]
+
+            # First, get all pkgs in the env
+            for pkg_id in workload["pkg_env_ids"]:
+
+                # Add it to the list if it's not there already.
+                # Create a copy since it's gonna be modified, and include only what's needed
+                if pkg_id not in pkgs[workload_repo_id][workload_arch]:
+                    pkg = self.data["pkgs"][workload_repo_id][workload_arch][pkg_id]
+                    pkgs[workload_repo_id][workload_arch][pkg_id] = {}
+                    pkgs[workload_repo_id][workload_arch][pkg_id]["id"] = pkg_id
+                    pkgs[workload_repo_id][workload_arch][pkg_id]["name"] = pkg["name"]
+                    pkgs[workload_repo_id][workload_arch][pkg_id]["installsize"] = pkg["installsize"]
+                    pkgs[workload_repo_id][workload_arch][pkg_id]["description"] = pkg["description"]
+                    pkgs[workload_repo_id][workload_arch][pkg_id]["summary"] = pkg["summary"]
+                    pkgs[workload_repo_id][workload_arch][pkg_id]["q_in"] = set()
+                    pkgs[workload_repo_id][workload_arch][pkg_id]["q_required_in"] = set()
+                    pkgs[workload_repo_id][workload_arch][pkg_id]["q_env_in"] = set()
+                
+                # It's here, so add it
+                pkgs[workload_repo_id][workload_arch][pkg_id]["q_in"].add(workload_id)
+                # Browsing env packages, so add it
+                pkgs[workload_repo_id][workload_arch][pkg_id]["q_env_in"].add(workload_id)
+                # Is it required?
+                if pkg["name"] in self.configs["workloads"][workload_conf_id]["packages"]:
+                    pkgs[workload_repo_id][workload_arch][pkg_id]["q_required_in"].add(workload_id)
+                if pkg["name"] in self.configs["workloads"][workload_conf_id]["arch_packages"][workload_arch]:
+                    pkgs[workload_repo_id][workload_arch][pkg_id]["q_required_in"].add(workload_id)
+            
+            # Second, add all the other packages
+            for pkg_id in workload["pkg_added_ids"]:
+
+                # Add it to the list if it's not there already
+                # and initialize extra fields
+                if pkg_id not in pkgs[workload_repo_id][workload_arch]:
+                    pkg = self.data["pkgs"][workload_repo_id][workload_arch][pkg_id]
+                    pkgs[workload_repo_id][workload_arch][pkg_id] = {}
+                    pkgs[workload_repo_id][workload_arch][pkg_id]["id"] = pkg_id
+                    pkgs[workload_repo_id][workload_arch][pkg_id]["name"] = pkg["name"]
+                    pkgs[workload_repo_id][workload_arch][pkg_id]["installsize"] = pkg["installsize"]
+                    pkgs[workload_repo_id][workload_arch][pkg_id]["description"] = pkg["description"]
+                    pkgs[workload_repo_id][workload_arch][pkg_id]["summary"] = pkg["summary"]
+                    pkgs[workload_repo_id][workload_arch][pkg_id]["q_in"] = set()
+                    pkgs[workload_repo_id][workload_arch][pkg_id]["q_required_in"] = set()
+                    pkgs[workload_repo_id][workload_arch][pkg_id]["q_env_in"] = set()
+                
+                # It's here, so add it
+                pkgs[workload_repo_id][workload_arch][pkg_id]["q_in"].add(workload_id)
+                # Not adding it to q_env_in
+                # Is it required?
+                if pkg["name"] in self.configs["workloads"][workload_conf_id]["packages"]:
+                    pkgs[workload_repo_id][workload_arch][pkg_id]["q_required_in"].add(workload_id)
+                if pkg["name"] in self.configs["workloads"][workload_conf_id]["arch_packages"][workload_arch]:
+                    pkgs[workload_repo_id][workload_arch][pkg_id]["q_required_in"].add(workload_id)
+
+        # And now I just need to flatten that dict and return all packages as a list
+        final_pkg_list = []
+        for repo_id in repo_ids:
+            for arch in arches:
+                for pkg_id, pkg in pkgs[repo_id][arch].items():
+                    final_pkg_list.append(pkg)
+
+        # And sort them by nevr which is their ID
+        final_pkg_list_sorted = sorted(final_pkg_list, key=lambda k: k['id'])
+
+        return final_pkg_list_sorted
+
+
+    def workload_pkgs_id(self, id):
+        # Accepts both env and workload ID, and returns pkgs for workloads that match
+        id_components = id.split(":")
+
+        # It's an env!
+        if len(id_components) == 3:
+            env_conf_id = id_components[0]
+            repo_id = id_components[1]
+            arch = id_components[2]
+            return self.workload_pkgs(None, env_conf_id, repo_id, arch)
+        
+        # It's a workload!
+        if len(id_components) == 4:
+            workload_conf_id = id_components[0]
+            env_conf_id = id_components[1]
+            repo_id = id_components[2]
+            arch = id_components[3]
+            return self.workload_pkgs(workload_conf_id, env_conf_id, repo_id, arch)
+        
+        raise ValueError("That seems to be an invalid ID!")
     
-    def env_pkgs(self, workload_conf_id, env_conf_id, repo_id, arch):
-        pass
+    def env_pkgs(self, env_conf_id, repo_id, arch):
+        # Warning: mixing repos and arches works, but might cause mess on the output
+
+        # Output is just a flat list. Extra fields will be added into each package:
+        # q_in          - set of env_ids including this pkg
+        # q_required_in - set of env_ids where this pkg is required (top-level)
+        
+        # Step 1: get all the matching envs!
+        env_ids = self.envs(env_conf_id, repo_id, arch, list_all=True)
+
+        # I'll need repo_ids and arches to access the packages
+        repo_ids = self.envs(env_conf_id, repo_id, arch, output_change="repo_ids")
+        arches = self.envs(env_conf_id, repo_id, arch, output_change="arches")
+
+        # Replicating the same structure as in data["pkgs"]
+        # That is: [repo_id][arch][pkg_id]
+        pkgs = {}
+        for repo_id in repo_ids:
+            pkgs[repo_id] = {}
+            for arch in arches:
+                pkgs[repo_id][arch] = {}
+
+        # envs are already paired with repos, and arches
+        # (there is one for each combination)
+        for env_id in env_ids:
+            env = self.data["envs"][env_id]
+            env_arch = env["arch"]
+            env_repo_id = env["repo_id"]
+            env_conf_id = env["env_conf_id"]
+
+            for pkg_id in env["pkg_ids"]:
+
+                # Add it to the list if it's not there already.
+                # Create a copy since it's gonna be modified, and include only what's needed
+                if pkg_id not in pkgs[env_repo_id][env_arch]:
+                    pkg = self.data["pkgs"][env_repo_id][env_arch][pkg_id]
+                    pkgs[env_repo_id][env_arch][pkg_id] = {}
+                    pkgs[env_repo_id][env_arch][pkg_id]["id"] = pkg_id
+                    pkgs[env_repo_id][env_arch][pkg_id]["name"] = pkg["name"]
+                    pkgs[env_repo_id][env_arch][pkg_id]["installsize"] = pkg["installsize"]
+                    pkgs[env_repo_id][env_arch][pkg_id]["description"] = pkg["description"]
+                    pkgs[env_repo_id][env_arch][pkg_id]["summary"] = pkg["summary"]
+                    pkgs[env_repo_id][env_arch][pkg_id]["q_in"] = set()
+                    pkgs[env_repo_id][env_arch][pkg_id]["q_required_in"] = set()
+                
+                # It's here, so add it
+                pkgs[env_repo_id][env_arch][pkg_id]["q_in"].add(env_id)
+                # Is it required?
+                if pkg["name"] in self.configs["envs"][env_conf_id]["packages"]:
+                    pkgs[env_repo_id][env_arch][pkg_id]["q_required_in"].add(env_id)
+                if pkg["name"] in self.configs["envs"][env_conf_id]["arch_packages"][env_arch]:
+                    pkgs[env_repo_id][env_arch][pkg_id]["q_required_in"].add(env_id)
+
+        # And now I just need to flatten that dict and return all packages as a list
+        final_pkg_list = []
+        for repo_id in repo_ids:
+            for arch in arches:
+                for pkg_id, pkg in pkgs[repo_id][arch].items():
+                    final_pkg_list.append(pkg)
+
+        # And sort them by nevr which is their ID
+        final_pkg_list_sorted = sorted(final_pkg_list, key=lambda k: k['id'])
+
+        return final_pkg_list_sorted
     
-    def env_pkgs_id(self, env_id):
-        pass
+    def env_pkgs_id(self, id):
+        # Accepts both env and workload ID, and returns pkgs for envs that match
+        id_components = id.split(":")
+
+        # It's an env!
+        if len(id_components) == 3:
+            env_conf_id = id_components[0]
+            repo_id = id_components[1]
+            arch = id_components[2]
+            return self.env_pkgs(env_conf_id, repo_id, arch)
+        
+        # It's a workload!
+        if len(id_components) == 4:
+            workload_conf_id = id_components[0]
+            env_conf_id = id_components[1]
+            repo_id = id_components[2]
+            arch = id_components[3]
+            return self.env_pkgs(env_conf_id, repo_id, arch)
+        
+        raise ValueError("That seems to be an invalid ID!")
+
+    def workload_size(self, workload_conf_id, env_conf_id, repo_id, arch):
+        # A total size of a workload (or multiple combined!)
+        pkgs = self.workload_pkgs(workload_conf_id, env_conf_id, repo_id, arch)
+        size = 0
+        for pkg in pkgs:
+            size += pkg["installsize"]
+        return size
+
+    def env_size(self, env_conf_id, repo_id, arch):
+        # A total size of an env (or multiple combined!)
+        pkgs = self.env_pkgs(env_conf_id, repo_id, arch)
+        size = 0
+        for pkg in pkgs:
+            size += pkg["installsize"]
+        return size
+
+    def workload_size_id(self, id):
+        # Accepts both env and workload ID, and returns pkgs for envs that match
+        id_components = id.split(":")
+
+        # It's an env!
+        if len(id_components) == 3:
+            env_conf_id = id_components[0]
+            repo_id = id_components[1]
+            arch = id_components[2]
+            return self.workload_size(None, env_conf_id, repo_id, arch)
+        
+        # It's a workload!
+        if len(id_components) == 4:
+            workload_conf_id = id_components[0]
+            env_conf_id = id_components[1]
+            repo_id = id_components[2]
+            arch = id_components[3]
+            return self.workload_size(workload_conf_id, env_conf_id, repo_id, arch)
+        
+        raise ValueError("That seems to be an invalid ID!")
+    
+    def env_size_id(self, id):
+        # Accepts both env and workload ID, and returns pkgs for envs that match
+        id_components = id.split(":")
+
+        # It's an env!
+        if len(id_components) == 3:
+            env_conf_id = id_components[0]
+            repo_id = id_components[1]
+            arch = id_components[2]
+            return self.env_size(env_conf_id, repo_id, arch)
+        
+        # It's a workload!
+        if len(id_components) == 4:
+            workload_conf_id = id_components[0]
+            env_conf_id = id_components[1]
+            repo_id = id_components[2]
+            arch = id_components[3]
+            return self.env_size(env_conf_id, repo_id, arch)
+        
+        raise ValueError("That seems to be an invalid ID!")
+    
+    def workload_url_slug(self, workload_conf_id, env_conf_id, repo_id, arch):
+        slug = "{workload_conf_id}--{env_conf_id}--{repo_id}--{arch}".format(
+            workload_conf_id=workload_conf_id,
+            env_conf_id=env_conf_id,
+            repo_id=repo_id,
+            arch=arch
+        )
+        return slug
+    
+    def env_url_slug(self, env_conf_id, repo_id, arch):
+        slug = "{env_conf_id}--{repo_id}--{arch}".format(
+            env_conf_id=env_conf_id,
+            repo_id=repo_id,
+            arch=arch
+        )
+        return slug
+    
+    def url_slug_id(id):
+        return id.replace(":", "--")
+    
+
 
 
 
@@ -1172,6 +1452,7 @@ def _generate_html_page(template_name, template_data, page_name, settings):
 def _generate_workload_pages(query):
     log("Generating workload pages...")
 
+    # Workload overview pages
     for workload_conf_id in query.workloads(None,None,None,None,output_change="workload_conf_ids"):
         for repo_id in query.workloads(workload_conf_id,None,None,None,output_change="repo_ids"):
             template_data = {
@@ -1185,6 +1466,34 @@ def _generate_workload_pages(query):
                 repo_id=repo_id
             )
             _generate_html_page("workload_overview", template_data, page_name, query.settings)
+    
+    # Workload detail pages
+    for workload_id in query.workloads(None,None,None,None,list_all=True):
+        workload = query.data["workloads"][workload_id]
+        
+        workload_conf_id = workload["workload_conf_id"]
+        workload_conf = query.configs["workloads"][workload_conf_id]
+
+        env_conf_id = workload["env_conf_id"]
+        env_conf = query.configs["envs"][env_conf_id]
+
+        repo_id = workload["repo_id"]
+        repo = query.configs["repos"][repo_id]
+
+        template_data = {
+            "query": query,
+            "workload_id": workload_id,
+            "workload": workload,
+            "workload_conf": workload_conf,
+            "env_conf": env_conf,
+            "repo": repo
+        }
+
+        page_name = "workload--{workload_id}".format(
+            workload_id=workload_id
+        )
+
+        _generate_html_page("workload", template_data, page_name, query.settings)
     
     log("  Done!")
     log("")
@@ -1206,6 +1515,30 @@ def _generate_env_pages(query):
                 repo_id=repo_id
             )
             _generate_html_page("env_overview", template_data, page_name, query.settings)
+    
+    # env detail pages
+    for env_id in query.envs(None,None,None,list_all=True):
+        env = query.data["envs"][env_id]
+
+        env_conf_id = env["env_conf_id"]
+        env_conf = query.configs["envs"][env_conf_id]
+
+        repo_id = env["repo_id"]
+        repo = query.configs["repos"][repo_id]
+
+        template_data = {
+            "query": query,
+            "env_id": env_id,
+            "env": env,
+            "env_conf": env_conf,
+            "repo": repo
+        }
+
+        page_name = "env--{env_id}".format(
+            env_id=env_id
+        )
+
+        _generate_html_page("env", template_data, page_name, query.settings)
 
     log("  Done!")
     log("")
@@ -1395,6 +1728,13 @@ def main():
 
 
 def tests_to_be_made_actually_useful_at_some_point_because_this_is_terribble():
+
+    settings = load_settings()
+    configs = get_configs(settings)
+    data = analyze_things(configs, settings)
+
+    query = Query(data, configs, settings)
+
     print("")
     print("")
     print("")
@@ -1545,13 +1885,65 @@ def tests_to_be_made_actually_useful_at_some_point_because_this_is_terribble():
         print(id)
     print("")
 
+    print("----------")
+    print("")
+    print("")
+
+    print("Should be 104 packages:")
+    pkgs = query.workload_pkgs("workload-nginx", "env-minimal", "repo-fedora-rawhide", "x86_64")
+    print (len(pkgs))
+    total = 0
+    env = 0
+    required = 0
+    for pkg in pkgs:
+        workload_id = "workload-nginx:env-minimal:repo-fedora-rawhide:x86_64"
+        if workload_id in pkg["q_in"]:
+            total += 1
+        if workload_id in pkg["q_required_in"]:
+            required += 1
+        if workload_id in pkg["q_env_in"]:
+            env +=1
+    print("")
+    print("Should be 104")
+    print(total)
+    print("Should be 22")
+    print(env)
+    print("Should be 1")
+    print(required)
+    print("")
+
+    print("Should be 208 packages:")
+    pkgs = query.workload_pkgs("workload-nginx", "env-minimal", "repo-fedora-rawhide", None)
+    print (len(pkgs))
+    total = 0
+    env = 0
+    required = 0
+    for pkg in pkgs:
+        workload_id = "workload-nginx:env-minimal:repo-fedora-rawhide:x86_64"
+        if workload_id in pkg["q_in"]:
+            total += 1
+        if workload_id in pkg["q_required_in"]:
+            required += 1
+        if workload_id in pkg["q_env_in"]:
+            env +=1
+    print("")
+    print("Should be 104")
+    print(total)
+    print("Should be 22")
+    print(env)
+    print("Should be 1")
+    print(required)
+    print("")
+    print("")
+    print("")
 
 
 
 
-
-
-
+        # q_in          - set of workload_ids including this pkg
+        # q_required_in - set of workload_ids where this pkg is required (top-level)
+        # q_env_in      - set of workload_ids where this pkg is in env
+        # size_text     - size in a human-readable format, like 6.5 MB
 
 if __name__ == "__main__":
     main()

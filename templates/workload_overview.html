@@ -2,7 +2,7 @@
 
 {% block content %}
 
-<div class="container">
+<div class="container-fluid">
 
     <nav aria-label="breadcrumb">
         <ol class="breadcrumb">
@@ -33,7 +33,7 @@
                     {% if repo_id == loop_repo_id %}
                     <a class="nav-link active" href="#">{{query.configs.repos[loop_repo_id].name}}</a>
                     {% else %}
-                    <a class="nav-link" href="#">{{query.configs.repos[loop_repo_id].name}}</a>
+                    <a class="nav-link" href="workload-overview--{{workload_conf_id}}--{{loop_repo_id}}.html">{{query.configs.repos[loop_repo_id].name}}</a>
                     {% endif %}
                 </li>
                 {% endfor %}
@@ -41,7 +41,7 @@
         </div>
 
         <br>
-        
+
         <table class="card-body table table-bordered grid-table" style="text-align: center">
             <thead>
                 <tr class="sort_control_row">
@@ -65,11 +65,11 @@
                     <td class="align-middle">
                         
                         <p>
-                        ?? packages
+                        {{ query.workload_pkgs(workload_conf_id,env_conf_id,repo_id,arch) | count }} packages
                         <br>
-                        ?? MB
+                        {{ query.size(query.workload_size(workload_conf_id,env_conf_id,repo_id,arch)) }}
                         </p>
-                        <b><a href="">Details</a></b>
+                        <b><a href="workload--{{query.workload_url_slug(workload_conf_id,env_conf_id,repo_id,arch)}}.html">Details</a></b>
                     </td>
                     {% else %}
                     <td class="align-middle text-muted"> (Excluded) </td>

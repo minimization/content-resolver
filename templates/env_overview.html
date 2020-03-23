@@ -2,7 +2,7 @@
 
 {% block content %}
 
-<div class="container">
+<div class="container-fluid">
 
     <nav aria-label="breadcrumb">
         <ol class="breadcrumb">
@@ -14,7 +14,7 @@
     </nav>
 
     <h1> 
-        {{query.configs.envs[env_conf_id].name}} <small class="text-muted">env</small>
+        {{query.configs.envs[env_conf_id].name}} <small class="text-muted">Environment</small>
         <br>
         <small class="text-muted">from</small>
         <small><a href="">{{query.configs.repos[repo_id].name}}</a></small>
@@ -33,7 +33,7 @@
                     {% if repo_id == loop_repo_id %}
                     <a class="nav-link active" href="#">{{query.configs.repos[loop_repo_id].name}}</a>
                     {% else %}
-                    <a class="nav-link" href="#">{{query.configs.repos[loop_repo_id].name}}</a>
+                    <a class="nav-link" href="env-overview--{{env_conf_id}}--{{loop_repo_id}}.html">{{query.configs.repos[loop_repo_id].name}}</a>
                     {% endif %}
                 </li>
                 {% endfor %}
@@ -59,11 +59,11 @@
 
                     <td class="align-middle">
                         <p>
-                        ?? packages
+                        {{ query.env_pkgs(env_conf_id,repo_id,arch) | count }} packages
                         <br>
-                        ?? MB
+                        {{ query.size(query.env_size(env_conf_id,repo_id,arch))}}
                         </p>
-                        <b><a href="">Details</a></b>
+                        <b><a href="env--{{query.env_url_slug(env_conf_id,repo_id,arch)}}.html">Details</a></b>
                     </td>
                     {% else %}
                     <td class="align-middle text-muted"> (Excluded) </td>

@@ -52,7 +52,6 @@
                     {% for arch in repo_conf.source.architectures %}
                     <span class="card-link">
                         <a href="repo--{{repo_conf_id}}--{{arch}}.html">{{arch}}</a>
-                        ({{query.data.pkgs[repo_conf_id][arch] | count}} pkgs)
                     </span>
                         
                     {% endfor %}
