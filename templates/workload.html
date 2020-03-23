@@ -39,17 +39,7 @@
 
     <hr>
 
-    <div class="row">
-        <div class="col-lg-12">
-            <div class="card">
-                <h5 class="card-header">
-                    Packages
-                </h5>
-                <div class="card-body">
-                    <ul class="list-inline">
-                        <li class="list-inline-item">{{ query.workload_pkgs_id(workload_id) | count }} Packages</li>
-                        <li class="list-inline-item">{{ query.size(query.workload_size_id(workload_id)) }}</li>
-                    </ul>
+    
                     <table id="table_packages" class="table-packages">
                         <thead>
                             <tr class="sort_control_row">
@@ -93,12 +83,6 @@
                             {% endfor %}
                         </tbody>
                     </table>
-                </div>
-            </div><br>
-
-        </div>
-    </div>
-
 </div>
 
 <script>

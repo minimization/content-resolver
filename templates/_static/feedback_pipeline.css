@@ -98,7 +98,15 @@ ul.list-packages li.required-package {
 
 table.table-packages {
 width: 100%;
-font-family: monospace;
+}
+
+table.table-packages tr.sort_control_row,
+table.table-packages tbody {
+  font-family: monospace;
+}
+
+table.table-packages tr.heading {
+  text-align: center;
 }
 
 table.table-packages tr {
@@ -115,17 +123,29 @@ table.table-packages td {
   white-space: nowrap !important;
 }
 
-table.table-packages tr.required {
+table.table-packages tr.required,
+table.table-packages td.required {
   background-color: #d4e3ea;
   color: #CC0066;
 }
 
-table.table-packages tr.env {
+table.table-packages tr.env,
+table.table-packages td.env {
   background-color: #e3ece1!important;
+}
+
+table.table-packages tr.all-pkgs-col,
+table.table-packages td.all-pkgs-col {
+  background-color: #e9ecef!important;
 }
 
 table.table-packages tr.dependency {
   background-color: white!important;
+}
+
+table.table-packages td.group-first-col,
+table.table-packages th.group-first-col {
+  border-left: #6c757d 1px solid;
 }
 
 table.table-packages thead td,

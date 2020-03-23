@@ -1,0 +1,113 @@
+{% extends "layout.html" %}
+
+{% block content %}
+
+
+<div class="container-fluid">
+
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="./results.html">Home</a></li>
+            <li class="breadcrumb-item"><a href="./workloads.html">Results</a></li>
+            <li class="breadcrumb-item"><a href="./workloads.html">Workloads</a></li>
+            <li class="breadcrumb-item">
+                <a
+                    href="{{'./workload-overview--{workload_conf_id}--{repo_id}.html'.format(workload_conf_id=workload_conf.id, repo_id=repo_id)}}">
+                    {{workload_conf.name}}
+                </a>
+            </li>
+            <li class="breadcrumb-item active" aria-current="page">
+                {{workload_conf.name}} in {{env_conf.name}} from {{repo.name}}
+            </li>
+        </ol>
+    </nav>
+
+
+    <h1>
+        {{workload_conf.name}} <small class="text-muted"> workload</small>
+        <br>
+        <small class="text-muted"> in </small>
+        <small> <a href="">{{env_conf.name}}</a> </small>
+        <small class="text-muted"> from </small>
+        <small> <a href="">{{repo.name}}</a> </small>
+    </h1>
+
+    <hr>
+
+    <p class="lead"> {{workload_conf.description}} </p>
+
+    <hr>
+
+    <table id="table_packages" class="table-packages">
+                        <thead>
+                            <tr class="heading">
+                                <th></th>
+                                {% for arch in arches %}
+                                <th class="group-first-col" colspan=3>{{arch}}</th>
+                                {% endfor %}
+                            </tr>
+                            <tr class="sort_control_row">
+                                <th>Name</th>
+                                {% for arch in arches %}
+                                <th class="group-first-col">Why</th>
+                                <th>Name</th>
+                                <th>Size</th>
+                                {% endfor %}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for pkg_name in pkg_names %}
+                            <tr>
+                                <td class="all-pkgs-col">{{pkg_name}}</td>
+                                {% for arch in arches %}
+
+                                    {% for pkg in pkgs_structured[arch][pkg_name] %}
+                                        {% if pkg.arch == arch %}
+
+                                            {% if query.workload_id_string(workload_conf_id,env_conf_id,repo_id,pkg.arch) in pkg.q_required_in 
+                                            and query.workload_id_string(workload_conf_id,env_conf_id,repo_id,pkg.arch) in pkg.q_env_in %}
+                                            <td class="required group-first-col" data-order="1">(required, env)</td>
+                                            <td class="required">{{pkg.name}}</td>
+                                            <td class="required">{{query.size(pkg.installsize)}}</td>
+                                            {% elif query.workload_id_string(workload_conf_id,env_conf_id,repo_id,pkg.arch) in pkg.q_required_in %}
+                                            <td class="required group-first-col" data-order="0">(required)</td>
+                                            <td class="required">{{pkg.name}}</td>
+                                            <td class="required">{{query.size(pkg.installsize)}}</td>
+                                            {% elif query.workload_id_string(workload_conf_id,env_conf_id,repo_id,pkg.arch) in pkg.q_env_in %}
+                                            <td class="env group-first-col" data-order="2">(env)</td>
+                                            <td class="env">{{pkg.name}}</td>
+                                            <td class="env">{{query.size(pkg.installsize)}}</td>
+                                            {% else %}
+                                            <td class="dependency group-first-col" data-order="3"></td>
+                                            <td class="dependency">{{pkg.name}}</td>
+                                            <td class="dependency">{{query.size(pkg.installsize)}}</td>
+                                            {% endif %}
+                                        
+                                        {% else %}
+                                        <td class="group-first-col" data-order="4"> </td>
+                                        <td> - </td>
+                                        <td> </td>
+                                        {% endif %}
+                                    {% else %}
+                                    <td class="group-first-col" data-order="4"> </td>
+                                    <td> - </td>
+                                    <td> </td>
+                                    {% endfor %}
+                                {% endfor %}
+                            </tr>
+                            {% endfor %}
+
+                        </tbody>
+                    </table>
+
+</div>
+
+<script>
+    $(document).ready(function () {
+        $('#table_packages').DataTable({
+            paging: false,
+            info: false
+        });
+    });
+</script>
+{% endblock %}
