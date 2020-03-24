@@ -60,6 +60,16 @@ def log(msg):
 def err_log(msg):
     print("ERROR LOG:  {}".format(msg))
 
+def dump_data(path, data):
+    with open(path, 'w') as file:
+        json.dump(data, file)
+
+
+def load_data(path):
+    with open(path, 'r') as file:
+        data = json.load(file)
+    return data
+
 def size(num, suffix='B'):
     for unit in ['','k','M','G']:
         if abs(num) < 1024.0:
@@ -1834,25 +1844,81 @@ def generate_pages(query):
 
     
 
-
-
-
-
 ###############################################################################
-### Utilities #################################################################
+### Historic Data #############################################################
 ###############################################################################
 
+def _save_current_historic_data(query, filename):
 
-def dump_data(path, data):
-    with open(path, 'w') as file:
-        json.dump(data, file)
+    log("Generating current historic data...")
+
+    history_data = {}
+    history_data["date"] = str(datetime.datetime.now().strftime("%Y-%m-%d"))
+    history_data["workloads"] = {}
+    history_data["envs"] = {}
+    history_data["repos"] = {}
+
+    for workload_id in query.workloads(None,None,None,None,list_all=True):
+        workload = query.data["workloads"][workload_id]
+
+        workload_history = {}
+        workload_history["size"] = query.workload_size_id(workload_id)
+        workload_history["pkg_count"] = len(query.workload_pkgs_id(workload_id))
+
+        history_data["workloads"][workload_id] = workload_history
+    
+    for env_id in query.envs(None,None,None,list_all=True):
+        env = query.data["envs"][env_id]
+
+        env_history = {}
+        env_history["size"] = query.env_size_id(env_id)
+        env_history["pkg_count"] = len(query.env_pkgs_id(env_id))
+
+        history_data["envs"][env_id] = env_history
+
+    for repo_id in query.configs["repos"].keys():
+        history_data["repos"][repo_id] = {}
+
+        for arch, pkgs in query.data["pkgs"][repo_id].items():
+
+            repo_history = {}
+            repo_history["pkg_count"] = len(pkgs)
+            
+            history_data["repos"][repo_id][arch] = repo_history
+
+    output_dir = os.path.join(query.settings["output"], "history")
+    file_path = os.path.join(output_dir, filename)
+    log("  Saving in: {file_path}".format(
+        file_path=file_path
+    ))
+    dump_data(file_path, history_data)
+    log("  Done!")
+    log("")
 
 
-def load_data(path):
-    with open(path, 'r') as file:
-        data = json.load(file)
+        
 
-    return data
+def generate_history_data(query):
+    log("")
+    log("###############################################################################")
+    log("### Historic Data #############################################################")
+    log("###############################################################################")
+    log("")
+    
+    year = datetime.datetime.now().strftime("%Y")
+    week = datetime.datetime.now().strftime("%W")
+    filename_template = "historic_data-{year}-week_{week}.json"
+
+    # Step 1: Save current data
+    filename = filename_template.format(year=year,week=week)
+    _save_current_historic_data(query, filename)
+
+
+
+    # Step 2: Read historic data
+    # Step 3: Generate json files for the JavaScript chart
+
+
 
 
 ###############################################################################
@@ -1868,6 +1934,8 @@ def main():
     query = Query(data, configs, settings)
 
     generate_pages(query)
+
+    generate_history_data(query)
 
     #dump_data("data.json", data)
 

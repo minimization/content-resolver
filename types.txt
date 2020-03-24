@@ -1,5 +1,20 @@
 #### Types ####
 
+=== Query ==
+
+workloads(workload_conf_id, env_conf_id, repo_id, arch, list_all=False, output_change=None)
+workloads_id(id, list_all=False, output_change=None)
+workload_pkgs(workload_conf_id, env_conf_id, repo_id, arch)
+workload_pkgs_id(id)
+workload_size(workload_conf_id, env_conf_id, repo_id, arch)
+def workload_size_id(self, id)
+
+envs(env_conf_id, repo_id, arch, list_all=False, output_change=None)
+envs_id(id, list_all=False, output_change=None)
+env_pkgs(env_conf_id, repo_id, arch)
+env_pkgs_id(id)
+env_size(self, env_conf_id, repo_id, arch)
+def env_size_id(self, id)
 
 === Package ===
 
