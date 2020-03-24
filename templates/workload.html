@@ -11,7 +11,8 @@
             <li class="breadcrumb-item"><a href="./workloads.html">Results</a></li>
             <li class="breadcrumb-item"><a href="./workloads.html">Workloads</a></li>
             <li class="breadcrumb-item">
-                <a href="{{'./workload-overview--{workload_conf_id}--{repo_id}.html'.format(workload_conf_id=workload_conf.id, repo_id=repo.id)}}">
+                <a
+                    href="{{'./workload-overview--{workload_conf_id}--{repo_id}.html'.format(workload_conf_id=workload_conf.id, repo_id=repo.id)}}">
                     {{workload_conf.name}}
                 </a>
             </li>
@@ -35,54 +36,88 @@
 
     <hr>
 
-    <p class="lead"> {{workload_conf.description}} </p>
+    <div class="row">
+        <div class="col-sm-9 d-flex align-items-stretch">
+            <div class="card w-100">
+                <h5 class="card-header"> Size History </h5>
+                <div class="card-body">
+                    <br>
+                    <br>
+                    <p class="lead text-muted"> TBD</p>
+                    <br>
+                    <br>
+                </div>
+            </div>
+        </div>
+        <div class="col-sm-3 d-flex align-items-stretch">
+            <div class="card w-100">
+                <h5 class="card-header"> Relations </h5>
+                <div class="card-body">
+                    <br>
+                    <br>
+                    <p class="lead text-muted"> TBD</p>
+                    <br>
+                    <br>
+                </div>
+            </div>
+        </div>
+    </div>
 
-    <hr>
+    <br>
 
-    
-                    <table id="table_packages" class="table-packages">
-                        <thead>
-                            <tr class="sort_control_row">
-                                <th>Why</th>
-                                <th>Name</th>
-                                <th>Size</th>
-                                <th>Summary</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for pkg in query.workload_pkgs_id(workload_id) %}
-                            {% if workload_id in pkg.q_required_in and workload_id in pkg.q_env_in %}
-                            <tr class="required">
-                                <td data-order="1">(required, env)</td>
-                                <td>{{pkg.id}}</td>
-                                <td data-order="{{pkg.installsize}}">{{ query.size(pkg.installsize) }}</td>
-                                <td>{{pkg.summary}}</td>
-                            </tr>
-                            {% elif workload_id in pkg.q_required_in %}
-                            <tr class="required">
-                                <td data-order="0">(required)</td>
-                                <td>{{pkg.id}}</td>
-                                <td data-order="{{pkg.installsize}}">{{ query.size(pkg.installsize) }}</td>
-                                <td>{{pkg.summary}}</td>
-                            </tr>
-                            {% elif workload_id in pkg.q_env_in %}
-                            <tr class="env">
-                                <td class="text-muted" data-order="2">(env)</td>
-                                <td>{{pkg.id}}</td>
-                                <td data-order="{{pkg.installsize}}">{{ query.size(pkg.installsize) }}</td>
-                                <td>{{pkg.summary}}</td>
-                            </tr>
-                            {% else %}
-                            <tr class="dependency">
-                                <td class="text-muted" data-order="3"></td>
-                                <td>{{pkg.id}}</td>
-                                <td data-order="{{pkg.installsize}}">{{ query.size(pkg.installsize) }}</td>
-                                <td class=>{{pkg.summary}}</td>
-                            </tr>
-                            {% endif %}
-                            {% endfor %}
-                        </tbody>
-                    </table>
+    <table id="table_packages" class="table-packages">
+        <thead>
+            <tr class="sort_control_row">
+                <th>Why</th>
+                <th>Name</th>
+                <th>Epoch:Version-Release</th>
+                <th>Arch</th>
+                <th>Size</th>
+                <th>Summary</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for pkg in query.workload_pkgs_id(workload_id) %}
+            {% if workload_id in pkg.q_required_in and workload_id in pkg.q_env_in %}
+            <tr class="required">
+                <td data-order="1">(required, env)</td>
+                <td>{{pkg.name}}</td>
+                <td>{{pkg.evr}}</td>
+                <td>{{pkg.arch}}</td>
+                <td data-order="{{pkg.installsize}}">{{ query.size(pkg.installsize) }}</td>
+                <td>{{pkg.summary}}</td>
+            </tr>
+            {% elif workload_id in pkg.q_required_in %}
+            <tr class="required">
+                <td data-order="0">(required)</td>
+                <td>{{pkg.name}}</td>
+                <td>{{pkg.evr}}</td>
+                <td>{{pkg.arch}}</td>
+                <td data-order="{{pkg.installsize}}">{{ query.size(pkg.installsize) }}</td>
+                <td>{{pkg.summary}}</td>
+            </tr>
+            {% elif workload_id in pkg.q_env_in %}
+            <tr class="env">
+                <td class="text-muted" data-order="2">(env)</td>
+                <td>{{pkg.name}}</td>
+                <td>{{pkg.evr}}</td>
+                <td>{{pkg.arch}}</td>
+                <td data-order="{{pkg.installsize}}">{{ query.size(pkg.installsize) }}</td>
+                <td>{{pkg.summary}}</td>
+            </tr>
+            {% else %}
+            <tr class="dependency">
+                <td class="text-muted" data-order="3"></td>
+                <td>{{pkg.name}}</td>
+                <td>{{pkg.evr}}</td>
+                <td>{{pkg.arch}}</td>
+                <td data-order="{{pkg.installsize}}">{{ query.size(pkg.installsize) }}</td>
+                <td class=>{{pkg.summary}}</td>
+            </tr>
+            {% endif %}
+            {% endfor %}
+        </tbody>
+    </table>
 </div>
 
 <script>

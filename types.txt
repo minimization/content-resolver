@@ -7,6 +7,8 @@ pkg_id: pkg_id
 
 data["pkgs"][repo_id][arch][pkg_id]["id"]
 data["pkgs"][repo_id][arch][pkg_id]["name"]
+data["pkgs"][repo_id][arch][pkg_id]["evr"]
+data["pkgs"][repo_id][arch][pkg_id]["arch"]
 data["pkgs"][repo_id][arch][pkg_id]["installsize"]
 data["pkgs"][repo_id][arch][pkg_id]["description"]
 data["pkgs"][repo_id][arch][pkg_id]["summary"]

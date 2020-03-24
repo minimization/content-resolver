@@ -17,7 +17,7 @@
                 </a>
             </li>
             <li class="breadcrumb-item active" aria-current="page">
-                {{workload_conf.name}} in {{env_conf.name}} from {{repo.name}}
+                {{workload_conf.name}} from {{repo.name}} for {{arch}}
             </li>
         </ol>
     </nav>
@@ -26,10 +26,10 @@
     <h1>
         {{workload_conf.name}} <small class="text-muted"> workload</small>
         <br>
-        <small class="text-muted"> in </small>
-        <small> <a href="">{{env_conf.name}}</a> </small>
         <small class="text-muted"> from </small>
         <small> <a href="">{{repo.name}}</a> </small>
+        <small class="text-muted"> for </small>
+        <small> {{arch}} </small>
     </h1>
 
     <hr>
@@ -67,16 +67,15 @@
         <thead>
             <tr class="heading">
                 <th></th>
-                {% for arch in columns.keys() %}
-                <th class="group-first-col" colspan=4>{{arch}}</th>
+                {% for env_conf_id in columns.keys() %}
+                <th class="group-first-col" colspan=3>{{env_conf_id}}</th>
                 {% endfor %}
             </tr>
             <tr class="sort_control_row">
                 <th>Name</th>
-                {% for arch in columns.keys() %}
+                {% for env_conf_id in columns.keys() %}
                 <th class="group-first-col">Why</th>
                 <th>Name</th>
-                <th>Arch</th>
                 <th>Size</th>
                 {% endfor %}
             </tr>
@@ -85,36 +84,31 @@
             {% for pkg_name in rows %}
             <tr>
                 <td class="all-pkgs-col">{{pkg_name}}</td>
-                {% for arch in columns.keys() %}
-                {% if pkg_name in columns[arch] %}
+                {% for env_conf_id in columns.keys() %}
+                {% if pkg_name in columns[env_conf_id] %}
 
-                {% if query.workload_id_string(workload_conf_id,env_conf_id,repo_id,columns[arch][pkg_name].q_arch) in columns[arch][pkg_name].q_required_in 
-                                            and query.workload_id_string(workload_conf_id,env_conf_id,repo_id,columns[arch][pkg_name].q_arch) in columns[arch][pkg_name].q_env_in %}
+                {% if query.workload_id_string(workload_conf_id,env_conf_id,repo_id,columns[env_conf_id][pkg_name].q_arch) in columns[env_conf_id][pkg_name].q_required_in 
+                                            and query.workload_id_string(workload_conf_id,env_conf_id,repo_id,columns[env_conf_id][pkg_name].q_arch) in columns[env_conf_id][pkg_name].q_env_in %}
                 <td class="required group-first-col" data-order="1">(required, env)</td>
-                <td class="required">{{columns[arch][pkg_name].name}}</td>
-                <td class="required">{{columns[arch][pkg_name].arch}}</td>
-                <td class="required">{{query.size(columns[arch][pkg_name].installsize)}}</td>
-                {% elif query.workload_id_string(workload_conf_id,env_conf_id,repo_id,columns[arch][pkg_name].q_arch) in columns[arch][pkg_name].q_required_in %}
+                <td class="required">{{columns[env_conf_id][pkg_name].name}}</td>
+                <td class="required">{{query.size(columns[env_conf_id][pkg_name].installsize)}}</td>
+                {% elif query.workload_id_string(workload_conf_id,env_conf_id,repo_id,columns[env_conf_id][pkg_name].q_arch) in columns[env_conf_id][pkg_name].q_required_in %}
                 <td class="required group-first-col" data-order="0">(required)</td>
-                <td class="required">{{columns[arch][pkg_name].name}}</td>
-                <td class="required">{{columns[arch][pkg_name].arch}}</td>
-                <td class="required">{{query.size(columns[arch][pkg_name].installsize)}}</td>
-                {% elif query.workload_id_string(workload_conf_id,env_conf_id,repo_id,columns[arch][pkg_name].q_arch) in columns[arch][pkg_name].q_env_in %}
+                <td class="required">{{columns[env_conf_id][pkg_name].name}}</td>
+                <td class="required">{{query.size(columns[env_conf_id][pkg_name].installsize)}}</td>
+                {% elif query.workload_id_string(workload_conf_id,env_conf_id,repo_id,columns[env_conf_id][pkg_name].q_arch) in columns[env_conf_id][pkg_name].q_env_in %}
                 <td class="env group-first-col" data-order="2">(env)</td>
-                <td class="env">{{columns[arch][pkg_name].name}}</td>
-                <td class="env">{{columns[arch][pkg_name].arch}}</td>
-                <td class="env">{{query.size(columns[arch][pkg_name].installsize)}}</td>
+                <td class="env">{{columns[env_conf_id][pkg_name].name}}</td>
+                <td class="env">{{query.size(columns[env_conf_id][pkg_name].installsize)}}</td>
                 {% else %}
                 <td class="dependency group-first-col" data-order="3"></td>
-                <td class="dependency">{{columns[arch][pkg_name].name}}</td>
-                <td class="dependency">{{columns[arch][pkg_name].arch}}</td>
-                <td class="dependency">{{query.size(columns[arch][pkg_name].installsize)}}</td>
+                <td class="dependency">{{columns[env_conf_id][pkg_name].name}}</td>
+                <td class="dependency">{{query.size(columns[env_conf_id][pkg_name].installsize)}}</td>
                 {% endif %}
 
                 {% else %}
                 <td class="group-first-col" data-order="4"> </td>
                 <td> - </td>
-                <td> </td>
                 <td> </td>
                 {% endif %}
                 {% endfor %}

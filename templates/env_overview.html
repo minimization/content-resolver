@@ -13,7 +13,7 @@
         </ol>
     </nav>
 
-    <h1> 
+    <h1>
         {{query.configs.envs[env_conf_id].name}} <small class="text-muted">Environment</small>
         <br>
         <small class="text-muted">from</small>
@@ -22,7 +22,34 @@
 
     <hr>
 
-    <p class="lead"> {{query.configs.envs[env_conf_id].description}} </p>
+    <div class="row">
+        <div class="col-sm-9 d-flex align-items-stretch">
+            <div class="card w-100">
+                <h5 class="card-header"> Size History </h5>
+                <div class="card-body">
+                    <br>
+                    <br>
+                    <p class="lead text-muted"> TBD</p>
+                    <br>
+                    <br>
+                </div>
+            </div>
+        </div>
+        <div class="col-sm-3 d-flex align-items-stretch">
+            <div class="card w-100">
+                <h5 class="card-header"> Relations </h5>
+                <div class="card-body">
+                    <br>
+                    <br>
+                    <p class="lead text-muted"> TBD</p>
+                    <br>
+                    <br>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <br>
 
     <div class="card">
         <div class="card-header">
@@ -33,13 +60,14 @@
                     {% if repo_id == loop_repo_id %}
                     <a class="nav-link active" href="#">{{query.configs.repos[loop_repo_id].name}}</a>
                     {% else %}
-                    <a class="nav-link" href="env-overview--{{env_conf_id}}--{{loop_repo_id}}.html">{{query.configs.repos[loop_repo_id].name}}</a>
+                    <a class="nav-link"
+                        href="env-overview--{{env_conf_id}}--{{loop_repo_id}}.html">{{query.configs.repos[loop_repo_id].name}}</a>
                     {% endif %}
                 </li>
                 {% endfor %}
             </ul>
         </div>
-        
+
         <br>
 
         <table class="card-body table table-bordered grid-table" style="text-align: center">
@@ -59,9 +87,9 @@
 
                     <td class="align-middle">
                         <p>
-                        {{ query.env_pkgs(env_conf_id,repo_id,arch) | count }} packages
-                        <br>
-                        {{ query.size(query.env_size(env_conf_id,repo_id,arch))}}
+                            {{ query.env_pkgs(env_conf_id,repo_id,arch) | count }} packages
+                            <br>
+                            {{ query.size(query.env_size(env_conf_id,repo_id,arch))}}
                         </p>
                         <b><a href="env--{{query.env_url_slug(env_conf_id,repo_id,arch)}}.html">Details</a></b>
                     </td>
@@ -70,7 +98,7 @@
                     {% endif %}
                     {% endfor %}
                     <td class="align-middle">
-                        <a href="">Compare all<br>architectures</a>
+                        <a href="env-cmp-arches--{{env_conf_id}}--{{repo_id}}.html">Compare all<br>architectures</a>
                     </td>
                 </tr>
 

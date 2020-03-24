@@ -511,6 +511,8 @@ def _analyze_pkgs(tmp, repo, arch):
             pkg = {}
             pkg["id"] = pkg_nevr
             pkg["name"] = pkg_object.name
+            pkg["evr"] = pkg_object.evr
+            pkg["arch"] = pkg_object.arch
             pkg["installsize"] = pkg_object.installsize
             pkg["description"] = pkg_object.description
             #pkg["provides"] = pkg_object.provides
@@ -1132,7 +1134,7 @@ class Query():
         # q_in          - set of workload_ids including this pkg
         # q_required_in - set of workload_ids where this pkg is required (top-level)
         # q_env_in      - set of workload_ids where this pkg is in env
-        # arch          - architecture
+        # q_arch        - architecture
         
         # Step 1: get all the matching workloads!
         workload_ids = self.workloads(workload_conf_id, env_conf_id, repo_id, arch, list_all=True)
@@ -1167,10 +1169,12 @@ class Query():
                     pkgs[workload_repo_id][workload_arch][pkg_id] = {}
                     pkgs[workload_repo_id][workload_arch][pkg_id]["id"] = pkg_id
                     pkgs[workload_repo_id][workload_arch][pkg_id]["name"] = pkg["name"]
+                    pkgs[workload_repo_id][workload_arch][pkg_id]["evr"] = pkg["evr"]
+                    pkgs[workload_repo_id][workload_arch][pkg_id]["arch"] = pkg["arch"]
                     pkgs[workload_repo_id][workload_arch][pkg_id]["installsize"] = pkg["installsize"]
                     pkgs[workload_repo_id][workload_arch][pkg_id]["description"] = pkg["description"]
                     pkgs[workload_repo_id][workload_arch][pkg_id]["summary"] = pkg["summary"]
-                    pkgs[workload_repo_id][workload_arch][pkg_id]["arch"] = workload_arch
+                    pkgs[workload_repo_id][workload_arch][pkg_id]["q_arch"] = workload_arch
                     pkgs[workload_repo_id][workload_arch][pkg_id]["q_in"] = set()
                     pkgs[workload_repo_id][workload_arch][pkg_id]["q_required_in"] = set()
                     pkgs[workload_repo_id][workload_arch][pkg_id]["q_env_in"] = set()
@@ -1195,10 +1199,12 @@ class Query():
                     pkgs[workload_repo_id][workload_arch][pkg_id] = {}
                     pkgs[workload_repo_id][workload_arch][pkg_id]["id"] = pkg_id
                     pkgs[workload_repo_id][workload_arch][pkg_id]["name"] = pkg["name"]
+                    pkgs[workload_repo_id][workload_arch][pkg_id]["evr"] = pkg["evr"]
+                    pkgs[workload_repo_id][workload_arch][pkg_id]["arch"] = pkg["arch"]
                     pkgs[workload_repo_id][workload_arch][pkg_id]["installsize"] = pkg["installsize"]
                     pkgs[workload_repo_id][workload_arch][pkg_id]["description"] = pkg["description"]
                     pkgs[workload_repo_id][workload_arch][pkg_id]["summary"] = pkg["summary"]
-                    pkgs[workload_repo_id][workload_arch][pkg_id]["arch"] = workload_arch
+                    pkgs[workload_repo_id][workload_arch][pkg_id]["q_arch"] = workload_arch
                     pkgs[workload_repo_id][workload_arch][pkg_id]["q_in"] = set()
                     pkgs[workload_repo_id][workload_arch][pkg_id]["q_required_in"] = set()
                     pkgs[workload_repo_id][workload_arch][pkg_id]["q_env_in"] = set()
@@ -1252,6 +1258,8 @@ class Query():
         # Output is just a flat list. Extra fields will be added into each package:
         # q_in          - set of env_ids including this pkg
         # q_required_in - set of env_ids where this pkg is required (top-level)
+        # q_arch        - architecture
+
         
         # Step 1: get all the matching envs!
         env_ids = self.envs(env_conf_id, repo_id, arch, list_all=True)
@@ -1285,9 +1293,12 @@ class Query():
                     pkgs[env_repo_id][env_arch][pkg_id] = {}
                     pkgs[env_repo_id][env_arch][pkg_id]["id"] = pkg_id
                     pkgs[env_repo_id][env_arch][pkg_id]["name"] = pkg["name"]
+                    pkgs[env_repo_id][env_arch][pkg_id]["evr"] = pkg["evr"]
+                    pkgs[env_repo_id][env_arch][pkg_id]["arch"] = pkg["arch"]
                     pkgs[env_repo_id][env_arch][pkg_id]["installsize"] = pkg["installsize"]
                     pkgs[env_repo_id][env_arch][pkg_id]["description"] = pkg["description"]
                     pkgs[env_repo_id][env_arch][pkg_id]["summary"] = pkg["summary"]
+                    pkgs[env_repo_id][env_arch][pkg_id]["q_arch"] = env_arch
                     pkgs[env_repo_id][env_arch][pkg_id]["q_in"] = set()
                     pkgs[env_repo_id][env_arch][pkg_id]["q_required_in"] = set()
                 
@@ -1520,43 +1531,34 @@ def _generate_workload_pages(query):
     for workload_conf_id in query.workloads(None,None,None,None,output_change="workload_conf_ids"):
         for env_conf_id in query.workloads(workload_conf_id,None,None,None,output_change="env_conf_ids"):
             for repo_id in query.workloads(workload_conf_id,env_conf_id,None,None,output_change="repo_ids"):
-                
-                workload_ids = query.workloads(workload_conf_id,env_conf_id,repo_id,None,list_all=True)
+
                 arches = query.workloads(workload_conf_id,env_conf_id,repo_id,None,output_change="arches")
 
                 workload_conf = query.configs["workloads"][workload_conf_id]
                 env_conf = query.configs["envs"][env_conf_id]
                 repo = query.configs["repos"][repo_id]
 
-                
-                # I need packages sorted by arch and by name
-                # Basically pkgs[arch][name] = [pkg1, pkg2, ...]
-                pkgs = query.workload_pkgs(workload_conf_id,env_conf_id,repo_id,None)
-                pkgs_structured = {}
-                # And I also need a list of names
-                pkg_names = set()
+                columns = {}
+                rows = set()
                 for arch in arches:
-                    pkgs_structured[arch] = {}
-                for pkg in pkgs:
-                    name = pkg["name"]
-                    arch = pkg["arch"]
-                    pkg_names.add(name)
-                    if name not in pkgs_structured[arch]:
-                        pkgs_structured[arch][name] = []
-                    pkgs_structured[arch][name].append(pkg)
+                    columns[arch] = {}
+
+                    pkgs = query.workload_pkgs(workload_conf_id,env_conf_id,repo_id,arch)
+                    for pkg in pkgs:
+                        name = pkg["name"]
+                        rows.add(name)
+                        columns[arch][name] = pkg
 
                 template_data = {
                     "query": query,
                     "workload_conf_id": workload_conf_id,
-                    "env_conf_id": env_conf_id,
-                    "workload_ids": workload_ids,
                     "workload_conf": workload_conf,
+                    "env_conf_id": env_conf_id,
                     "env_conf": env_conf,
-                    "repo": repo,
                     "repo_id": repo_id,
-                    "arches": arches,
-                    "pkgs_structured": pkgs_structured,
-                    "pkg_names": pkg_names
+                    "repo": repo,
+                    "columns": columns,
+                    "rows": rows
                 }
 
                 page_name = "workload-cmp-arches--{workload_conf_id}--{env_conf_id}--{repo_id}".format(
@@ -1566,6 +1568,46 @@ def _generate_workload_pages(query):
                 )
 
                 _generate_html_page("workload_cmp_arches", template_data, page_name, query.settings)
+    
+    # Workload compare envs pages
+    for workload_conf_id in query.workloads(None,None,None,None,output_change="workload_conf_ids"):
+        for repo_id in query.workloads(workload_conf_id,None,None,None,output_change="repo_ids"):
+            for arch in query.workloads(workload_conf_id,None,repo_id,None,output_change="arches"):
+
+                env_conf_ids = query.workloads(workload_conf_id,None,repo_id,arch,output_change="env_conf_ids")
+
+                workload_conf = query.configs["workloads"][workload_conf_id]
+                repo = query.configs["repos"][repo_id]
+
+                columns = {}
+                rows = set()
+                for env_conf_id in env_conf_ids:
+                    columns[env_conf_id] = {}
+
+                    pkgs = query.workload_pkgs(workload_conf_id,env_conf_id,repo_id,arch)
+                    for pkg in pkgs:
+                        name = pkg["name"]
+                        rows.add(name)
+                        columns[env_conf_id][name] = pkg
+
+                template_data = {
+                    "query": query,
+                    "workload_conf_id": workload_conf_id,
+                    "workload_conf": workload_conf,
+                    "repo_id": repo_id,
+                    "repo": repo,
+                    "arch": arch,
+                    "columns": columns,
+                    "rows": rows
+                }
+
+                page_name = "workload-cmp-envs--{workload_conf_id}--{repo_id}--{arch}".format(
+                    workload_conf_id=workload_conf_id,
+                    repo_id=repo_id,
+                    arch=arch
+                )
+
+                _generate_html_page("workload_cmp_envs", template_data, page_name, query.settings)
     
     log("  Done!")
     log("")
@@ -1611,6 +1653,43 @@ def _generate_env_pages(query):
         )
 
         _generate_html_page("env", template_data, page_name, query.settings)
+    
+    # env compare arches pages
+    for env_conf_id in query.envs(None,None,None,output_change="env_conf_ids"):
+        for repo_id in query.envs(env_conf_id,None,None,output_change="repo_ids"):
+
+            arches = query.envs(env_conf_id,repo_id,None,output_change="arches")
+
+            env_conf = query.configs["envs"][env_conf_id]
+            repo = query.configs["repos"][repo_id]
+
+            columns = {}
+            rows = set()
+            for arch in arches:
+                columns[arch] = {}
+
+                pkgs = query.env_pkgs(env_conf_id,repo_id,arch)
+                for pkg in pkgs:
+                    name = pkg["name"]
+                    rows.add(name)
+                    columns[arch][name] = pkg
+
+            template_data = {
+                "query": query,
+                "env_conf_id": env_conf_id,
+                "env_conf": env_conf,
+                "repo_id": repo_id,
+                "repo": repo,
+                "columns": columns,
+                "rows": rows
+            }
+
+            page_name = "env-cmp-arches--{env_conf_id}--{repo_id}".format(
+                env_conf_id=env_conf_id,
+                repo_id=repo_id
+            )
+
+            _generate_html_page("env_cmp_arches", template_data, page_name, query.settings)
 
     log("  Done!")
     log("")
