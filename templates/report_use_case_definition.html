@@ -119,49 +119,43 @@
 
 </div>
 
-<script type="text/javascript">
-        var chartData = {
-            labels: [
-                {% for timestamp in graph_timestamps %}
-                    "{{timestamp | safe}}",
-                {% endfor %}
-            ],
-            datasets: [
-            {% for base, sizes in graph_sizes.items() %}
-            {
-                data: [
-                    {% for size in sizes %}
-                    {{size}},
-                    {% endfor %}
-                ],
-                label: "{{base}}"
-            },
-            {% endfor %}    
-            ]
-        };
+<script>
+    $(document).ready(function () {
+        $('#table_packages').DataTable({
+            paging: false,
+            info: false
+        });
 
-        var chLine = document.getElementById("chLine");
-        if (chLine) {
-            new Chart(chLine, {
-                type: 'line',
-                data: chartData,
-                options: {
-                    scales: {
-                        yAxes: [{
-                            ticks: {
-                                beginAtZero: true,
-                                callback: function (value, index, values) {
-                                    return value + " MB";
+        function plot_graph(chartData) {
+            var chLine = document.getElementById("chLine");
+            if (chLine) {
+                new Chart(chLine, {
+                    type: 'line',
+                    data: chartData,
+                    options: {
+                        scales: {
+                            yAxes: [{
+                                ticks: {
+                                    beginAtZero: true,
+                                    callback: function (value, index, values) {
+                                        return value + " MB";
+                                    }
                                 }
-                            }
-                        }]
-                    },
-                    legend: {
-                        display: true
+                            }]
+                        },
+                        legend: {
+                            display: false
+                        }
                     }
-                }
-            });
+                });
+            }
         }
+        
+        axios.get(`workload-historic-data--workload-httpd--env-minimal--repo-fedora-rawhide--x86_64.json`)
+            .then(response => {
+                plot_graph(response.data)
+            })
+    });
 </script>
 
 {% endblock %}

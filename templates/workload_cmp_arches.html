@@ -39,11 +39,7 @@
             <div class="card w-100">
                 <h5 class="card-header"> Size History </h5>
                 <div class="card-body">
-                    <br>
-                    <br>
-                    <p class="lead text-muted"> TBD</p>
-                    <br>
-                    <br>
+                    <canvas id="chLine"></canvas>
                 </div>
             </div>
         </div>
@@ -132,6 +128,37 @@
             paging: false,
             info: false
         });
+        
+        function plot_graph(chartData) {
+            var chLine = document.getElementById("chLine");
+            if (chLine) {
+                new Chart(chLine, {
+                    type: 'line',
+                    data: chartData,
+                    options: {
+                        scales: {
+                            yAxes: [{
+                                ticks: {
+                                    beginAtZero: true,
+                                    callback: function (value, index, values) {
+                                        return value + " MB";
+                                    }
+                                }
+                            }]
+                        },
+                        legend: {
+                            display: false
+                        },
+                        spanGaps: true
+                    }
+                });
+            }
+        }
+
+        axios.get(`chartjs-data--workload-cmp-arches--{{workload_conf_id}}--{{env_conf_id}}--{{repo_id}}.json`)
+            .then(response => {
+                plot_graph(response.data)
+            })
     });
 </script>
 {% endblock %}

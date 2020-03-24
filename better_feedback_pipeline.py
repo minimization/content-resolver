@@ -1946,9 +1946,353 @@ def _read_historic_data(query):
 
     log("  Done!")
     log("")
-        
 
-def generate_history_data(query):
+
+def _save_json_data_entry(entry_name, entry_data, settings):
+    log("Generating data entry for {entry_name}".format(
+        entry_name=entry_name
+    ))
+
+    output = settings["output"]
+
+    filename = ("{entry_name}.json".format(
+        entry_name=entry_name.replace(":", "--")
+    ))
+
+    log("  Writing file...  ({filename})".format(
+        filename=filename
+    ))
+
+    with open(os.path.join(output, filename), "w") as file:
+        json.dump(entry_data, file)
+    
+    log("  Done!")
+    log("")
+
+
+def _generate_chartjs_data(historic_data, query):
+
+    # Data for workload pages
+    for workload_id in query.workloads(None, None, None, None, list_all=True):
+
+        entry_data = {}
+
+        # First, get the dates as chart labels
+        entry_data["labels"] = []
+        for _,entry in historic_data.items():
+            date = entry["date"]
+            entry_data["labels"].append(date)
+
+        # Second, get the actual data for everything that's needed
+        entry_data["datasets"] = []
+
+        workload = query.data["workloads"][workload_id]
+        workload_conf_id = workload["workload_conf_id"]
+        workload_conf = query.configs["workloads"][workload_conf_id]
+
+        dataset = {}
+        dataset["data"] = []
+        dataset["label"] = workload_conf["name"]
+
+        for _,entry in historic_data.items():
+            try:
+                size = entry["workloads"][workload_id]["size"]
+
+                # The chart needs the size in MB, but just as a number
+                size_mb = "{0:.1f}".format(size/1024/1024)
+                dataset["data"].append(size_mb)
+            except KeyError:
+                dataset["data"].append("null")
+
+        entry_data["datasets"].append(dataset)
+
+        entry_name = "chartjs-data--workload--{workload_id}".format(
+            workload_id=workload_id
+        )
+        _save_json_data_entry(entry_name, entry_data, query.settings)
+    
+    # Data for workload overview pages
+    for workload_conf_id in query.workloads(None,None,None,None,output_change="workload_conf_ids"):
+        for repo_id in query.workloads(workload_conf_id,None,None,None,output_change="repo_ids"):
+
+            entry_data = {}
+
+            # First, get the dates as chart labels
+            entry_data["labels"] = []
+            for _,entry in historic_data.items():
+                date = entry["date"]
+                entry_data["labels"].append(date)
+
+            # Second, get the actual data for everything that's needed
+            entry_data["datasets"] = []
+
+            for workload_id in query.workloads(workload_conf_id, None, repo_id, None, list_all=True):
+
+                workload = query.data["workloads"][workload_id]
+                env_conf_id = workload["env_conf_id"]
+                env_conf = query.configs["envs"][env_conf_id]
+
+                dataset = {}
+                dataset["data"] = []
+                dataset["label"] = "in {name} {arch}".format(
+                    name=env_conf["name"],
+                    arch=workload["arch"]
+                )
+
+                for _,entry in historic_data.items():
+                    try:
+                        size = entry["workloads"][workload_id]["size"]
+
+                        # The chart needs the size in MB, but just as a number
+                        size_mb = "{0:.1f}".format(size/1024/1024)
+                        dataset["data"].append(size_mb)
+                    except KeyError:
+                        dataset["data"].append("null")
+
+                entry_data["datasets"].append(dataset)
+
+            entry_name = "chartjs-data--workload-overview--{workload_conf_id}--{repo_id}".format(
+                workload_conf_id=workload_conf_id,
+                repo_id=repo_id
+            )
+            _save_json_data_entry(entry_name, entry_data, query.settings)
+    
+    # Data for workload cmp arches pages
+    for workload_conf_id in query.workloads(None,None,None,None,output_change="workload_conf_ids"):
+        for env_conf_id in query.workloads(workload_conf_id,None,None,None,output_change="env_conf_ids"):
+            for repo_id in query.workloads(workload_conf_id,env_conf_id,None,None,output_change="repo_ids"):
+
+                workload_conf = query.configs["workloads"][workload_conf_id]
+                env_conf = query.configs["envs"][env_conf_id]
+                repo = query.configs["repos"][repo_id]
+
+                entry_data = {}
+
+                # First, get the dates as chart labels
+                entry_data["labels"] = []
+                for _,entry in historic_data.items():
+                    date = entry["date"]
+                    entry_data["labels"].append(date)
+
+                # Second, get the actual data for everything that's needed
+                entry_data["datasets"] = []
+
+                for workload_id in query.workloads(workload_conf_id,env_conf_id,repo_id,None,list_all=True):
+
+                    workload = query.data["workloads"][workload_id]
+                    env_conf_id = workload["env_conf_id"]
+                    env_conf = query.configs["envs"][env_conf_id]
+
+                    dataset = {}
+                    dataset["data"] = []
+                    dataset["label"] = "{arch}".format(
+                        arch=workload["arch"]
+                    )
+
+                    for _,entry in historic_data.items():
+                        try:
+                            size = entry["workloads"][workload_id]["size"]
+
+                            # The chart needs the size in MB, but just as a number
+                            size_mb = "{0:.1f}".format(size/1024/1024)
+                            dataset["data"].append(size_mb)
+                        except KeyError:
+                            dataset["data"].append("null")
+
+                    entry_data["datasets"].append(dataset)
+
+                entry_name = "chartjs-data--workload-cmp-arches--{workload_conf_id}--{env_conf_id}--{repo_id}".format(
+                    workload_conf_id=workload_conf_id,
+                    env_conf_id=env_conf_id,
+                    repo_id=repo_id
+                )
+                _save_json_data_entry(entry_name, entry_data, query.settings)
+    
+    # Data for workload cmp envs pages
+    for workload_conf_id in query.workloads(None,None,None,None,output_change="workload_conf_ids"):
+        for repo_id in query.workloads(workload_conf_id,None,None,None,output_change="repo_ids"):
+            for arch in query.workloads(workload_conf_id,None,repo_id,None,output_change="arches"):
+
+                workload_conf = query.configs["workloads"][workload_conf_id]
+                env_conf = query.configs["envs"][env_conf_id]
+                repo = query.configs["repos"][repo_id]
+
+                entry_data = {}
+
+                # First, get the dates as chart labels
+                entry_data["labels"] = []
+                for _,entry in historic_data.items():
+                    date = entry["date"]
+                    entry_data["labels"].append(date)
+
+                # Second, get the actual data for everything that's needed
+                entry_data["datasets"] = []
+
+                for workload_id in query.workloads(workload_conf_id,None,repo_id,arch,list_all=True):
+
+                    workload = query.data["workloads"][workload_id]
+                    repo = query.configs["repos"][repo_id]
+
+                    dataset = {}
+                    dataset["data"] = []
+                    dataset["label"] = "{repo} {arch}".format(
+                        repo=repo["name"],
+                        arch=workload["arch"]
+                    )
+
+                    for _,entry in historic_data.items():
+                        try:
+                            size = entry["workloads"][workload_id]["size"]
+
+                            # The chart needs the size in MB, but just as a number
+                            size_mb = "{0:.1f}".format(size/1024/1024)
+                            dataset["data"].append(size_mb)
+                        except KeyError:
+                            dataset["data"].append("null")
+
+                    entry_data["datasets"].append(dataset)
+
+                entry_name = "chartjs-data--workload-cmp-envs--{workload_conf_id}--{repo_id}--{arch}".format(
+                    workload_conf_id=workload_conf_id,
+                    repo_id=repo_id,
+                    arch=arch
+                )
+                _save_json_data_entry(entry_name, entry_data, query.settings)
+    
+    # Data for env pages
+    for env_id in query.envs(None, None, None, list_all=True):
+
+        entry_data = {}
+
+        # First, get the dates as chart labels
+        entry_data["labels"] = []
+        for _,entry in historic_data.items():
+            date = entry["date"]
+            entry_data["labels"].append(date)
+
+        # Second, get the actual data for everything that's needed
+        entry_data["datasets"] = []
+
+        env = query.data["envs"][env_id]
+        env_conf_id = env["env_conf_id"]
+        env_conf = query.configs["envs"][env_conf_id]
+
+        dataset = {}
+        dataset["data"] = []
+        dataset["label"] = env_conf["name"]
+
+        for _,entry in historic_data.items():
+            try:
+                size = entry["envs"][env_id]["size"]
+
+                # The chart needs the size in MB, but just as a number
+                size_mb = "{0:.1f}".format(size/1024/1024)
+                dataset["data"].append(size_mb)
+            except KeyError:
+                dataset["data"].append("null")
+
+        entry_data["datasets"].append(dataset)
+
+        entry_name = "chartjs-data--env--{env_id}".format(
+            env_id=env_id
+        )
+        _save_json_data_entry(entry_name, entry_data, query.settings)
+    
+    # Data for env overview pages
+    for env_conf_id in query.envs(None,None,None,output_change="env_conf_ids"):
+        for repo_id in query.envs(env_conf_id,None,None,output_change="repo_ids"):
+
+            entry_data = {}
+
+            # First, get the dates as chart labels
+            entry_data["labels"] = []
+            for _,entry in historic_data.items():
+                date = entry["date"]
+                entry_data["labels"].append(date)
+
+            # Second, get the actual data for everything that's needed
+            entry_data["datasets"] = []
+
+            for env_id in query.envs(env_conf_id, repo_id, None, list_all=True):
+
+                env = query.data["envs"][env_id]
+                env_conf_id = env["env_conf_id"]
+                env_conf = query.configs["envs"][env_conf_id]
+
+                dataset = {}
+                dataset["data"] = []
+                dataset["label"] = "in {name} {arch}".format(
+                    name=env_conf["name"],
+                    arch=env["arch"]
+                )
+
+                for _,entry in historic_data.items():
+                    try:
+                        size = entry["envs"][env_id]["size"]
+
+                        # The chart needs the size in MB, but just as a number
+                        size_mb = "{0:.1f}".format(size/1024/1024)
+                        dataset["data"].append(size_mb)
+                    except KeyError:
+                        dataset["data"].append("null")
+
+                entry_data["datasets"].append(dataset)
+
+            entry_name = "chartjs-data--env-overview--{env_conf_id}--{repo_id}".format(
+                env_conf_id=env_conf_id,
+                repo_id=repo_id
+            )
+            _save_json_data_entry(entry_name, entry_data, query.settings)
+    
+    # Data for env cmp arches pages
+    for env_conf_id in query.envs(None,None,None,output_change="env_conf_ids"):
+        for repo_id in query.envs(env_conf_id,None,None,output_change="repo_ids"):
+
+            env_conf = query.configs["envs"][env_conf_id]
+            env_conf = query.configs["envs"][env_conf_id]
+            repo = query.configs["repos"][repo_id]
+
+            entry_data = {}
+
+            # First, get the dates as chart labels
+            entry_data["labels"] = []
+            for _,entry in historic_data.items():
+                date = entry["date"]
+                entry_data["labels"].append(date)
+
+            # Second, get the actual data for everything that's needed
+            entry_data["datasets"] = []
+
+            for env_id in query.envs(env_conf_id,repo_id,None,list_all=True):
+
+                env = query.data["envs"][env_id]
+
+                dataset = {}
+                dataset["data"] = []
+                dataset["label"] = "{arch}".format(
+                    arch=env["arch"]
+                )
+
+                for _,entry in historic_data.items():
+                    try:
+                        size = entry["envs"][env_id]["size"]
+
+                        # The chart needs the size in MB, but just as a number
+                        size_mb = "{0:.1f}".format(size/1024/1024)
+                        dataset["data"].append(size_mb)
+                    except KeyError:
+                        dataset["data"].append("null")
+
+                entry_data["datasets"].append(dataset)
+
+            entry_name = "chartjs-data--env-cmp-arches--{env_conf_id}--{repo_id}".format(
+                env_conf_id=env_conf_id,
+                repo_id=repo_id
+            )
+            _save_json_data_entry(entry_name, entry_data, query.settings)
+
+
+def generate_historic_data(query):
     log("")
     log("###############################################################################")
     log("### Historic Data #############################################################")
@@ -1961,12 +2305,9 @@ def generate_history_data(query):
     # Step 2: Read historic data
     historic_data = _read_historic_data(query)
 
-    pp = pprint.PrettyPrinter(depth=4)
-    pp.pprint(historic_data)
-
-    # Step 3: Generate json files for the JavaScript chart
-
-
+    # Step 3: Generate Chart.js data
+    _generate_chartjs_data(historic_data, query)
+    
 
 
 ###############################################################################
@@ -1983,7 +2324,7 @@ def main():
 
     generate_pages(query)
 
-    generate_history_data(query)
+    generate_historic_data(query)
 
     #dump_data("data.json", data)
 
