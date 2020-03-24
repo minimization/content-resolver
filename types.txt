@@ -1,0 +1,108 @@
+#### Types ####
+
+=== Query ==
+
+workloads(workload_conf_id, env_conf_id, repo_id, arch, list_all=False, output_change=None)
+workloads_id(id, list_all=False, output_change=None)
+workload_pkgs(workload_conf_id, env_conf_id, repo_id, arch)
+workload_pkgs_id(id)
+workload_size(workload_conf_id, env_conf_id, repo_id, arch)
+def workload_size_id(self, id)
+
+envs(env_conf_id, repo_id, arch, list_all=False, output_change=None)
+envs_id(id, list_all=False, output_change=None)
+env_pkgs(env_conf_id, repo_id, arch)
+env_pkgs_id(id)
+env_size(self, env_conf_id, repo_id, arch)
+def env_size_id(self, id)
+
+=== Package ===
+
+pkg_id: pkg_id
+
+data["pkgs"][repo_id][arch][pkg_id]["id"]
+data["pkgs"][repo_id][arch][pkg_id]["name"]
+data["pkgs"][repo_id][arch][pkg_id]["evr"]
+data["pkgs"][repo_id][arch][pkg_id]["arch"]
+data["pkgs"][repo_id][arch][pkg_id]["installsize"]
+data["pkgs"][repo_id][arch][pkg_id]["description"]
+data["pkgs"][repo_id][arch][pkg_id]["summary"]
+
+
+=== Repository ===
+
+repo_id: repo_id
+
+configs["repos"][repo_id]["id"]
+configs["repos"][repo_id]["name"]
+configs["repos"][repo_id]["description"]
+configs["repos"][repo_id]["maintainer"]
+configs["repos"][repo_id]["source"]["fedora_release"]
+configs["repos"][repo_id]["source"]["architectures"]
+
+
+=== Environment ===
+
+env_conf_id: env_conf_id
+env_id:      env_conf_id:repo_id:arch
+
+configs["envs"][env_conf_id]["id"]
+configs["envs"][env_conf_id]["name"]
+configs["envs"][env_conf_id]["description"]
+configs["envs"][env_conf_id]["maintainer"]
+configs["envs"][env_conf_id]["repositories"]
+configs["envs"][env_conf_id]["packages"]
+configs["envs"][env_conf_id]["labels"]
+configs["envs"][env_conf_id]["arch_packages"][arch]
+configs["envs"][env_conf_id]["options"]
+
+data["envs"][env_id]["env_conf_id"]
+data["envs"][env_id]["pkg_ids"]
+data["envs"][env_id]["repo_id"]
+data["envs"][env_id]["arch"]
+data["envs"][env_id]["errors"]["non_existing_pkgs"]
+data["envs"][env_id]["succeeded"]
+
+
+=== Workload ===
+
+workload_conf_id: workload_conf_id
+workload_id:      workload_conf_id:env_conf_id:repo_id:arch
+workload_id:      workload_conf_id:env_id
+
+configs["workloads"][workload_conf_id]["id"]
+configs["workloads"][workload_conf_id]["name"]
+configs["workloads"][workload_conf_id]["description"]
+configs["workloads"][workload_conf_id]["maintainer"]
+configs["workloads"][workload_conf_id]["packages"]
+configs["workloads"][workload_conf_id]["labels"]
+configs["workloads"][workload_conf_id]["arch_packages"][arch]
+configs["workloads"][workload_conf_id]["options"]
+
+data["workloads"][workload_id]["workload_conf_id"]
+data["workloads"][workload_id]["env_conf_id"]
+data["workloads"][workload_id]["repo_id"]
+data["workloads"][workload_id]["arch"]
+data["workloads"][workload_id]["pkg_env_ids"]
+data["workloads"][workload_id]["pkg_added_ids"]
+data["workloads"][workload_id]["errors"]["non_existing_pkgs"]
+data["workloads"][workload_id]["succeeded"]
+
+
+
+=== Label ===
+
+configs["labels"][label_id]["id"]
+configs["labels"][label_id]["name"]
+configs["labels"][label_id]["description"]
+configs["labels"][label_id]["maintainer"]
+
+
+=== View ===
+
+configs["views"][view_conf_id]["id"]
+configs["views"][view_conf_id]["name"]
+configs["views"][view_conf_id]["description"]
+configs["views"][view_conf_id]["maintainer"]
+configs["views"][view_conf_id]["labels"]
+

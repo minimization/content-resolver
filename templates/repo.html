@@ -1,0 +1,124 @@
+{% extends "layout.html" %}
+
+{% block content %}
+
+
+<div class="container">
+
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="./results.html">Home</a></li>
+            <li class="breadcrumb-item"><a href="./repos.html">Results</a></li>
+            <li class="breadcrumb-item"><a href="./repos.html">Repositories</a></li>
+            <li class="breadcrumb-item active" aria-current="page">
+                {{repo.name}} for {{arch}}
+            </li>
+        </ol>
+    </nav>
+
+
+    <h1>
+        {{repo.name}} <small class="text-muted"> repository</small>
+        <small class="text-muted"> for </small>
+        <small> {{arch}}</small>
+    </h1>
+
+    <hr>
+
+    <div class="row">
+        <div class="col-sm-9 d-flex align-items-stretch">
+            <div class="card w-100">
+                <h5 class="card-header"> Package Count History </h5>
+                <div class="card-body">
+                    <canvas id="chLine"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-sm-3 d-flex align-items-stretch">
+            <div class="card w-100">
+                <h5 class="card-header"> Relations </h5>
+                <div class="card-body">
+                    <br>
+                    <br>
+                    <p class="lead text-muted"> TBD</p>
+                    <br>
+                    <br>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <br>
+
+    <h5 class="card-title">{{query.data.pkgs[repo.id][arch] | count }} Packages</h5>
+
+    {#
+    <div class="row">
+        <div class="col-lg-12">
+            <div class="card">
+                <h5 class="card-header">
+                    Packages
+                </h5>
+                <div class="card-body">
+                    
+                    <table id="table_packages" class="table-packages">
+                        <thead>
+                            <tr class="sort_control_row">
+                                <th>Name</th>
+                                <th>Summary</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for pkg_id, pkg in query.data.pkgs[repo.id][arch].items() %}
+                            <tr class="dependency">
+                                <td>{{pkg_id}}</td>
+                                <td class=>{{pkg.summary}}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div><br>
+
+        </div>
+    </div>
+    #}
+
+</div>
+
+<script>
+    $(document).ready(function () {
+        function plot_graph(chartData) {
+            var chLine = document.getElementById("chLine");
+            if (chLine) {
+                new Chart(chLine, {
+                    type: 'line',
+                    data: chartData,
+                    options: {
+                        scales: {
+                            yAxes: [{
+                                ticks: {
+                                    beginAtZero: true,
+                                    callback: function (value, index, values) {
+                                        return value + " MB";
+                                    }
+                                }
+                            }]
+                        },
+                        legend: {
+                            display: false
+                        },
+                        spanGaps: true
+                    }
+                });
+            }
+        }
+
+        axios.get(`NAME.json`)
+            .then(response => {
+                plot_graph(response.data)
+            })
+    });
+</script>
+
+{% endblock %}

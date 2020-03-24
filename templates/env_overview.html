@@ -1,0 +1,142 @@
+{% extends "layout.html" %}
+
+{% block content %}
+
+<div class="container-fluid">
+
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="./results.html">Home</a></li>
+            <li class="breadcrumb-item"><a href="./envs.html">Results</a></li>
+            <li class="breadcrumb-item"><a href="./envs.html">Environments</a></li>
+            <li class="breadcrumb-item active" aria-current="page">{{query.configs.envs[env_conf_id].name}}</li>
+        </ol>
+    </nav>
+
+    <h1>
+        {{query.configs.envs[env_conf_id].name}} <small class="text-muted">Environment</small>
+        <br>
+        <small class="text-muted">from</small>
+        <small><a href="">{{query.configs.repos[repo_id].name}}</a></small>
+    </h1>
+
+    <hr>
+
+    <div class="row">
+        <div class="col-sm-9 d-flex align-items-stretch">
+            <div class="card w-100">
+                <h5 class="card-header"> Size History </h5>
+                <div class="card-body">
+                    <canvas id="chLine"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-sm-3 d-flex align-items-stretch">
+            <div class="card w-100">
+                <h5 class="card-header"> Relations </h5>
+                <div class="card-body">
+                    <br>
+                    <br>
+                    <p class="lead text-muted"> TBD</p>
+                    <br>
+                    <br>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <br>
+
+    <div class="card">
+        <div class="card-header">
+            <h5 class=""> Results overview</h5>
+            <ul class="nav nav-tabs card-header-tabs">
+                {% for loop_repo_id in query.envs(env_conf_id,None,None,output_change="repo_ids") %}
+                <li class="nav-item">
+                    {% if repo_id == loop_repo_id %}
+                    <a class="nav-link active" href="#">{{query.configs.repos[loop_repo_id].name}}</a>
+                    {% else %}
+                    <a class="nav-link"
+                        href="env-overview--{{env_conf_id}}--{{loop_repo_id}}.html">{{query.configs.repos[loop_repo_id].name}}</a>
+                    {% endif %}
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+
+        <br>
+
+        <table class="card-body table table-bordered grid-table" style="text-align: center">
+            <thead>
+                <tr class="sort_control_row">
+                    {% for arch in query.settings.allowed_arches %}
+                    <th>{{arch}}</th>
+                    {% endfor %}
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    {% for arch in query.settings.allowed_arches %}
+
+                    {% if arch in query.envs(env_conf_id,repo_id,None,output_change="arches") %}
+
+                    <td class="align-middle">
+                        <p>
+                            {{ query.env_pkgs(env_conf_id,repo_id,arch) | count }} packages
+                            <br>
+                            {{ query.size(query.env_size(env_conf_id,repo_id,arch))}}
+                        </p>
+                        <b><a href="env--{{query.env_url_slug(env_conf_id,repo_id,arch)}}.html">Details</a></b>
+                    </td>
+                    {% else %}
+                    <td class="align-middle text-muted"> (Excluded) </td>
+                    {% endif %}
+                    {% endfor %}
+                    <td class="align-middle">
+                        <a href="env-cmp-arches--{{env_conf_id}}--{{repo_id}}.html">Compare all<br>architectures</a>
+                    </td>
+                </tr>
+
+
+            </tbody>
+        </table>
+    </div>
+
+</div>
+
+<script>
+    $(document).ready(function () {
+        function plot_graph(chartData) {
+            var chLine = document.getElementById("chLine");
+            if (chLine) {
+                new Chart(chLine, {
+                    type: 'line',
+                    data: chartData,
+                    options: {
+                        scales: {
+                            yAxes: [{
+                                ticks: {
+                                    beginAtZero: true,
+                                    callback: function (value, index, values) {
+                                        return value + " MB";
+                                    }
+                                }
+                            }]
+                        },
+                        legend: {
+                            display: false
+                        },
+                        spanGaps: true
+                    }
+                });
+            }
+        }
+
+        axios.get(`chartjs-data--env-overview--{{env_conf_id}}--{{repo_id}}.json`)
+            .then(response => {
+                plot_graph(response.data)
+            })
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,74 @@
+{% extends "layout.html" %}
+
+{% block content %}
+
+<div class="container">
+
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="./">Home</a></li>
+            <li class="breadcrumb-item"><a href="./configs_repos.html">Configuration Files</a></li>
+            <li class="breadcrumb-item active" aria-current="page">Repository: {{label_conf.name}}</li>
+        </ol>
+    </nav>
+
+    <h1>
+        {{label_conf.name}}
+        <small class="text-muted">label configuration</small>
+    </h1>
+
+    <hr>
+
+    <div class="card">
+        <h5 class="card-header">
+            <a href="https://github.com/minimization/feedback-pipeline-config/blob/master/{{label_conf.id}}.yaml"
+                class="btn btn-sm btn-primary float-right">Edit Configuration</a>
+            Configuration
+        </h5>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-sm-6">
+                    <dl>
+                        <dt>Name</dt>
+                        <dd>{{label_conf.name}}</dd>
+
+                        <dt>Description</dt>
+                        <dd>{{label_conf.description}}</dd>
+
+                        <dt>maintainer</dt>
+                        <dd>{{label_conf.maintainer}}</dd>
+                    </dl>
+                </div>
+                <div class="col-sm-3">
+                    <dl>
+                        <dt>Label</dt>
+                        <dd>
+                            <ul class="list-unstyled list-packages">
+                                <li >{{label_conf.id}}</li>
+                            </ul>
+                        </dd>
+                    </dl>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <br>
+
+    <div class="card">
+        <h5 class="card-header"> Results </h5>
+        <div class="card-body">
+            <br>
+            <br>
+            <br>
+            <div style="text-align: center;">
+                <h1 class="text-muted">TBD</h1>
+            </div>
+            <br>
+            <br>
+            <br>
+        </div>
+    </div>
+
+</div>
+{% endblock %}

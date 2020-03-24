@@ -1,0 +1,165 @@
+{% extends "layout.html" %}
+
+{% block content %}
+
+<div class="container-fluid">
+
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="./results.html">Home</a></li>
+            <li class="breadcrumb-item"><a href="./workloads.html">Results</a></li>
+            <li class="breadcrumb-item"><a href="./workloads.html">Workloads</a></li>
+            <li class="breadcrumb-item active" aria-current="page">{{query.configs.workloads[workload_conf_id].name}}</li>
+        </ol>
+    </nav>
+
+    <h1> 
+        {{query.configs.workloads[workload_conf_id].name}} <small class="text-muted">workload</small>
+        <br>
+        <small class="text-muted">from</small>
+        <small><a href="">{{query.configs.repos[repo_id].name}}</a></small>
+    </h1>
+
+    <hr>
+
+    <div class="row">
+        <div class="col-sm-9 d-flex align-items-stretch">
+            <div class="card w-100">
+                <h5 class="card-header"> Size History </h5>
+                <div class="card-body">
+                    <canvas id="chLine"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-sm-3 d-flex align-items-stretch">
+            <div class="card w-100">
+                <h5 class="card-header"> Relations </h5>
+                <div class="card-body">
+                    <br>
+                    <br>
+                    <p class="lead text-muted"> TBD</p>
+                    <br>
+                    <br>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <br>
+
+    <div class="card">
+        <div class="card-header">
+            <h5 class=""> Results overview</h5>
+            <ul class="nav nav-tabs card-header-tabs">
+                {% for loop_repo_id in query.workloads(workload_conf_id,None,None,None,output_change="repo_ids") %}
+                <li class="nav-item">
+                    {% if repo_id == loop_repo_id %}
+                    <a class="nav-link active" href="#">{{query.configs.repos[loop_repo_id].name}}</a>
+                    {% else %}
+                    <a class="nav-link" href="workload-overview--{{workload_conf_id}}--{{loop_repo_id}}.html">{{query.configs.repos[loop_repo_id].name}}</a>
+                    {% endif %}
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+
+        <br>
+
+        <table class="card-body table table-bordered grid-table" style="text-align: center">
+            <thead>
+                <tr class="sort_control_row">
+                    <th></th>
+                    {% for arch in query.settings.allowed_arches %}
+                    <th>{{arch}}</th>
+                    {% endfor %}
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for env_conf_id in query.workloads(workload_conf_id,None,repo_id,None,output_change="env_conf_ids") %}
+                <tr>
+                    <th class="align-middle">
+                        in {{query.configs.envs[env_conf_id].name}}
+                    </th>
+                    {% for arch in query.settings.allowed_arches %}
+
+                    {% if arch in query.workloads(workload_conf_id,env_conf_id,repo_id,None,output_change="arches") %}
+
+                    <td class="align-middle">
+                        
+                        <p>
+                        {{ query.workload_pkgs(workload_conf_id,env_conf_id,repo_id,arch) | count }} packages
+                        <br>
+                        {{ query.size(query.workload_size(workload_conf_id,env_conf_id,repo_id,arch)) }}
+                        </p>
+                        <b><a href="workload--{{query.workload_url_slug(workload_conf_id,env_conf_id,repo_id,arch)}}.html">Details</a></b>
+                    </td>
+                    {% else %}
+                    <td class="align-middle text-muted"> (Excluded) </td>
+                    {% endif %}
+                    {% endfor %}
+                    <td class="align-middle">
+                        <a href="workload-cmp-arches--{{workload_conf_id}}--{{env_conf_id}}--{{repo_id}}.html">Compare all<br>architectures</a>
+                        <p>({{query.configs.envs[env_conf_id].name}})</p>
+                    </td>
+                </tr>
+                {% endfor %}
+
+
+                <tr>
+                    <th></th>
+                    {% for arch in query.settings.allowed_arches %}
+                    {% if arch in query.workloads(workload_conf_id,env_conf_id,repo_id,None,output_change="arches") %}
+                    <td>
+                        <a href="workload-cmp-envs--{{workload_conf_id}}--{{repo_id}}--{{arch}}.html">Compare in all<br>environments</a>
+                        <p>({{arch}})</p>
+                    </td>
+                    {% else %}
+                    <td class="align-middle text-muted"></td>
+                    {% endif %}
+                    {% endfor %}
+                    <td></td>
+                </tr>
+
+
+            </tbody>
+        </table>
+    </div>
+
+</div>
+
+<script>
+    $(document).ready(function () {
+        function plot_graph(chartData) {
+            var chLine = document.getElementById("chLine");
+            if (chLine) {
+                new Chart(chLine, {
+                    type: 'line',
+                    data: chartData,
+                    options: {
+                        scales: {
+                            yAxes: [{
+                                ticks: {
+                                    beginAtZero: true,
+                                    callback: function (value, index, values) {
+                                        return value + " MB";
+                                    }
+                                }
+                            }]
+                        },
+                        legend: {
+                            display: false
+                        },
+                        spanGaps: true
+                    }
+                });
+            }
+        }
+
+        axios.get('chartjs-data--workload-overview--{{workload_conf_id}}--{{repo_id}}.json')
+            .then(response => {
+                plot_graph(response.data)
+            })
+    });
+</script>
+{% endblock %}

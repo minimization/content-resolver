@@ -1,0 +1,61 @@
+{% extends "layout.html" %}
+
+{% block content %}
+
+<div class="container">
+
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="./results.html">Home</a></li>
+            <li class="breadcrumb-item"><a href="">Results</a></li>
+            <li class="breadcrumb-item active" aria-current="page">Labels</li>
+        </ol>
+    </nav>
+
+    <h1> Results </h1>
+
+    <hr>
+
+    <ul class="nav nav-tabs">
+        <li class="nav-item">
+            <a class="nav-link " href="repos.html">Repositories</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link " href="envs.html">Environments</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link " href="workloads.html">Workloads</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link active" href="labels.html">Labels</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link " href="views.html">Views</a>
+        </li>
+    </ul>
+
+    <br>
+
+    <table class="table table-striped" id="table_packages">
+        <thead>
+            <tr class="sort_control_row">
+                <th>Name</th>
+                <th>Results</th>
+            </tr>
+        </thead>
+        <tbody>
+            
+        </tbody>
+    </table>
+</div>
+
+<script>
+    $(document).ready(function () {
+        $('#table_packages').DataTable({
+            paging: false,
+            filter: false,
+            info: false
+        });
+    });
+</script>
+{% endblock %}

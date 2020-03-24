@@ -1,0 +1,93 @@
+{% extends "layout.html" %}
+
+{% block content %}
+
+<div class="container">
+
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item active" aria-current="page">Home</li>
+        </ol>
+    </nav>
+
+    <h1> Home </h1>
+
+    <hr>
+
+    <div class="row">
+        <div class="col-sm-9 d-flex align-items-stretch">
+            <div class="card w-100">
+                <h5 class="card-header"> Results </h5>
+                <div class="list-group list-group-flush">
+                    <a href="repos.html" class="list-group-item list-group-item-action flex-column align-items-start">
+                        <div class="d-flex w-100 justify-content-between">
+                            <h5 class="mb-1">Repositories</h5>
+                        </div>
+                        <p class="mb-1">Repositories are sources of the content. See all repositories and browse
+                            packages available in them.</p>
+                    </a>
+                    <a href="envs.html" class="list-group-item list-group-item-action flex-column align-items-start">
+                        <div class="d-flex w-100 justify-content-between">
+                            <h5 class="mb-1">Environments</h5>
+                        </div>
+                        <p class="mb-1">Environments influence how workloads look like after installation. See all
+                            environments in which workloads are analyzed. </p>
+                    </a>
+                    <a href="workloads.html"
+                        class="list-group-item list-group-item-action flex-column align-items-start">
+                        <div class="d-flex w-100 justify-content-between">
+                            <h5 class="mb-1">Workloads</h5>
+                        </div>
+                        <p class="mb-1">Workloads are package sets with a purpose. See all workloads and their overall
+                            sizes and package contents, accross multiple architectures.</p>
+                    </a>
+                    <a href="views.html" class="list-group-item list-group-item-action flex-column align-items-start">
+                        <div class="d-flex w-100 justify-content-between">
+                            <h5 class="mb-1">Labels</h5>
+                        </div>
+                        <p class="mb-1">Labels connect things together. Workloads get analyzed in environments with the
+                            same label, and views show content matching their label. Browse all labels and explore
+                            connections.</p>
+                    </a>
+                    <a href="views.html" class="list-group-item list-group-item-action flex-column align-items-start">
+                        <div class="d-flex w-100 justify-content-between">
+                            <h5 class="mb-1">User-defined views</h5>
+                        </div>
+                        <p class="mb-1">Because there is a lot of content here, users can define specific views they're
+                            interested. See those views.</p>
+                    </a>
+                </div>
+            </div>
+        </div>
+        <div class="col-sm-3 d-flex align-items-stretch">
+            <div class="card w-100">
+                <h5 class="card-header"> Configuration </h5>
+                <div class="list-group list-group-flush">
+                    <a href="configs_repos.html" class="list-group-item list-group-item-action">Repositories</a>
+                    <a href="configs_envs.html" class="list-group-item list-group-item-action">Environments</a>
+                    <a href="configs_workloads.html" class="list-group-item list-group-item-action">Workloads</a>
+                    <a href="configs_labels.html" class="list-group-item list-group-item-action">Labels</a>
+                    <a href="configs_views.html" class="list-group-item list-group-item-action">Views</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <br>
+
+    <div class="card">
+        <div class="card-body">
+            <br>
+            <br>
+            <br>
+            <div style="text-align: center;">
+                <h1 class="text-muted">Concepts explained here</h1>
+            </div>
+            <br>
+            <br>
+            <br>
+        </div>
+    </div>
+
+</div>
+{% endblock %}

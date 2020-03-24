@@ -1,0 +1,164 @@
+{% extends "layout.html" %}
+
+{% block content %}
+
+
+<div class="container-fluid">
+
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="./results.html">Home</a></li>
+            <li class="breadcrumb-item"><a href="./workloads.html">Results</a></li>
+            <li class="breadcrumb-item"><a href="./workloads.html">Workloads</a></li>
+            <li class="breadcrumb-item">
+                <a
+                    href="{{'./workload-overview--{workload_conf_id}--{repo_id}.html'.format(workload_conf_id=workload_conf.id, repo_id=repo_id)}}">
+                    {{workload_conf.name}}
+                </a>
+            </li>
+            <li class="breadcrumb-item active" aria-current="page">
+                {{workload_conf.name}} in {{env_conf.name}} from {{repo.name}}
+            </li>
+        </ol>
+    </nav>
+
+
+    <h1>
+        {{workload_conf.name}} <small class="text-muted"> workload</small>
+        <br>
+        <small class="text-muted"> in </small>
+        <small> <a href="">{{env_conf.name}}</a> </small>
+        <small class="text-muted"> from </small>
+        <small> <a href="">{{repo.name}}</a> </small>
+    </h1>
+
+    <hr>
+
+    <div class="row">
+        <div class="col-sm-9 d-flex align-items-stretch">
+            <div class="card w-100">
+                <h5 class="card-header"> Size History </h5>
+                <div class="card-body">
+                    <canvas id="chLine"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-sm-3 d-flex align-items-stretch">
+            <div class="card w-100">
+                <h5 class="card-header"> Relations </h5>
+                <div class="card-body">
+                    <br>
+                    <br>
+                    <p class="lead text-muted"> TBD</p>
+                    <br>
+                    <br>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <br>
+
+    <table id="table_packages" class="table-packages">
+        <thead>
+            <tr class="heading">
+                <th></th>
+                {% for arch in columns.keys() %}
+                <th class="group-first-col" colspan=4>{{arch}}</th>
+                {% endfor %}
+            </tr>
+            <tr class="sort_control_row">
+                <th>Name</th>
+                {% for arch in columns.keys() %}
+                <th class="group-first-col">Why</th>
+                <th>Name</th>
+                <th>Arch</th>
+                <th>Size</th>
+                {% endfor %}
+            </tr>
+        </thead>
+        <tbody>
+            {% for pkg_name in rows %}
+            <tr>
+                <td class="all-pkgs-col">{{pkg_name}}</td>
+                {% for arch in columns.keys() %}
+                {% if pkg_name in columns[arch] %}
+
+                {% if query.workload_id_string(workload_conf_id,env_conf_id,repo_id,columns[arch][pkg_name].q_arch) in columns[arch][pkg_name].q_required_in 
+                                            and query.workload_id_string(workload_conf_id,env_conf_id,repo_id,columns[arch][pkg_name].q_arch) in columns[arch][pkg_name].q_env_in %}
+                <td class="required group-first-col" data-order="1">(required, env)</td>
+                <td class="required">{{columns[arch][pkg_name].name}}</td>
+                <td class="required">{{columns[arch][pkg_name].arch}}</td>
+                <td class="required">{{query.size(columns[arch][pkg_name].installsize)}}</td>
+                {% elif query.workload_id_string(workload_conf_id,env_conf_id,repo_id,columns[arch][pkg_name].q_arch) in columns[arch][pkg_name].q_required_in %}
+                <td class="required group-first-col" data-order="0">(required)</td>
+                <td class="required">{{columns[arch][pkg_name].name}}</td>
+                <td class="required">{{columns[arch][pkg_name].arch}}</td>
+                <td class="required">{{query.size(columns[arch][pkg_name].installsize)}}</td>
+                {% elif query.workload_id_string(workload_conf_id,env_conf_id,repo_id,columns[arch][pkg_name].q_arch) in columns[arch][pkg_name].q_env_in %}
+                <td class="env group-first-col" data-order="2">(env)</td>
+                <td class="env">{{columns[arch][pkg_name].name}}</td>
+                <td class="env">{{columns[arch][pkg_name].arch}}</td>
+                <td class="env">{{query.size(columns[arch][pkg_name].installsize)}}</td>
+                {% else %}
+                <td class="dependency group-first-col" data-order="3"></td>
+                <td class="dependency">{{columns[arch][pkg_name].name}}</td>
+                <td class="dependency">{{columns[arch][pkg_name].arch}}</td>
+                <td class="dependency">{{query.size(columns[arch][pkg_name].installsize)}}</td>
+                {% endif %}
+
+                {% else %}
+                <td class="group-first-col" data-order="4"> </td>
+                <td> - </td>
+                <td> </td>
+                <td> </td>
+                {% endif %}
+                {% endfor %}
+            </tr>
+            {% endfor %}
+
+        </tbody>
+    </table>
+
+</div>
+
+<script>
+    $(document).ready(function () {
+        $('#table_packages').DataTable({
+            paging: false,
+            info: false
+        });
+        
+        function plot_graph(chartData) {
+            var chLine = document.getElementById("chLine");
+            if (chLine) {
+                new Chart(chLine, {
+                    type: 'line',
+                    data: chartData,
+                    options: {
+                        scales: {
+                            yAxes: [{
+                                ticks: {
+                                    beginAtZero: true,
+                                    callback: function (value, index, values) {
+                                        return value + " MB";
+                                    }
+                                }
+                            }]
+                        },
+                        legend: {
+                            display: false
+                        },
+                        spanGaps: true
+                    }
+                });
+            }
+        }
+
+        axios.get(`chartjs-data--workload-cmp-arches--{{workload_conf_id}}--{{env_conf_id}}--{{repo_id}}.json`)
+            .then(response => {
+                plot_graph(response.data)
+            })
+    });
+</script>
+{% endblock %}
