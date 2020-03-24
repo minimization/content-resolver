@@ -1848,10 +1848,20 @@ def generate_pages(query):
 ### Historic Data #############################################################
 ###############################################################################
 
-def _save_current_historic_data(query, filename):
-
+def _save_current_historic_data(query):
     log("Generating current historic data...")
 
+    # Where to save it
+    year = datetime.datetime.now().strftime("%Y")
+    week = datetime.datetime.now().strftime("%W")
+    filename = "historic_data-{year}-week_{week}.json".format(
+        year=year,
+        week=week
+    )
+    output_dir = os.path.join(query.settings["output"], "history")
+    file_path = os.path.join(output_dir, filename)
+
+    # What to save there
     history_data = {}
     history_data["date"] = str(datetime.datetime.now().strftime("%Y-%m-%d"))
     history_data["workloads"] = {}
@@ -1886,16 +1896,56 @@ def _save_current_historic_data(query, filename):
             
             history_data["repos"][repo_id][arch] = repo_history
 
-    output_dir = os.path.join(query.settings["output"], "history")
-    file_path = os.path.join(output_dir, filename)
+    # And save it
     log("  Saving in: {file_path}".format(
         file_path=file_path
     ))
     dump_data(file_path, history_data)
+
     log("  Done!")
     log("")
 
 
+def _read_historic_data(query):
+    log("Reading historic data...")
+
+    directory = os.path.join(query.settings["output"], "history")
+
+    # Do some basic validation of the filename
+    all_filenames = os.listdir(directory)
+    valid_filenames = []
+    for filename in all_filenames:
+        if bool(re.match("historic_data-....-week_...json", filename)):
+            valid_filenames.append(filename)
+    valid_filenames.sort()
+
+    # Get the data
+    historic_data = {}
+
+    for filename in valid_filenames:
+        with open(os.path.join(directory, filename), "r") as file:
+            try:
+                document = json.load(file)
+
+                date = datetime.datetime.strptime(document["date"],"%Y-%m-%d")
+                year = date.strftime("%Y")
+                week = date.strftime("%W")
+                key = "{year}-week_{week}".format(
+                    year=year,
+                    week=week
+                )
+            except (KeyError, ValueError):
+                err_log("Invalid file in historic data: {filename}. Ignoring.".format(
+                    filename=filename
+                ))
+                continue
+
+            historic_data[key] = document
+
+    return historic_data
+
+    log("  Done!")
+    log("")
         
 
 def generate_history_data(query):
@@ -1904,18 +1954,16 @@ def generate_history_data(query):
     log("### Historic Data #############################################################")
     log("###############################################################################")
     log("")
-    
-    year = datetime.datetime.now().strftime("%Y")
-    week = datetime.datetime.now().strftime("%W")
-    filename_template = "historic_data-{year}-week_{week}.json"
 
     # Step 1: Save current data
-    filename = filename_template.format(year=year,week=week)
-    _save_current_historic_data(query, filename)
-
-
+    _save_current_historic_data(query)
 
     # Step 2: Read historic data
+    historic_data = _read_historic_data(query)
+
+    pp = pprint.PrettyPrinter(depth=4)
+    pp.pprint(historic_data)
+
     # Step 3: Generate json files for the JavaScript chart
 
 
