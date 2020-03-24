@@ -41,34 +41,28 @@
         <thead>
             <tr class="sort_control_row">
                 <th>Name</th>
-                <th>Results</th>
+                {% for arch in query.settings.allowed_arches %}
+                <th>{{arch}}</th>
+                {% endfor %}
             </tr>
         </thead>
         <tbody>
             {% for repo_conf_id, repo_conf in query.configs.repos.items() %}
             <tr>
                 <td>{{repo_conf.name}}</td>
+                {% for arch in query.settings.allowed_arches %}
                 <td>
-                    {% for arch in repo_conf.source.architectures %}
-                    <span class="card-link">
-                        <a href="repo--{{repo_conf_id}}--{{arch}}.html">{{arch}}</a>
-                    </span>
-                        
-                    {% endfor %}
+                    {% if arch in repo_conf.source.architectures %}
+                    {{ query.data.pkgs[repo_conf_id][arch] | count | int }} pkgs
+                    {% else %}
+                        <span class="text-muted">(excluded)</span>
+                    {% endif %}
                 </td>
+                {% endfor %}
             </tr>
             {% endfor %}
         </tbody>
     </table>
 </div>
 
-<script>
-    $(document).ready(function () {
-        $('#table_packages').DataTable({
-            paging: false,
-            filter: false,
-            info: false
-        });
-    });
-</script>
 {% endblock %}

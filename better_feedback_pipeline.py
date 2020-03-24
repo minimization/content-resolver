@@ -91,7 +91,7 @@ def load_settings():
     # FIXME: This is hardcorded, and it shouldn't be!
     #settings["allowed_arches"] = ["armv7hl","aarch64","i686","ppc64le","s390x","x86_64"]
     # FIXME Limiting arches for faster results during development
-    settings["allowed_arches"] = ["aarch64","x86_64"]
+    settings["allowed_arches"] = ["armv7hl","aarch64","ppc64le","s390x","x86_64"]
     return(settings)
 
 
