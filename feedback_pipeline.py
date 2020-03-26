@@ -681,7 +681,12 @@ def _analyze_env(tmp, env_conf, repo, arch):
         
         # Resolve dependencies
         log("  Resolving dependencies...")
-        base.resolve()
+        try:
+            base.resolve()
+        except dnf.exceptions.DepsolveError as err:
+            env["succeeded"] = False
+            env["errors"]["message"] = err
+            return workload
 
         # Write the result into RPMDB.
         # The transaction needs us to download all the packages. :(
@@ -857,7 +862,12 @@ def _analyze_workload(tmp, workload_conf, env_conf, repo, arch):
 
         # Resolve dependencies
         log("  Resolving dependencies...")
-        base.resolve()
+        try:
+            base.resolve()
+        except dnf.exceptions.DepsolveError as err:
+            workload["succeeded"] = False
+            workload["errors"]["message"] = err
+            return workload
 
         # DNF Query
         log("  Creating a DNF Query object...")
