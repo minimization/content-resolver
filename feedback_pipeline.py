@@ -434,7 +434,7 @@ def get_configs(settings):
                     configs["envs"][document_id] = _load_config_env(document_id, document, settings)
 
                 # === Case: Workload config ===
-                if document["document"] == "feeback-pipeline-workload":
+                if document["document"] == "feedback-pipeline-workload":
                     configs["workloads"][document_id] = _load_config_workload(document_id, document, settings)
                 
                 # === Case: Label config ===
