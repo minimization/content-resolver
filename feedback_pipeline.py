@@ -426,11 +426,11 @@ def get_configs(settings):
 
 
                 # === Case: Repository config ===
-                if document["document"] == "feeback-pipeline-repository":
+                if document["document"] == "feedback-pipeline-repository":
                     configs["repos"][document_id] = _load_config_repo(document_id, document, settings)
 
                 # === Case: Environment config ===
-                if document["document"] == "feeback-pipeline-environment":
+                if document["document"] == "feedback-pipeline-environment":
                     configs["envs"][document_id] = _load_config_env(document_id, document, settings)
 
                 # === Case: Workload config ===
@@ -438,11 +438,11 @@ def get_configs(settings):
                     configs["workloads"][document_id] = _load_config_workload(document_id, document, settings)
                 
                 # === Case: Label config ===
-                if document["document"] == "feeback-pipeline-label":
+                if document["document"] == "feedback-pipeline-label":
                     configs["labels"][document_id] = _load_config_label(document_id, document, settings)
 
                 # === Case: View config ===
-                if document["document"] == "feeback-pipeline-compose-view":
+                if document["document"] == "feedback-pipeline-compose-view":
                     configs["views"][document_id] = _load_config_compose_view(document_id, document, settings)
 
 

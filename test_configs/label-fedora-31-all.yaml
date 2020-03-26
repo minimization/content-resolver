@@ -6,7 +6,7 @@
 # This configuration is optional, it helps clarify existing labels
 # by adding a name and a description to them.
 
-document: feeback-pipeline-label
+document: feedback-pipeline-label
 version: 1
 data:
   # id is the filename — that automatically prevents collisions for free!
