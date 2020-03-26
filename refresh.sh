@@ -32,7 +32,15 @@ podman run --rm -it -v $WORK_DIR/feedback-pipeline:/workspace:z asamalik/feedbac
 cd $WORK_DIR || exit 1
 
 cd reports || exit 1
-cp -r $WORK_DIR/feedback-pipeline/out/* docs/ || exit 1
+#cp -r $WORK_DIR/feedback-pipeline/out/* docs/ || exit 1
+
+# Too many files for cp!
+for i in $WORK_DIR/feedback-pipeline/out/*
+do
+    cp -r "$i" docs/
+done || exit 1
+
+
 git add . || exit 1
 git commit -m "automatic update $(date)" || exit 1
 git push || exit 1
