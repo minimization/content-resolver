@@ -313,9 +313,10 @@ def _load_config_label(document_id, document, settings):
     return config
 
 
-def _load_config_view(document_id, document, settings):
+def _load_config_compose_view(document_id, document, settings):
     config = {}
     config["id"] = document_id
+    config["type"] = "compose"
 
     # Step 1: Mandatory fields
     try:
@@ -336,11 +337,41 @@ def _load_config_view(document_id, document, settings):
         for repo in document["data"]["labels"]:
             config["labels"].append(str(repo))
 
+        # Choose one repository that gets used as a source.
+        config["repository"] = str(document["data"]["repository"])
+
     except KeyError:
-        raise ConfigError("Error: {file} is invalid.".format(file=yml_file))
+        raise ConfigError("Error: {document_id}.yml is invalid.".format(document_id=document_id))
 
     # Step 2: Optional fields
-    # none here
+    
+    # Limit this view only to the following architectures
+    config["architectures"] = []
+    if "architectures" in document["data"]:
+        for repo in document["data"]["architectures"]:
+            config["architectures"].append(str(repo))
+    
+    # Limit this view only to the following pkgs
+    config["unwanted_packages"] = []
+    if "unwanted_packages" in document["data"]:
+        for pkg in document["data"]["unwanted_packages"]:
+            config["unwanted_packages"].append(str(pkg))
+
+    # Architecture-specific packages.
+    config["unwanted_arch_packages"] = {}
+    for arch in settings["allowed_arches"]:
+        config["unwanted_arch_packages"][arch] = []
+    if "unwanted_arch_packages" in document["data"]:
+        for arch, pkgs in document["data"]["unwanted_arch_packages"].items():
+            if arch not in settings["allowed_arches"]:
+                err_log("Error: {file}.yaml lists an invalid architecture: {arch}. Ignoring.".format(
+                    file=document_id,
+                    arch=arch
+                ))
+                continue
+            for pkg_raw in pkgs:
+                pkg = str(pkg_raw)
+                config["unwanted_arch_packages"][arch].append(pkg)
 
     return config
 
@@ -370,6 +401,8 @@ def get_configs(settings):
     configs["labels"] = {}
     configs["views"] = {}
 
+    # Step 1: Load all configs
+    log("Loading config files...")
     for yml_file in os.listdir(directory):
         # Only accept yaml files
         if not yml_file.endswith(".yaml"):
@@ -409,13 +442,26 @@ def get_configs(settings):
                     configs["labels"][document_id] = _load_config_label(document_id, document, settings)
 
                 # === Case: View config ===
-                if document["document"] == "feeback-pipeline-view":
-                    configs["views"][document_id] = _load_config_view(document_id, document, settings)
+                if document["document"] == "feeback-pipeline-compose-view":
+                    configs["views"][document_id] = _load_config_compose_view(document_id, document, settings)
 
 
         except ConfigError as err:
-            err_log("Config load error: {err}".format(err=err))
+            err_log("Config load error: {err}. Ignoring.".format(err=err))
             continue
+    
+    log("  Done!")
+    log("")
+
+    # Step 2: cross check configs for references and other validation
+    log("  Validating configs...")
+    # FIXME: Do this, please!
+    log("  Warning: This is not implemented, yet!")
+    log("           But there would be a traceback somewhere during runtime ")
+    log("           if an error exists, so wrong outputs won't happen.")
+
+    log("  Done!")
+    log("")
     
     log("Done!  Loaded:")
     log("  - {} repositories".format(len(configs["repos"])))
@@ -517,9 +563,12 @@ def _analyze_pkgs(tmp, repo, arch):
         all_pkgs_set = set(query())
         pkgs = {}
         for pkg_object in all_pkgs_set:
-            pkg_nevr = "{name}-{evr}".format(name=pkg_object.name, evr=pkg_object.evr)
+            pkg_nevra = "{name}-{evr}-{arch}".format(
+                name=pkg_object.name,
+                evr=pkg_object.evr,
+                arch=pkg_object.arch)
             pkg = {}
-            pkg["id"] = pkg_nevr
+            pkg["id"] = pkg_nevra
             pkg["name"] = pkg_object.name
             pkg["evr"] = pkg_object.evr
             pkg["arch"] = pkg_object.arch
@@ -530,7 +579,8 @@ def _analyze_pkgs(tmp, repo, arch):
             #pkg["recommends"] = pkg_object.recommends
             #pkg["suggests"] = pkg_object.suggests
             pkg["summary"] = pkg_object.summary
-            pkgs[pkg_nevr] = pkg
+            pkg["source_name"] = pkg_object.source_name
+            pkgs[pkg_nevra] = pkg
         
         log("  Done!  ({pkg_count} packages in total)".format(
             pkg_count=len(pkgs)
@@ -656,9 +706,10 @@ def _analyze_env(tmp, env_conf, repo, arch):
         query = base.sack.query().filterm(pkg=base.transaction.install_set)
 
         for pkg in query:
-            pkg_id = "{name}-{evr}".format(
+            pkg_id = "{name}-{evr}-{arch}".format(
                 name=pkg.name,
-                evr=pkg.evr
+                evr=pkg.evr,
+                arch=pkg.arch
             )
             env["pkg_ids"].append(pkg_id)
         
@@ -818,16 +869,18 @@ def _analyze_workload(tmp, workload_conf, env_conf, repo, arch):
         query_all = base.sack.query().filterm(pkg=pkgs_all)
         
         for pkg in pkgs_env:
-            pkg_id = "{name}-{evr}".format(
+            pkg_id = "{name}-{evr}-{arch}".format(
                 name=pkg.name,
-                evr=pkg.evr
+                evr=pkg.evr,
+                arch=pkg.arch
             )
             workload["pkg_env_ids"].append(pkg_id)
         
         for pkg in pkgs_added:
-            pkg_id = "{name}-{evr}".format(
+            pkg_id = "{name}-{evr}-{arch}".format(
                 name=pkg.name,
-                evr=pkg.evr
+                evr=pkg.evr,
+                arch=pkg.arch
             )
             workload["pkg_added_ids"].append(pkg_id)
         
@@ -917,7 +970,7 @@ def analyze_things(configs, settings):
     with tempfile.TemporaryDirectory() as tmp:
 
         # FIXME temporary override
-        tmp = "/tmp/fixed-tmp"
+        #tmp = "/tmp/fixed-tmp"
 
         # List of supported arches
         all_arches = settings["allowed_arches"]
@@ -1137,14 +1190,22 @@ class Query():
         
         raise ValueError("That seems to be an invalid ID!")
     
-    def workload_pkgs(self, workload_conf_id, env_conf_id, repo_id, arch):
+    def workload_pkgs(self, workload_conf_id, env_conf_id, repo_id, arch, output_change=None):
         # Warning: mixing repos and arches works, but might cause mess on the output
 
-        # Output is just a flat list. Extra fields will be added into each package:
+        # Default output is just a flat list. Extra fields will be added into each package:
         # q_in          - set of workload_ids including this pkg
         # q_required_in - set of workload_ids where this pkg is required (top-level)
         # q_env_in      - set of workload_ids where this pkg is in env
         # q_arch        - architecture
+
+        # Other outputs:
+        #   - "ids"         — a list ids
+        #   - "source_names"  — a list of SRPM names
+        if output_change:
+            list_all = True
+            if output_change not in ["ids", "source_names"]:
+                raise ValueError('output_change must be one of: "ids", "source_names"')
         
         # Step 1: get all the matching workloads!
         workload_ids = self.workloads(workload_conf_id, env_conf_id, repo_id, arch, list_all=True)
@@ -1184,6 +1245,7 @@ class Query():
                     pkgs[workload_repo_id][workload_arch][pkg_id]["installsize"] = pkg["installsize"]
                     pkgs[workload_repo_id][workload_arch][pkg_id]["description"] = pkg["description"]
                     pkgs[workload_repo_id][workload_arch][pkg_id]["summary"] = pkg["summary"]
+                    pkgs[workload_repo_id][workload_arch][pkg_id]["source_name"] = pkg["source_name"]
                     pkgs[workload_repo_id][workload_arch][pkg_id]["q_arch"] = workload_arch
                     pkgs[workload_repo_id][workload_arch][pkg_id]["q_in"] = set()
                     pkgs[workload_repo_id][workload_arch][pkg_id]["q_required_in"] = set()
@@ -1214,6 +1276,7 @@ class Query():
                     pkgs[workload_repo_id][workload_arch][pkg_id]["installsize"] = pkg["installsize"]
                     pkgs[workload_repo_id][workload_arch][pkg_id]["description"] = pkg["description"]
                     pkgs[workload_repo_id][workload_arch][pkg_id]["summary"] = pkg["summary"]
+                    pkgs[workload_repo_id][workload_arch][pkg_id]["source_name"] = pkg["source_name"]
                     pkgs[workload_repo_id][workload_arch][pkg_id]["q_arch"] = workload_arch
                     pkgs[workload_repo_id][workload_arch][pkg_id]["q_in"] = set()
                     pkgs[workload_repo_id][workload_arch][pkg_id]["q_required_in"] = set()
@@ -1228,6 +1291,21 @@ class Query():
                 if pkg["name"] in self.configs["workloads"][workload_conf_id]["arch_packages"][workload_arch]:
                     pkgs[workload_repo_id][workload_arch][pkg_id]["q_required_in"].add(workload_id)
 
+        # Is it supposed to only output ids?
+        if output_change:
+            pkg_names = set()
+            for repo_id in repo_ids:
+                for arch in arches:
+                    for pkg_id, pkg in pkgs[repo_id][arch].items():
+                        if output_change == "ids":
+                            pkg_names.add(pkg["id"])
+                        elif output_change == "source_names":
+                            pkg_names.add(pkg["source_name"])
+            
+            names_sorted = sorted(list(pkg_names))
+            return names_sorted
+                        
+
         # And now I just need to flatten that dict and return all packages as a list
         final_pkg_list = []
         for repo_id in repo_ids:
@@ -1241,7 +1319,7 @@ class Query():
         return final_pkg_list_sorted
 
 
-    def workload_pkgs_id(self, id):
+    def workload_pkgs_id(self, id, output_change=None):
         # Accepts both env and workload ID, and returns pkgs for workloads that match
         id_components = id.split(":")
 
@@ -1250,7 +1328,7 @@ class Query():
             env_conf_id = id_components[0]
             repo_id = id_components[1]
             arch = id_components[2]
-            return self.workload_pkgs(None, env_conf_id, repo_id, arch)
+            return self.workload_pkgs(None, env_conf_id, repo_id, arch, output_change)
         
         # It's a workload!
         if len(id_components) == 4:
@@ -1258,7 +1336,7 @@ class Query():
             env_conf_id = id_components[1]
             repo_id = id_components[2]
             arch = id_components[3]
-            return self.workload_pkgs(workload_conf_id, env_conf_id, repo_id, arch)
+            return self.workload_pkgs(workload_conf_id, env_conf_id, repo_id, arch, output_change)
         
         raise ValueError("That seems to be an invalid ID!")
     
@@ -1308,6 +1386,7 @@ class Query():
                     pkgs[env_repo_id][env_arch][pkg_id]["installsize"] = pkg["installsize"]
                     pkgs[env_repo_id][env_arch][pkg_id]["description"] = pkg["description"]
                     pkgs[env_repo_id][env_arch][pkg_id]["summary"] = pkg["summary"]
+                    pkgs[env_repo_id][env_arch][pkg_id]["source_name"] = pkg["source_name"]
                     pkgs[env_repo_id][env_arch][pkg_id]["q_arch"] = env_arch
                     pkgs[env_repo_id][env_arch][pkg_id]["q_in"] = set()
                     pkgs[env_repo_id][env_arch][pkg_id]["q_required_in"] = set()
@@ -1445,9 +1524,162 @@ class Query():
         )
         return slug
     
-    def url_slug_id(id):
+    def url_slug_id(self,id):
         return id.replace(":", "--")
     
+    def workloads_in_view(self, view_conf_id, arch):
+        view_conf = self.configs["views"][view_conf_id]
+        repo_id = view_conf["repository"]
+        labels = view_conf["labels"]
+        
+        if arch not in self.settings["allowed_arches"]:
+            raise ValueError("Unsupported arch: {arch}".format(
+                arch=arch
+            ))
+        
+        if arch not in view_conf["architectures"]:
+            return []
+
+        # First, get a set of workloads matching the repo and the arch
+        too_many_workload_ids = set()
+        workload_ids = self.workloads(None,None,repo_id,arch,list_all=True)
+        too_many_workload_ids.update(workload_ids)
+
+        # Second, limit that set further by matching the label
+        final_workload_ids = set()
+        for workload_id in too_many_workload_ids:
+            workload = self.data["workloads"][workload_id]
+            workload_conf_id = workload["workload_conf_id"]
+            workload_conf = self.configs["workloads"][workload_conf_id]
+            workload_labels = workload_conf["labels"]
+            for workload_label in workload_labels:
+                if workload_label in labels:
+                    final_workload_ids.add(workload_id)
+
+        return sorted(list(final_workload_ids))
+    
+    def arches_in_view(self, view_conf_id):
+
+        if "architectures" in self.configs["views"][view_conf_id]:
+            arches = self.configs["views"][view_conf_id]["architectures"]
+            return sorted(arches)
+        
+        return self.settings["allowed_arches"]
+    
+    def pkgs_in_view(self, view_conf_id, arch, output_change=None):
+
+        # Extra fields will be added into each package:
+        # q_in          - set of workload_ids including this pkg
+        # q_required_in - set of workload_ids where this pkg is required (top-level)
+        # q_env_in      - set of workload_ids where this pkg is in env
+        # q_dep_in      - set of workload_ids where this pkg is a dependency (that means not required)
+
+        # Other outputs:
+        #   - "ids"         — a list ids
+        #   - "source_names"  — a list of SRPM names
+        if output_change:
+            list_all = True
+            if output_change not in ["ids", "source_names"]:
+                raise ValueError('output_change must be one of: "ids", "source_names"')
+
+        workload_ids = self.workloads_in_view(view_conf_id, arch)
+        repo_id = self.configs["views"][view_conf_id]["repository"]
+
+        # This has just one repo and one arch, so a flat list of IDs is enough
+        pkgs = {}
+        
+        for workload_id in workload_ids:
+            workload = self.data["workloads"][workload_id]
+            workload_conf_id = workload["workload_conf_id"]
+
+            # First, get all pkgs in the env
+            for pkg_id in workload["pkg_env_ids"]:
+                # Add it to the list if it's not there already.
+                # Create a copy since it's gonna be modified, and include only what's needed
+                if pkg_id not in pkgs:
+                    pkg = self.data["pkgs"][repo_id][arch][pkg_id]
+                    pkgs[pkg_id] = {}
+                    pkgs[pkg_id]["id"] = pkg_id
+                    pkgs[pkg_id]["name"] = pkg["name"]
+                    pkgs[pkg_id]["evr"] = pkg["evr"]
+                    pkgs[pkg_id]["arch"] = pkg["arch"]
+                    pkgs[pkg_id]["installsize"] = pkg["installsize"]
+                    pkgs[pkg_id]["description"] = pkg["description"]
+                    pkgs[pkg_id]["summary"] = pkg["summary"]
+                    pkgs[pkg_id]["source_name"] = pkg["source_name"]
+                    pkgs[pkg_id]["q_arch"] = arch
+                    pkgs[pkg_id]["q_in"] = set()
+                    pkgs[pkg_id]["q_required_in"] = set()
+                    pkgs[pkg_id]["q_dep_in"] = set()
+                    pkgs[pkg_id]["q_env_in"] = set()
+                
+                # It's here, so add it
+                pkgs[pkg_id]["q_in"].add(workload_id)
+                # Browsing env packages, so add it
+                pkgs[pkg_id]["q_env_in"].add(workload_id)
+                # Is it required?
+                if pkg["name"] in self.configs["workloads"][workload_conf_id]["packages"]:
+                    pkgs[pkg_id]["q_required_in"].add(workload_id)
+                if pkg["name"] in self.configs["workloads"][workload_conf_id]["arch_packages"][arch]:
+                    pkgs[pkg_id]["q_required_in"].add(workload_id)
+
+            
+            # Second, add all the other packages
+            for pkg_id in workload["pkg_added_ids"]:
+
+                # Add it to the list if it's not there already
+                # and initialize extra fields
+                if pkg_id not in pkgs:
+                    pkg = self.data["pkgs"][repo_id][arch][pkg_id]
+                    pkgs[pkg_id] = {}
+                    pkgs[pkg_id]["id"] = pkg_id
+                    pkgs[pkg_id]["name"] = pkg["name"]
+                    pkgs[pkg_id]["evr"] = pkg["evr"]
+                    pkgs[pkg_id]["arch"] = pkg["arch"]
+                    pkgs[pkg_id]["installsize"] = pkg["installsize"]
+                    pkgs[pkg_id]["description"] = pkg["description"]
+                    pkgs[pkg_id]["summary"] = pkg["summary"]
+                    pkgs[pkg_id]["source_name"] = pkg["source_name"]
+                    pkgs[pkg_id]["q_arch"] = arch
+                    pkgs[pkg_id]["q_in"] = set()
+                    pkgs[pkg_id]["q_required_in"] = set()
+                    pkgs[pkg_id]["q_dep_in"] = set()
+                    pkgs[pkg_id]["q_env_in"] = set()
+                
+                # It's here, so add it
+                pkgs[pkg_id]["q_in"].add(workload_id)
+                # Not adding it to q_env_in
+                # Is it required?
+                if pkg["name"] in self.configs["workloads"][workload_conf_id]["packages"]:
+                    pkgs[pkg_id]["q_required_in"].add(workload_id)
+                elif pkg["name"] in self.configs["workloads"][workload_conf_id]["arch_packages"][arch]:
+                    pkgs[pkg_id]["q_required_in"].add(workload_id)
+                else:
+                    pkgs[pkg_id]["q_dep_in"].add(workload_id)
+
+        # Is it supposed to only output ids?
+        if output_change:
+            pkg_names = set()
+            for pkg_id, pkg in pkgs.items():
+                if output_change == "ids":
+                    pkg_names.add(pkg["id"])
+                elif output_change == "source_names":
+                    pkg_names.add(pkg["source_name"])
+            
+            names_sorted = sorted(list(pkg_names))
+            return names_sorted
+                        
+
+        # And now I just need to flatten that dict and return all packages as a list
+        final_pkg_list = []
+        for pkg_id, pkg in pkgs.items():
+            final_pkg_list.append(pkg)
+
+        # And sort them by nevr which is their ID
+        final_pkg_list_sorted = sorted(final_pkg_list, key=lambda k: k['id'])
+
+        return final_pkg_list_sorted
+
 
 
 
@@ -1797,6 +2029,69 @@ def _generate_repo_pages(query):
     log("")
 
 
+def _generate_view_pages(query):
+    log("Generating view pages...")
+
+    for view_conf_id,view_conf in query.configs["views"].items():
+        if view_conf["type"] == "compose":
+
+            # First, generate the overview page comparing all architectures
+            log("  Generating 'compose' view overview {view_conf_id}".format(
+                view_conf_id=view_conf_id
+            ))
+
+            repo_id = view_conf["repository"]
+
+            # That page needs the number of binary and source packages for each architecture
+            arch_pkg_counts = {}
+            for arch in query.settings["allowed_arches"]:
+                arch_pkg_counts[arch] = {}
+
+                workload_ids = query.workloads_in_view(view_conf_id, arch=arch)
+
+                pkg_ids = query.pkgs_in_view(view_conf_id, arch, output_change="ids")
+                pkg_source_names = query.pkgs_in_view(view_conf_id, arch, output_change="source_names")
+                
+                arch_pkg_counts[arch]["pkg_ids"] = len(pkg_ids)
+                arch_pkg_counts[arch]["source_pkg_names"] = len(pkg_source_names)
+
+            template_data = {
+                "query": query,
+                "view_conf": view_conf,
+                "arch_pkg_counts": arch_pkg_counts
+            }
+            page_name = "view--{view_conf_id}".format(
+                view_conf_id=view_conf_id
+            )
+            _generate_html_page("view_compose_overview", template_data, page_name, query.settings)
+
+            log("    Done!")
+            log("")
+
+            # Second, generate detail pages for each architecture
+            for arch in query.arches_in_view(view_conf_id):
+                # First, generate the overview page comparing all architectures
+                log("  Generating 'compose' view {view_conf_id} for {arch}".format(
+                    view_conf_id=view_conf_id,
+                    arch=arch
+                ))
+
+                template_data = {
+                    "query": query,
+                    "view_conf": view_conf,
+                    "arch": arch,
+
+                }
+                page_name = "view--{view_conf_id}--{arch}".format(
+                    view_conf_id=view_conf_id,
+                    arch=arch
+                )
+                _generate_html_page("view_compose", template_data, page_name, query.settings)
+
+
+    log("  Done!")
+    log("")
+
 
 
 def generate_pages(query):
@@ -1841,6 +2136,9 @@ def generate_pages(query):
 
     # Generate workload_overview pages
     _generate_workload_pages(query)
+
+    # Generate view pages
+    _generate_view_pages(query)
 
     
 
@@ -2314,34 +2612,41 @@ def generate_historic_data(query):
 ### Main ######################################################################
 ###############################################################################
 
+def run_create_cache():
+    settings = load_settings()
+    configs = get_configs(settings)
+    data = analyze_things(configs, settings)
+
+    dump_data("cache_settings.json", settings)
+    dump_data("cache_configs.json", configs)
+    dump_data("cache_data.json", data)
+
+    query = Query(data, configs, settings)
+
+    return query
+
+def run_from_cache():
+    settings = load_data("cache_settings.json")
+    configs = load_data("cache_configs.json")
+    data = load_data("cache_data.json")
+
+    query = Query(data, configs, settings)
+
+    return query
+
 
 def main():
-    settings = load_settings()
-    configs = get_configs(settings)
-    data = analyze_things(configs, settings)
 
-    query = Query(data, configs, settings)
+    query = run_create_cache()
+    #query = run_from_cache()
 
     generate_pages(query)
-
     generate_historic_data(query)
 
-    #dump_data("data.json", data)
 
 
+def tests_to_be_made_actually_useful_at_some_point_because_this_is_terribble(query):
 
-
-
-
-
-
-def tests_to_be_made_actually_useful_at_some_point_because_this_is_terribble():
-
-    settings = load_settings()
-    configs = get_configs(settings)
-    data = analyze_things(configs, settings)
-
-    query = Query(data, configs, settings)
 
     print("")
     print("")
@@ -2545,6 +2850,45 @@ def tests_to_be_made_actually_useful_at_some_point_because_this_is_terribble():
     print("")
     print("")
 
+    print("----------")
+    print("")
+    print("")
+
+    print("views!!!")
+    print("")
+
+    workload_ids = query.workloads_in_view("view-eln-compose", "x86_64")
+    print("Should be 1:")
+    print(len(workload_ids))
+    print("")
+    print("print should be one nginx")
+    for workload_id in workload_ids:
+        print(workload_id)
+
+
+    print("")
+    print("")
+    print("Package Lists:")
+    print("")
+    print("")
+    print("")
+    package_ids1 = query.workload_pkgs_id("workload-httpd:env-empty:repo-fedora-rawhide:x86_64", output_change="ids")
+    package_ids2 = query.workload_pkgs_id("workload-httpd:env-minimal:repo-fedora-rawhide:x86_64", output_change="ids")
+    package_ids3 = query.workload_pkgs_id("workload-nginx:env-minimal:repo-fedora-rawhide:x86_64", output_change="ids")
+
+    all_pkg_ids = set()
+
+    all_pkg_ids.update(package_ids1)
+    all_pkg_ids.update(package_ids2)
+    all_pkg_ids.update(package_ids3)
+
+    print(len(all_pkg_ids))
+
+    pkg_ids = query.pkgs_in_view("view-eln-compose", "x86_64", output_change="ids")
+
+    print(len(pkg_ids))
+
+
 
 
 
@@ -2552,6 +2896,8 @@ def tests_to_be_made_actually_useful_at_some_point_because_this_is_terribble():
         # q_required_in - set of workload_ids where this pkg is required (top-level)
         # q_env_in      - set of workload_ids where this pkg is in env
         # size_text     - size in a human-readable format, like 6.5 MB
+
+
 
 if __name__ == "__main__":
     main()

@@ -6,7 +6,7 @@
 
     <nav aria-label="breadcrumb">
         <ol class="breadcrumb">
-            <li class="breadcrumb-item"><a href="./">Home</a></li>
+            <li class="breadcrumb-item"><a href="./results.html">Home</a></li>
             <li class="breadcrumb-item active" aria-current="page">Configuration Files</li>
         </ol>
     </nav>
@@ -17,21 +17,21 @@
 
     <ul class="nav nav-tabs">
         <li class="nav-item">
-            <a class="nav-link {% if conf_type == 'repos' %}active{% endif %}"
-                href="configs_repos.html">Repositories</a>
+            <a class="nav-link {% if conf_type == 'workloads' %}active{% endif %}"
+                href="configs_workloads.html">Workloads</a>
         </li>
         <li class="nav-item">
             <a class="nav-link {% if conf_type == 'envs' %}active{% endif %}" href="configs_envs.html">Environments</a>
         </li>
         <li class="nav-item">
-            <a class="nav-link {% if conf_type == 'workloads' %}active{% endif %}"
-                href="configs_workloads.html">Workloads</a>
-        </li>
-        <li class="nav-item">
-            <a class="nav-link {% if conf_type == 'labels' %}active{% endif %}" href="configs_labels.html">Labels</a>
+            <a class="nav-link {% if conf_type == 'repos' %}active{% endif %}"
+                href="configs_repos.html">Repositories</a>
         </li>
         <li class="nav-item">
             <a class="nav-link {% if conf_type == 'views' %}active{% endif %}" href="configs_views.html">Views</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link {% if conf_type == 'labels' %}active{% endif %}" href="configs_labels.html">Labels</a>
         </li>
     </ul>
 

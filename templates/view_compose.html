@@ -1,0 +1,127 @@
+{% extends "layout.html" %}
+
+{% block content %}
+
+
+<div class="container-fluid">
+
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="./results.html">Home</a></li>
+            <li class="breadcrumb-item"><a href="./results.html">Results</a></li>
+            <li class="breadcrumb-item"><a href="./views.html">Views</a></li>
+            <li class="breadcrumb-item"><a href="./view--{{view_conf.id}}.html">{{view_conf.name}}</a></li>
+            <li class="breadcrumb-item active" aria-current="page">{{arch}}</li>
+        </ol>
+    </nav>
+
+
+    <h1>
+        {{view_conf.name}}
+        <small class="text-muted"> view </small>
+        <br>
+        <small class="text-muted"> for </small>
+        <small> {{arch}}</small>
+    </h1>
+
+    <hr>
+
+    {% macro relations(pkg, dep=True) -%}
+    {% if pkg.q_required_in %}
+    Required in:
+    <ul>
+        {% for workload_id in pkg.q_required_in | sort %}
+        <li>
+            <a href="workload-overview--{{query.data.workloads[workload_id].workload_conf_id}}.html">
+                {{ query.configs.workloads[query.data.workloads[workload_id].workload_conf_id].name }}
+            </a>
+        </li>
+        {% endfor %}
+    </ul>
+    {% endif %}
+
+    {% if pkg.q_dep_in and dep %}
+    Dependency of:
+    <ul>
+        {% for workload_id in pkg.q_dep_in | sort %}
+        <li>
+            <a href="workload--{{query.url_slug_id(workload_id)}}.html">
+                {{ query.configs.workloads[query.data.workloads[workload_id].workload_conf_id].name }}
+                in
+                {{ query.configs.envs[query.data.workloads[workload_id].env_conf_id].name}}
+            </a>
+        </li>
+        {% endfor %}
+    </ul>
+    {% endif %}
+    {%- endmacro %}
+
+    <table id="table_packages" class="table-packages">
+        <thead>
+            <tr class="sort_control_row">
+                <th>Flag</th>
+                <th>Name</th>
+                <th>Epoch:Version-Release</th>
+                <th>Arch</th>
+                <th>Size</th>
+                <th>Relations</th>
+                <th>Source Name</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for pkg in query.pkgs_in_view(view_conf.id, arch) %}
+            {% if pkg.q_required_in and pkg.q_env_in %}
+            <tr class="required">
+                <td data-order="1">(required, env)</td>
+                <td>{{pkg.name}}</td>
+                <td>{{pkg.evr}}</td>
+                <td>{{pkg.arch}}</td>
+                <td data-order="{{pkg.installsize}}">{{ query.size(pkg.installsize) }}</td>
+                <td> {{ relations(pkg) }}</td>
+                <td>{{pkg.source_name}}</td>
+            </tr>
+            {% elif pkg.q_required_in %}
+            <tr class="required">
+                <td data-order="0">(required)</td>
+                <td>{{pkg.name}}</td>
+                <td>{{pkg.evr}}</td>
+                <td>{{pkg.arch}}</td>
+                <td data-order="{{pkg.installsize}}">{{ query.size(pkg.installsize) }}</td>
+                <td> {{ relations(pkg) }}</td>
+                <td>{{pkg.source_name}}</td>
+            </tr>
+            {% elif pkg.q_env_in %}
+            <tr class="env">
+                <td class="text-muted" data-order="2">(env)</td>
+                <td>{{pkg.name}}</td>
+                <td>{{pkg.evr}}</td>
+                <td>{{pkg.arch}}</td>
+                <td data-order="{{pkg.installsize}}">{{ query.size(pkg.installsize) }}</td>
+                <td> {{ relations(pkg) }}</td>
+                <td>{{pkg.source_name}}</td>
+            </tr>
+            {% else %}
+            <tr class="dependency">
+                <td class="text-muted" data-order="3"></td>
+                <td>{{pkg.name}}</td>
+                <td>{{pkg.evr}}</td>
+                <td>{{pkg.arch}}</td>
+                <td data-order="{{pkg.installsize}}">{{ query.size(pkg.installsize) }}</td>
+                <td> {{ relations(pkg) }}</td>
+                <td>{{pkg.source_name}}</td>
+            </tr>
+            {% endif %}
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<script>
+    $(document).ready(function () {
+        $('#table_packages').DataTable({
+            paging: false,
+            info: false
+        });
+    });
+</script>
+{% endblock %}

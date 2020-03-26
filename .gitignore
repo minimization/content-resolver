@@ -5,3 +5,4 @@ out
 installs-cache.json
 __pycache__
 output
+cache*

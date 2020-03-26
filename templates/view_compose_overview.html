@@ -1,0 +1,62 @@
+{% extends "layout.html" %}
+
+{% block content %}
+
+<div class="container">
+
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="./results.html">Home</a></li>
+            <li class="breadcrumb-item"><a href="./results.html">Results</a></li>
+            <li class="breadcrumb-item"><a href="./views.html">Views</a></li>
+            <li class="breadcrumb-item active" aria-current="page">{{view_conf.name}}</li>
+        </ol>
+    </nav>
+
+    <h1>
+        {{view_conf.name}}
+        <small class="text-muted"> view overview</small>
+    </h1>
+
+    <br>
+
+    <table class="table table-striped" id="table_packages">
+        <thead>
+            <tr class="sort_control_row">
+                <th>Architecture</th>
+                <th>Binary Packages</th>
+                <th>Source Packages</th>
+            </tr>
+        </thead>
+        <tbody>
+
+            {% for arch, pkg_counts in arch_pkg_counts.items() %}
+            {% if arch in query.arches_in_view(view_conf.id) %}
+            <tr>
+                <td><a href="view--{{view_conf.id}}--{{arch}}.html">{{arch}}</a></td>
+                <td> {{ pkg_counts.pkg_ids }} packages </td>
+                <td> {{ pkg_counts.source_pkg_names }} packages </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td class="text-muted">{{arch}} (excluded)</td>
+                <td></td>
+                <td></td>
+            </tr>
+            {% endif %}
+            {% endfor %}
+
+        </tbody>
+    </table>
+</div>
+
+<script>
+    $(document).ready(function () {
+        $('#table_packages').DataTable({
+            paging: false,
+            filter: false,
+            info: false
+        });
+    });
+</script>
+{% endblock %}

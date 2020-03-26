@@ -4,7 +4,7 @@
 #
 # Views are, well, views combining various things together!
 
-document: feeback-pipeline-view
+document: feeback-pipeline-compose-view
 version: 1
 data:
   # id is the filename — that automatically prevents collisions for free!
@@ -35,3 +35,33 @@ data:
   # (mandatory field)
   labels:
   - label-eln-compose
+
+  # Choose one repository that gets used as a source.
+  #
+  # (mandatory field)
+  repository: repo-fedora-rawhide
+
+  ### OPTIONAL FIELDS ###
+
+  # Limit this view only to the following architectures
+  # 
+  # (optional field)
+  architectures:
+  - x86_64
+  - aarch64
+  - s390x
+
+  # Packages to be flagged as unwanted
+  #
+  # (optional field)
+  unwanted_packages:
+  - bash
+
+  # Arch-specific packages to be flagged as unwanted
+  #
+  # (optional field)
+  #unwanted_arch_packages:
+  #  x86_64:
+  #  - arch-specific-package
+  #  aarch64:
+  #  - another-one
