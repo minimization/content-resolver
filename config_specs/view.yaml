@@ -28,18 +28,6 @@ data:
   # (mandatory field)
   maintainer: asamalik
 
-  # There are several types of views
-  # Select from:
-  # - "compose" - A complete set of packages a repository would need
-  #               to make the selected use cases available for installation.
-  #               Includes a reason of presence for each package.
-  #               REQUIRES the following optional fields:
-  #                 - 'limit_repos' to be exactly one repository. If multiple
-  #                                 are provided, only the first one is used.
-  #
-  # (mandatory field)
-  type: type
-
   # Labels connect things together.
   # Workloads get installed in environments with the same label.
   # They also get included in views with the same label.
@@ -48,16 +36,12 @@ data:
   labels:
   - label
 
-  ### OPTIONAL FIELDS ###
-  # Note: Some view types require certain optional fields to be set,
-  #       or restrict them in various ways. Each type has this documented.
-
-  # Limit this view only to the following repositories
+  # Choose one repository that gets used as a source.
   #
-  # (optional field)
-  limit_repositories:
-  - repo-one
-  - repo-two
+  # (mandatory field)
+  repository: repo-fedora-rawhide
+
+  ### OPTIONAL FIELDS ###
 
   # Limit this view only to the following architectures
   # 
