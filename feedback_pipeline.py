@@ -704,6 +704,7 @@ def _analyze_env(tmp, env_conf, repo, arch):
                 ))
             err_log("  - {err}".format(err=err))
             env["succeeded"] = False
+            env["errors"]["message"] = err
             return env
 
         # DNF Query
@@ -2149,6 +2150,12 @@ def generate_pages(query):
 
     # Generate view pages
     _generate_view_pages(query)
+
+    # Generate the errors page
+    template_data = {
+        "query": query
+    }
+    _generate_html_page("errors", template_data, "errors", query.settings)
 
     
 

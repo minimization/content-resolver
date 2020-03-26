@@ -1,0 +1,45 @@
+{% extends "layout.html" %}
+
+{% block content %}
+
+<div class="container">
+
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="./results.html">Home</a></li>
+            <li class="breadcrumb-item active" aria-current="page">Errors</li>
+        </ol>
+    </nav>
+
+    <h1> Errors </h1>
+
+    <hr>
+
+    <ul>
+        {% for workload_id in query.workloads(None,None,None,None,list_all=True) %}
+        {% if query.data.workloads[workload_id].succeeded == False %}
+        <li> 
+            Workload {{ query.data.workloads[workload_id].name }} ({{query.data.workloads[workload_id].workload_conf_id}}.yaml <span class="text-danger">failed</span>
+            <ul>
+                <li>
+                    query.data.workloads[workload_id].errors.message
+                </li>
+            </ul>
+        </li>
+        {% endif %}
+        {% endfor %}
+
+        {% for env_id in query.envs(None,None,None,list_all=True) %}
+        {% if query.data.envs[env_id].succeeded == False %}
+        <li> 
+            Environment {{ query.data.envs[env_id].name }} ({{query.data.envs[env_id].env_conf_id}}.yaml <span class="text-danger">failed</span>
+            <ul>
+                <li>
+                    query.data.envs[env_id].errors.message
+                </li>
+            </ul>
+        </li>
+        {% endif %}
+        {% endfor %}
+    </ul>
+{% endblock %}
