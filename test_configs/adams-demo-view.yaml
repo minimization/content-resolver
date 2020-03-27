@@ -40,3 +40,10 @@ data:
   #
   # (mandatory field)
   repository: repo-fedora-rawhide
+
+  # Packages to be flagged as unwanted
+  #
+  # (optional field)
+  unwanted_packages:
+  - httpd-tools
+  - gawk

@@ -71,6 +71,44 @@
     {% endif %}
     {%- endmacro %}
 
+    {% macro pkg_row_css_class(pkg) -%}
+    {% if pkg.name in view_conf.unwanted_packages %}
+    unwanted
+    {% elif pkg.q_required_in and pkg.q_env_in %}
+    required
+    {% elif pkg.q_required_in %}
+    required
+    {% elif pkg.q_env_in %}
+    env
+    {% else %}
+    dependency
+    {% endif %}
+    {%- endmacro %}
+
+    {% macro pkg_why(pkg) -%}
+    {% if pkg.q_required_in and pkg.q_env_in %}
+    <span>(required, env)</span>
+    {% elif pkg.q_required_in %}
+    <span>(required)</span>
+    {% elif pkg.q_env_in %}
+    <span class="text-muted">(env)</span>
+    {% else %}
+    <span class="text-muted">(dependency)</span>
+    {% endif %}
+    {%- endmacro %}
+
+    {% macro pkg_why_data_order(pkg) -%}
+    {% if pkg.q_required_in and pkg.q_env_in %}
+    1
+    {% elif pkg.q_required_in %}
+    0
+    {% elif pkg.q_env_in %}
+    2
+    {% else %}
+    3
+    {% endif %}
+    {%- endmacro %}
+
     <table id="table_packages" class="table-packages">
         <thead>
             <tr class="sort_control_row">
@@ -85,47 +123,20 @@
         </thead>
         <tbody>
             {% for pkg in query.pkgs_in_view(view_conf.id, arch) %}
-            {% if pkg.q_required_in and pkg.q_env_in %}
-            <tr class="required">
-                <td data-order="1">(required, env)</td>
-                <td>{{pkg.name}}</td>
+            <tr class="{{pkg_row_css_class(pkg)}}">
+                <td data-order="{{pkg_why_data_order(pkg)}}" style="padding-top: 16px; padding-bottom: 16px">{{pkg_why(pkg)}}</td>
+                <td>
+                    {{pkg.name}}
+                    {% if pkg.name in view_conf.unwanted_packages %}
+                    <span class="text-danger">(unwanted)</span>
+                    {% endif %}
+                </td>
                 <td>{{pkg.evr}}</td>
                 <td>{{pkg.arch}}</td>
                 <td data-order="{{pkg.installsize}}">{{ query.size(pkg.installsize) }}</td>
                 <td> {{ relations(pkg) }}</td>
                 <td>{{pkg.source_name}}</td>
             </tr>
-            {% elif pkg.q_required_in %}
-            <tr class="required">
-                <td data-order="0">(required)</td>
-                <td>{{pkg.name}}</td>
-                <td>{{pkg.evr}}</td>
-                <td>{{pkg.arch}}</td>
-                <td data-order="{{pkg.installsize}}">{{ query.size(pkg.installsize) }}</td>
-                <td> {{ relations(pkg) }}</td>
-                <td>{{pkg.source_name}}</td>
-            </tr>
-            {% elif pkg.q_env_in %}
-            <tr class="env">
-                <td class="text-muted" data-order="2">(env)</td>
-                <td>{{pkg.name}}</td>
-                <td>{{pkg.evr}}</td>
-                <td>{{pkg.arch}}</td>
-                <td data-order="{{pkg.installsize}}">{{ query.size(pkg.installsize) }}</td>
-                <td> {{ relations(pkg) }}</td>
-                <td>{{pkg.source_name}}</td>
-            </tr>
-            {% else %}
-            <tr class="dependency">
-                <td class="text-muted" data-order="3"></td>
-                <td>{{pkg.name}}</td>
-                <td>{{pkg.evr}}</td>
-                <td>{{pkg.arch}}</td>
-                <td data-order="{{pkg.installsize}}">{{ query.size(pkg.installsize) }}</td>
-                <td> {{ relations(pkg) }}</td>
-                <td>{{pkg.source_name}}</td>
-            </tr>
-            {% endif %}
             {% endfor %}
         </tbody>
     </table>
