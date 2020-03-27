@@ -1,6 +1,7 @@
 #!/usr/bin/python3
 
 import argparse, yaml, tempfile, os, subprocess, json, jinja2, datetime, copy, re, dnf, pprint
+import concurrent.futures
 import rpm_showme as showme
 
 
@@ -915,24 +916,24 @@ def _analyze_workload(tmp, workload_conf, env_conf, repo, arch):
     # 
     # Check how many file descriptors has this process open
     # If it's more than 30, kill all of them except the first 5 ones
-    TRIGGER_COUNT = 10
-    KEEP_FD = set([0, 1, 2, 3, 4])
-
-    if len(os.listdir(os.path.join("/proc", str(os.getpid()), "fd"))) > TRIGGER_COUNT:
-        log("")
-        log("----------------")
-        log("Killing file descriptors!")
-        for fd in os.listdir(os.path.join("/proc", str(os.getpid()), "fd")):
-            if int(fd) not in KEEP_FD:
-                try:
-                    os.close(int(fd))
-                    log("  -> {}  OK".format(fd))
-                except OSError:
-                    log("  -> {}  Failed".format(fd))
-                    pass
-        log("Killings have been completed!")
-        log("----------------")
-        log("")
+    #TRIGGER_COUNT = 10
+    #KEEP_FD = set([0, 1, 2, 3, 4])
+#
+    #if len(os.listdir(os.path.join("/proc", str(os.getpid()), "fd"))) > TRIGGER_COUNT:
+    #    log("")
+    #    log("----------------")
+    #    log("Killing file descriptors!")
+    #    for fd in os.listdir(os.path.join("/proc", str(os.getpid()), "fd")):
+    #        if int(fd) not in KEEP_FD:
+    #            try:
+    #                os.close(int(fd))
+    #                log("  -> {}  OK".format(fd))
+    #            except OSError:
+    ##                log("  -> {}  Failed".format(fd))
+    ##                pass
+    #    log("Killings have been completed!")
+    #    log("----------------")
+    #    log("")
 
     return workload
 
@@ -988,7 +989,14 @@ def _analyze_workloads(tmp, configs):
                         arch=arch
                     )
 
-                    workloads[workload_id] = _analyze_workload(tmp, workload_conf, env_conf, repo, arch)
+                    # DNF leaks memory and file descriptors :/
+                    # 
+                    # So, this workaround runs it in a subprocess that should have its resources
+                    # freed when done!
+                    with concurrent.futures.ProcessPoolExecutor(max_workers=1) as executor:
+                        workloads[workload_id] = executor.submit(_analyze_workload,tmp, workload_conf, env_conf, repo, arch).result()
+
+                    #workloads[workload_id] = _analyze_workload(tmp, workload_conf, env_conf, repo, arch)
 
 
     return workloads
