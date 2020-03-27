@@ -684,9 +684,15 @@ def _analyze_env(tmp, env_conf, repo, arch):
         try:
             base.resolve()
         except dnf.exceptions.DepsolveError as err:
+            err_log("Failed to analyze environment '{env_conf}' from '{repo}' {arch}:".format(
+                    env_conf=env_conf["id"],
+                    repo=repo["id"],
+                    arch=arch
+                ))
+            err_log("  - {err}".format(err=err))
             env["succeeded"] = False
             env["errors"]["message"] = err
-            return workload
+            return env
 
         # Write the result into RPMDB.
         # The transaction needs us to download all the packages. :(
@@ -902,6 +908,30 @@ def _analyze_workload(tmp, workload_conf, env_conf, repo, arch):
             pkg_env_count=pkg_env_count,
             pkg_added_count=pkg_added_count
         ))
+        log("")
+    
+    # So... DNF is leaking file descriptors :/
+    # This hack is trully horrible, but probably the only way at this point to proceed
+    # 
+    # Check how many file descriptors has this process open
+    # If it's more than 30, kill all of them except the first 5 ones
+    TRIGGER_COUNT = 10
+    KEEP_FD = set([0, 1, 2, 3, 4])
+
+    if len(os.listdir(os.path.join("/proc", str(os.getpid()), "fd"))) > TRIGGER_COUNT:
+        log("")
+        log("----------------")
+        log("Killing file descriptors!")
+        for fd in os.listdir(os.path.join("/proc", str(os.getpid()), "fd")):
+            if int(fd) not in KEEP_FD:
+                try:
+                    os.close(int(fd))
+                    log("  -> {}  OK".format(fd))
+                except OSError:
+                    log("  -> {}  Failed".format(fd))
+                    pass
+        log("Killings have been completed!")
+        log("----------------")
         log("")
 
     return workload
