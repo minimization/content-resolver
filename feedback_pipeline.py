@@ -1609,7 +1609,7 @@ class Query():
     
     def arches_in_view(self, view_conf_id):
 
-        if "architectures" in self.configs["views"][view_conf_id]:
+        if len(self.configs["views"][view_conf_id]["architectures"]):
             arches = self.configs["views"][view_conf_id]["architectures"]
             return sorted(arches)
         
