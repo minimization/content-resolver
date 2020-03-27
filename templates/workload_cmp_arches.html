@@ -34,6 +34,12 @@
 
     <hr>
 
+    {% if not query.workload_succeeded(workload_conf_id,env_conf.id,repo.id,None) %}
+    <div class="alert alert-danger" role="alert">
+        <b>Errors!</b> Dependency errors occured during analysis. Please check below for more details.
+    </div>
+    {% endif %}
+
     <div class="row">
         <div class="col-sm-9 d-flex align-items-stretch">
             <div class="card w-100">
@@ -47,11 +53,10 @@
             <div class="card w-100">
                 <h5 class="card-header"> Relations </h5>
                 <div class="card-body">
-                    <br>
-                    <br>
-                    <p class="lead text-muted"> TBD</p>
-                    <br>
-                    <br>
+                    <dl>
+                        <dt>Configuration</dt>
+                        <dd><a href="config-workload--{{workload_conf_id}}.html">{{workload_conf_id}}.yaml</a></dd>
+                    </dl>
                 </div>
             </div>
         </div>
@@ -64,7 +69,17 @@
             <tr class="heading">
                 <th></th>
                 {% for arch in columns.keys() %}
-                <th class="group-first-col" colspan=4>{{arch}}</th>
+                <th class="group-first-col" colspan=4>
+                    {{arch}}
+                    <span class="font-weight-normal">
+                        {% if not query.workload_succeeded(workload_conf_id,env_conf.id,repo.id,arch) %}
+                        (<span class="text-danger">Errors</span>)
+                        {% endif %}
+                        <br>
+                        <a href="workload--{{workload_conf_id}}--{{env_conf.id}}--{{repo.id}}--{{arch}}.html">Details</a>
+                    </span>
+                    
+                </th>
                 {% endfor %}
             </tr>
             <tr class="sort_control_row">
@@ -128,7 +143,7 @@
             paging: false,
             info: false
         });
-        
+
         function plot_graph(chartData) {
             var chLine = document.getElementById("chLine");
             if (chLine) {
@@ -149,7 +164,8 @@
                         legend: {
                             display: false
                         },
-                        spanGaps: true
+                        spanGaps: true,
+                        maintainAspectRatio: false
                     }
                 });
             }

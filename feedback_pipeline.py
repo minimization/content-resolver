@@ -1019,7 +1019,7 @@ def analyze_things(configs, settings):
     with tempfile.TemporaryDirectory() as tmp:
 
         # FIXME temporary override
-        tmp = "/tmp/fixed-tmp"
+        #tmp = "/tmp/fixed-tmp"
 
         # List of supported arches
         all_arches = settings["allowed_arches"]
@@ -1728,6 +1728,24 @@ class Query():
         final_pkg_list_sorted = sorted(final_pkg_list, key=lambda k: k['id'])
 
         return final_pkg_list_sorted
+    
+    def workload_succeeded(self, workload_conf_id, env_conf_id, repo_id, arch):
+        workload_ids = self.workloads(workload_conf_id, env_conf_id, repo_id, arch, list_all=True)
+
+        for workload_id in workload_ids:
+            workload = self.data["workloads"][workload_id]
+            if not workload["succeeded"]:
+                return False
+        return True
+    
+    def env_succeeded(self, env_conf_id, repo_id, arch):
+        env_ids = self.envs(env_conf_id, repo_id, arch, list_all=True)
+
+        for env_id in env_ids:
+            env = self.data["envs"][env_id]
+            if not env["succeeded"]:
+                return False
+        return True
 
 
 
@@ -2224,6 +2242,9 @@ def _save_current_historic_data(query):
     for workload_id in query.workloads(None,None,None,None,list_all=True):
         workload = query.data["workloads"][workload_id]
 
+        if not workload["succeeded"]:
+            continue
+
         workload_history = {}
         workload_history["size"] = query.workload_size_id(workload_id)
         workload_history["pkg_count"] = len(query.workload_pkgs_id(workload_id))
@@ -2232,6 +2253,9 @@ def _save_current_historic_data(query):
     
     for env_id in query.envs(None,None,None,list_all=True):
         env = query.data["envs"][env_id]
+
+        if not env["succeeded"]:
+            continue
 
         env_history = {}
         env_history["size"] = query.env_size_id(env_id)

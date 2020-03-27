@@ -176,3 +176,9 @@ table.table-packages tbody th {
   border: 1px solid #ccc;
   border-radius: 5px;
 }
+
+/* Size chart */
+
+#chLine {
+  height: 300px;
+}

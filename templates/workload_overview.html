@@ -9,11 +9,12 @@
             <li class="breadcrumb-item"><a href="./results.html">Home</a></li>
             <li class="breadcrumb-item"><a href="./workloads.html">Results</a></li>
             <li class="breadcrumb-item"><a href="./workloads.html">Workloads</a></li>
-            <li class="breadcrumb-item active" aria-current="page">{{query.configs.workloads[workload_conf_id].name}}</li>
+            <li class="breadcrumb-item active" aria-current="page">{{query.configs.workloads[workload_conf_id].name}}
+            </li>
         </ol>
     </nav>
 
-    <h1> 
+    <h1>
         {{query.configs.workloads[workload_conf_id].name}} <small class="text-muted">workload</small>
         <br>
         <small class="text-muted">from</small>
@@ -21,6 +22,12 @@
     </h1>
 
     <hr>
+
+    {% if not query.workload_succeeded(workload_conf_id,None,repo_id,None) %}
+    <div class="alert alert-danger" role="alert">
+        <b>Errors!</b> Dependency errors occured during analysis. Please check below for more details.
+    </div>
+    {% endif %}
 
     <div class="row">
         <div class="col-sm-9 d-flex align-items-stretch">
@@ -35,11 +42,10 @@
             <div class="card w-100">
                 <h5 class="card-header"> Relations </h5>
                 <div class="card-body">
-                    <br>
-                    <br>
-                    <p class="lead text-muted"> TBD</p>
-                    <br>
-                    <br>
+                    <dl>
+                        <dt>Configuration</dt>
+                        <dd><a href="config-workload--{{workload_conf_id}}.html">{{workload_conf_id}}.yaml</a></dd>
+                    </dl>
                 </div>
             </div>
         </div>
@@ -56,7 +62,8 @@
                     {% if repo_id == loop_repo_id %}
                     <a class="nav-link active" href="#">{{query.configs.repos[loop_repo_id].name}}</a>
                     {% else %}
-                    <a class="nav-link" href="workload-overview--{{workload_conf_id}}--{{loop_repo_id}}.html">{{query.configs.repos[loop_repo_id].name}}</a>
+                    <a class="nav-link"
+                        href="workload-overview--{{workload_conf_id}}--{{loop_repo_id}}.html">{{query.configs.repos[loop_repo_id].name}}</a>
                     {% endif %}
                 </li>
                 {% endfor %}
@@ -86,20 +93,27 @@
                     {% if arch in query.workloads(workload_conf_id,env_conf_id,repo_id,None,output_change="arches") %}
 
                     <td class="align-middle">
-                        
+
                         <p>
-                        {{ query.workload_pkgs(workload_conf_id,env_conf_id,repo_id,arch) | count }} packages
-                        <br>
-                        {{ query.size(query.workload_size(workload_conf_id,env_conf_id,repo_id,arch)) }}
+                            {% if query.workload_succeeded(workload_conf_id,None,repo_id,None) %}
+                            {{ query.workload_pkgs(workload_conf_id,env_conf_id,repo_id,arch) | count }} packages
+                            <br>
+                            {{ query.size(query.workload_size(workload_conf_id,env_conf_id,repo_id,arch)) }}
+                            {% else %}
+                            <span class="text-danger">Analysis<br>Failed</span>
+                            {% endif %}
+                            
                         </p>
-                        <b><a href="workload--{{query.workload_url_slug(workload_conf_id,env_conf_id,repo_id,arch)}}.html">Details</a></b>
+                        <b><a
+                                href="workload--{{query.workload_url_slug(workload_conf_id,env_conf_id,repo_id,arch)}}.html">Details</a></b>
                     </td>
                     {% else %}
                     <td class="align-middle text-muted"> (Excluded) </td>
                     {% endif %}
                     {% endfor %}
                     <td class="align-middle">
-                        <a href="workload-cmp-arches--{{workload_conf_id}}--{{env_conf_id}}--{{repo_id}}.html">Compare all<br>architectures</a>
+                        <a href="workload-cmp-arches--{{workload_conf_id}}--{{env_conf_id}}--{{repo_id}}.html">Compare
+                            all<br>architectures</a>
                         <p>({{query.configs.envs[env_conf_id].name}})</p>
                     </td>
                 </tr>
@@ -111,7 +125,8 @@
                     {% for arch in query.settings.allowed_arches %}
                     {% if arch in query.workloads(workload_conf_id,env_conf_id,repo_id,None,output_change="arches") %}
                     <td>
-                        <a href="workload-cmp-envs--{{workload_conf_id}}--{{repo_id}}--{{arch}}.html">Compare in all<br>environments</a>
+                        <a href="workload-cmp-envs--{{workload_conf_id}}--{{repo_id}}--{{arch}}.html">Compare in
+                            all<br>environments</a>
                         <p>({{arch}})</p>
                     </td>
                     {% else %}
@@ -150,7 +165,8 @@
                         legend: {
                             display: false
                         },
-                        spanGaps: true
+                        spanGaps: true,
+                        maintainAspectRatio: false
                     }
                 });
             }

@@ -40,6 +40,7 @@
             <tr class="sort_control_row">
                 <th>Name</th>
                 <th>Results</th>
+                <th>Status</th>
             </tr>
         </thead>
         <tbody>
@@ -50,8 +51,18 @@
                     {% for repo_id in query.workloads(workload_conf_id,None,None,None,output_change="repo_ids") %}
                     <a class="card-link" href="workload-overview--{{workload_conf_id}}--{{repo_id}}.html">
                         {{query.configs.repos[repo_id].name}}
+                        {% if not query.workload_succeeded(workload_conf_id,None,repo_id,None) %}
+                        (<span class="text-danger">Errors</span>)
+                        {% endif %}
                     </a>
                     {% endfor %}
+                </td>
+                <td>
+                    {% if query.workload_succeeded(workload_conf_id,None,repo_id,None) %}
+                    <span class="text-success">Success</span>
+                    {% else %}
+                    <span class="text-danger">Errors</span>
+                    {% endif %}
                 </td>
             </tr>
             {% endfor %}

@@ -8,6 +8,7 @@ workload_pkgs(workload_conf_id, env_conf_id, repo_id, arch, output_change=None)
 workload_pkgs_id(id, output_change=None)
 workload_size(workload_conf_id, env_conf_id, repo_id, arch)
 workload_size_id(id)
+workload_succeeded(workload_conf_id, env_conf_id, repo_id, arch)
 
 envs(env_conf_id, repo_id, arch, list_all=False, output_change=None)
 envs_id(id, list_all=False, output_change=None)
@@ -15,6 +16,7 @@ env_pkgs(env_conf_id, repo_id, arch)
 env_pkgs_id(id)
 env_size(self, env_conf_id, repo_id, arch)
 env_size_id(id)
+env_succeeded(env_conf_id, repo_id, arch)
 
 workloads_in_view(view_conf_id, arch)
 arches_in_view(view_conf_id)
@@ -67,6 +69,7 @@ data["envs"][env_id]["pkg_ids"]
 data["envs"][env_id]["repo_id"]
 data["envs"][env_id]["arch"]
 data["envs"][env_id]["errors"]["non_existing_pkgs"]
+data["envs"][env_id]["errors"]["message"]
 data["envs"][env_id]["succeeded"]
 
 
@@ -92,6 +95,7 @@ data["workloads"][workload_id]["arch"]
 data["workloads"][workload_id]["pkg_env_ids"]
 data["workloads"][workload_id]["pkg_added_ids"]
 data["workloads"][workload_id]["errors"]["non_existing_pkgs"]
+data["workloads"][workload_id]["errors"]["message"]
 data["workloads"][workload_id]["succeeded"]
 
 
