@@ -2775,8 +2775,8 @@ def run_from_cache():
 
 def main():
 
-    #query = run_create_cache()
-    query = run_from_cache()
+    query = run_create_cache()
+    #query = run_from_cache()
 
     generate_pages(query)
     generate_historic_data(query)
