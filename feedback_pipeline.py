@@ -2153,7 +2153,12 @@ def _generate_view_pages(query):
                     view_conf_id=view_conf_id,
                     arch=arch
                 )
-                _generate_html_page("view_compose", template_data, page_name, query.settings)
+                _generate_html_page("view_compose_packages", template_data, page_name, query.settings)
+                page_name = "view-reasons--{view_conf_id}--{arch}".format(
+                    view_conf_id=view_conf_id,
+                    arch=arch
+                )
+                _generate_html_page("view_compose_reasons", template_data, page_name, query.settings)
 
 
     log("  Done!")
@@ -2238,6 +2243,7 @@ def _save_current_historic_data(query):
     history_data["workloads"] = {}
     history_data["envs"] = {}
     history_data["repos"] = {}
+    history_data["views"] = {}
 
     for workload_id in query.workloads(None,None,None,None,list_all=True):
         workload = query.data["workloads"][workload_id]
@@ -2272,6 +2278,18 @@ def _save_current_historic_data(query):
             repo_history["pkg_count"] = len(pkgs)
             
             history_data["repos"][repo_id][arch] = repo_history
+    
+    for view_conf_id in query.configs["views"].keys():
+        history_data["views"][view_conf_id] = {}
+
+        for arch in query.arches_in_view(view_conf_id):
+
+            pkg_ids = query.pkgs_in_view(view_conf_id, arch)
+
+            view_history = {}
+            view_history["pkg_count"] = len(pkg_ids)
+            
+            history_data["views"][view_conf_id][arch] = view_history
 
     # And save it
     log("  Saving in: {file_path}".format(
@@ -2667,6 +2685,41 @@ def _generate_chartjs_data(historic_data, query):
                 repo_id=repo_id
             )
             _save_json_data_entry(entry_name, entry_data, query.settings)
+    
+    # Data for compose view pages    
+    for view_conf_id in query.configs["views"].keys():
+
+        for arch in query.arches_in_view(view_conf_id):
+
+            entry_data = {}
+
+            # First, get the dates as chart labels
+            entry_data["labels"] = []
+            for _,entry in historic_data.items():
+                date = entry["date"]
+                entry_data["labels"].append(date)
+
+            # Second, get the actual data for everything that's needed
+            entry_data["datasets"] = []
+
+            dataset = {}
+            dataset["data"] = []
+            dataset["label"] = "Number of packages"
+
+            for _,entry in historic_data.items():
+                try:
+                    count = entry["views"][view_conf_id][arch]["pkg_count"]
+                    dataset["data"].append(count)
+                except KeyError:
+                    dataset["data"].append("null")
+
+            entry_data["datasets"].append(dataset)
+
+            entry_name = "chartjs-data--view--{view_conf_id}--{arch}".format(
+                view_conf_id=view_conf_id,
+                arch=arch
+            )
+            _save_json_data_entry(entry_name, entry_data, query.settings)
 
 
 def generate_historic_data(query):
@@ -2716,8 +2769,8 @@ def run_from_cache():
 
 def main():
 
-    query = run_create_cache()
-    #query = run_from_cache()
+    #query = run_create_cache()
+    query = run_from_cache()
 
     generate_pages(query)
     generate_historic_data(query)

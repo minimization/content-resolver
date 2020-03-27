@@ -36,7 +36,7 @@
 
     <hr>
 
-    {% if not query.workload_succeeded(workload_conf_id,env_conf.id,repo_id,workload.arch) %}
+    {% if not query.workload_succeeded(workload_conf.id,env_conf.id,repo.id,workload.arch) %}
 
     <div class="card border-danger">
         <h5 class="card-header bg-danger text-white">Dependency errors!</h5>

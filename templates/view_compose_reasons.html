@@ -18,13 +18,25 @@
 
     <h1>
         {{view_conf.name}}
-        <small class="text-muted"> view </small>
+        <small class="text-muted"> packages </small>
         <br>
         <small class="text-muted"> for </small>
         <small> {{arch}}</small>
     </h1>
 
     <hr>
+
+    <ul class="nav nav-tabs">
+        <li class="nav-item">
+            <a class="nav-link " href="view--{{view_conf.id}}--{{arch}}.html">Packages</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link active" href="view-reasons--{{view_conf.id}}--{{arch}}.html">Reasons of Presence</a>
+        </li>
+    </ul>
+    </ul>
+
+    <br>
 
     {% macro relations(pkg, dep=True) -%}
     {% if pkg.q_required_in %}
@@ -64,7 +76,7 @@
                 <th>Epoch:Version-Release</th>
                 <th>Arch</th>
                 <th>Size</th>
-                <th>Relations</th>
+                <th>Reasons of Presence</th>
                 <th>Source Name</th>
             </tr>
         </thead>

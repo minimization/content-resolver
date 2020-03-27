@@ -15,10 +15,9 @@
         </ol>
     </nav>
 
-
     <h1>
         {{view_conf.name}}
-        <small class="text-muted"> view </small>
+        <small class="text-muted"> packages </small>
         <br>
         <small class="text-muted"> for </small>
         <small> {{arch}}</small>
@@ -26,45 +25,51 @@
 
     <hr>
 
-    {% macro relations(pkg, dep=True) -%}
-    {% if pkg.q_required_in %}
-    Required in:
-    <ul>
-        {% for workload_id in pkg.q_required_in | sort %}
-        <li>
-            <a href="workload-overview--{{query.data.workloads[workload_id].workload_conf_id}}--{{view_conf.repository}}.html">
-                {{ query.configs.workloads[query.data.workloads[workload_id].workload_conf_id].name }}
-            </a>
+    <ul class="nav nav-tabs">
+        <li class="nav-item">
+            <a class="nav-link active" href="view--{{view_conf.id}}--{{arch}}.html">Packages</a>
         </li>
-        {% endfor %}
+        <li class="nav-item">
+            <a class="nav-link" href="view-reasons--{{view_conf.id}}--{{arch}}.html">Reasons of Presence</a>
+        </li>
     </ul>
-    {% endif %}
+    </ul>
 
-    {% if pkg.q_dep_in and dep %}
-    Dependency of:
-    <ul>
-        {% for workload_id in pkg.q_dep_in | sort %}
-        <li>
-            <a href="workload--{{query.url_slug_id(workload_id)}}.html">
-                {{ query.configs.workloads[query.data.workloads[workload_id].workload_conf_id].name }}
-                in
-                {{ query.configs.envs[query.data.workloads[workload_id].env_conf_id].name}}
-            </a>
-        </li>
-        {% endfor %}
-    </ul>
-    {% endif %}
-    {%- endmacro %}
+    <br>
+
+    <div class="row">
+        <div class="col-sm-9 d-flex align-items-stretch">
+            <div class="card w-100">
+                <h5 class="card-header"> Package Count History </h5>
+                <div class="card-body">
+                    <canvas id="chLine"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-sm-3 d-flex align-items-stretch">
+            <div class="card w-100">
+                <h5 class="card-header"> Relations </h5>
+                <div class="card-body">
+                    <dl>
+                        <dt>Configuration</dt>
+                        <dd><a href="config-view--{{view_conf.id}}.html">{{view_conf.id}}.yaml</a></dd>
+                    </dl>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <br>
 
     <table id="table_packages" class="table-packages">
         <thead>
             <tr class="sort_control_row">
-                <th>Flag</th>
+                <th>Why</th>
                 <th>Name</th>
                 <th>Epoch:Version-Release</th>
                 <th>Arch</th>
                 <th>Size</th>
-                <th>Relations</th>
+                <th>Summary</th>
                 <th>Source Name</th>
             </tr>
         </thead>
@@ -77,7 +82,7 @@
                 <td>{{pkg.evr}}</td>
                 <td>{{pkg.arch}}</td>
                 <td data-order="{{pkg.installsize}}">{{ query.size(pkg.installsize) }}</td>
-                <td> {{ relations(pkg) }}</td>
+                <td> {{ pkg.summary }}</td>
                 <td>{{pkg.source_name}}</td>
             </tr>
             {% elif pkg.q_required_in %}
@@ -87,7 +92,7 @@
                 <td>{{pkg.evr}}</td>
                 <td>{{pkg.arch}}</td>
                 <td data-order="{{pkg.installsize}}">{{ query.size(pkg.installsize) }}</td>
-                <td> {{ relations(pkg) }}</td>
+                <td> {{ pkg.summary }}</td>
                 <td>{{pkg.source_name}}</td>
             </tr>
             {% elif pkg.q_env_in %}
@@ -97,17 +102,17 @@
                 <td>{{pkg.evr}}</td>
                 <td>{{pkg.arch}}</td>
                 <td data-order="{{pkg.installsize}}">{{ query.size(pkg.installsize) }}</td>
-                <td> {{ relations(pkg) }}</td>
+                <td> {{ pkg.summary }}</td>
                 <td>{{pkg.source_name}}</td>
             </tr>
             {% else %}
             <tr class="dependency">
-                <td class="text-muted" data-order="3"></td>
+                <td class="text-muted" data-order="3">(dependency)</td>
                 <td>{{pkg.name}}</td>
                 <td>{{pkg.evr}}</td>
                 <td>{{pkg.arch}}</td>
                 <td data-order="{{pkg.installsize}}">{{ query.size(pkg.installsize) }}</td>
-                <td> {{ relations(pkg) }}</td>
+                <td> {{ pkg.summary }}</td>
                 <td>{{pkg.source_name}}</td>
             </tr>
             {% endif %}
@@ -122,6 +127,34 @@
             paging: false,
             info: false
         });
+        function plot_graph(chartData) {
+            var chLine = document.getElementById("chLine");
+            if (chLine) {
+                new Chart(chLine, {
+                    type: 'line',
+                    data: chartData,
+                    options: {
+                        scales: {
+                            yAxes: [{
+                                ticks: {
+                                    beginAtZero: true
+                                }
+                            }]
+                        },
+                        legend: {
+                            display: false
+                        },
+                        spanGaps: true,
+                        maintainAspectRatio: false
+                    }
+                });
+            }
+        }
+
+        axios.get('chartjs-data--view--{{view_conf.id}}--{{arch}}.json')
+            .then(response => {
+                plot_graph(response.data)
+            })
     });
 </script>
 {% endblock %}
