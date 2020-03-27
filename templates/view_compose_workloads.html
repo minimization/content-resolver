@@ -1,0 +1,82 @@
+{% extends "layout.html" %}
+
+{% block content %}
+
+
+<div class="container-fluid">
+
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="./results.html">Home</a></li>
+            <li class="breadcrumb-item"><a href="./results.html">Results</a></li>
+            <li class="breadcrumb-item"><a href="./views.html">Views</a></li>
+            <li class="breadcrumb-item"><a href="./view--{{view_conf.id}}.html">{{view_conf.name}}</a></li>
+            <li class="breadcrumb-item active" aria-current="page">{{arch}}</li>
+        </ol>
+    </nav>
+
+
+    <h1>
+        {{view_conf.name}}
+        <small class="text-muted"> packages </small>
+        <br>
+        <small class="text-muted"> for </small>
+        <small> {{arch}}</small>
+    </h1>
+
+    <hr>
+
+    <ul class="nav nav-tabs">
+        <li class="nav-item">
+            <a class="nav-link " href="view--{{view_conf.id}}--{{arch}}.html">Packages</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link " href="view-reasons--{{view_conf.id}}--{{arch}}.html">Reasons of Presence</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link active" href="view-workloads--{{view_conf.id}}--{{arch}}.html">Workloads</a>
+        </li>
+    </ul>
+    </ul>
+
+    <br>
+
+    <table class="table table-striped" id="table_packages">
+        <thead>
+            <tr class="sort_control_row">
+                <th>Name</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for workload_id in query.workloads_in_view(view_conf.id, arch) %}
+            <tr>
+                <td>
+                    <a href="workload--{{query.url_slug_id(workload_id)}}.html">
+                        {{ query.configs.workloads[query.data.workloads[workload_id].workload_conf_id].name }}
+                        in
+                        {{ query.configs.envs[query.data.workloads[workload_id].env_conf_id].name}}
+                    </a>
+                </td>
+                <td>
+                    {% if query.data.workloads[workload_id].succeeded %}
+                    <span class="text-success">Success</span>
+                    {% else %}
+                    <span class="text-danger">Errors</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<script>
+    $(document).ready(function () {
+        $('#table_packages').DataTable({
+            paging: false,
+            info: false
+        });
+    });
+</script>
+{% endblock %}
