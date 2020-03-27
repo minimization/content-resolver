@@ -22,7 +22,7 @@
             Workload {{ query.data.workloads[workload_id].name }} ({{query.data.workloads[workload_id].workload_conf_id}}.yaml <span class="text-danger">failed</span>
             <ul>
                 <li>
-                    query.data.workloads[workload_id].errors.message
+                    {{query.data.workloads[workload_id].errors.message}}
                 </li>
             </ul>
         </li>
@@ -35,7 +35,7 @@
             Environment {{ query.data.envs[env_id].name }} ({{query.data.envs[env_id].env_conf_id}}.yaml <span class="text-danger">failed</span>
             <ul>
                 <li>
-                    query.data.envs[env_id].errors.message
+                    {{query.data.envs[env_id].errors.message}}
                 </li>
             </ul>
         </li>
