@@ -47,6 +47,7 @@ data:
   - label-fedora-31-all
   - label-fedora-rawhide-all
   - label-eln-compose
+  - adams-demo-label
 
 
   ### OPTIONAL FIELDS ###

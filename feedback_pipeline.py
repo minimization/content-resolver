@@ -1019,7 +1019,7 @@ def analyze_things(configs, settings):
     with tempfile.TemporaryDirectory() as tmp:
 
         # FIXME temporary override
-        #tmp = "/tmp/fixed-tmp"
+        tmp = "/tmp/fixed-tmp"
 
         # List of supported arches
         all_arches = settings["allowed_arches"]
@@ -1586,7 +1586,7 @@ class Query():
                 arch=arch
             ))
         
-        if arch not in view_conf["architectures"]:
+        if arch not in self.arches_in_view(view_conf_id):
             return []
 
         # First, get a set of workloads matching the repo and the arch

@@ -32,7 +32,7 @@
     <ul>
         {% for workload_id in pkg.q_required_in | sort %}
         <li>
-            <a href="workload-overview--{{query.data.workloads[workload_id].workload_conf_id}}.html">
+            <a href="workload-overview--{{query.data.workloads[workload_id].workload_conf_id}}--{{view_conf.repository}}.html">
                 {{ query.configs.workloads[query.data.workloads[workload_id].workload_conf_id].name }}
             </a>
         </li>
