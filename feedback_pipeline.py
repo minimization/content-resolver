@@ -692,7 +692,7 @@ def _analyze_env(tmp, env_conf, repo, arch):
                 ))
             err_log("  - {err}".format(err=err))
             env["succeeded"] = False
-            env["errors"]["message"] = err
+            env["errors"]["message"] = str(err)
             return env
 
         # Write the result into RPMDB.
@@ -711,7 +711,7 @@ def _analyze_env(tmp, env_conf, repo, arch):
                 ))
             err_log("  - {err}".format(err=err))
             env["succeeded"] = False
-            env["errors"]["message"] = err
+            env["errors"]["message"] = str(err)
             return env
 
         # DNF Query
@@ -874,7 +874,7 @@ def _analyze_workload(tmp, workload_conf, env_conf, repo, arch):
             base.resolve()
         except dnf.exceptions.DepsolveError as err:
             workload["succeeded"] = False
-            workload["errors"]["message"] = err
+            workload["errors"]["message"] = str(err)
             return workload
 
         # DNF Query
