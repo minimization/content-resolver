@@ -38,10 +38,10 @@
 
     <ul class="nav nav-tabs">
         <li class="nav-item">
-            <a class="nav-link active" href="workload--{{ query.url_slug_id(workload_id) }}.html">Packages</a>
+            <a class="nav-link " href="workload--{{ query.url_slug_id(workload_id) }}.html">Packages</a>
         </li>
         <li class="nav-item">
-            <a class="nav-link " href="workload-dependencies--{{ query.url_slug_id(workload_id) }}.html">Reasons of Presence</a>
+            <a class="nav-link active" href="workload-dependencies--{{ query.url_slug_id(workload_id) }}.html">Reasons of Presence</a>
         </li>
     </ul>
 
@@ -61,29 +61,36 @@
     <br>
     {% endif %}
 
-    <div class="row">
-        <div class="col-sm-9 d-flex align-items-stretch">
-            <div class="card w-100">
-                <h5 class="card-header"> Size History </h5>
-                <div class="card-body">
-                    <canvas id="chLine"></canvas>
-                </div>
-            </div>
-        </div>
-        <div class="col-sm-3 d-flex align-items-stretch">
-            <div class="card w-100">
-                <h5 class="card-header"> Relations </h5>
-                <div class="card-body">
-                    <dl>
-                        <dt>Configuration</dt>
-                        <dd><a href="config-workload--{{workload_conf.id}}.html">{{workload_conf.id}}.yaml</a></dd>
-                    </dl>
-                </div>
-            </div>
-        </div>
-    </div>
+    {% macro relations(pkg, dep=True) -%}
 
-    <br>
+    {% if workload.pkg_relations[pkg.id].required_by %}
+    Required by:
+    <ul>
+    {% for related_pkg_id in workload.pkg_relations[pkg.id].required_by %}
+    <li>{{related_pkg_id}}</li>
+    {% endfor %}
+    </ul>
+    {% endif %}
+
+    {% if workload.pkg_relations[pkg.id].recommended_by %}
+    Recommended by:
+    <ul>
+    {% for related_pkg_id in workload.pkg_relations[pkg.id].recommended_by %}
+    <li>{{related_pkg_id}}</li>
+    {% endfor %}
+    </ul>
+    {% endif %}
+
+    {% if workload.pkg_relations[pkg.id].suggested_by %}
+    Suggested by:
+    <ul>
+    {% for related_pkg_id in workload.pkg_relations[pkg.id].suggested_by %}
+    <li>{{related_pkg_id}}</li>
+    {% endfor %}
+    </ul>
+    {% endif %}
+
+    {%- endmacro %}
 
     {% macro pkg_row_css_class(pkg) -%}
     {% if pkg.q_required_in and pkg.q_env_in %}
@@ -129,20 +136,20 @@
                 <th>Epoch:Version-Release</th>
                 <th>Arch</th>
                 <th>Size</th>
-                <th>Summary</th>
+                <th>Reasons of Presence</th>
             </tr>
         </thead>
         <tbody>
             {% for pkg in query.workload_pkgs_id(workload_id) %}
             <tr class="{{pkg_row_css_class(pkg)}}">
-                <td data-order="{{pkg_why_data_order(pkg)}}">{{pkg_why(pkg)}}</td>
+                <td data-order="{{pkg_why_data_order(pkg)}}" style="padding-top: 16px; padding-bottom: 16px">{{pkg_why(pkg)}}</td>
                 <td>
                     {{pkg.name}}
                 </td>
                 <td>{{pkg.evr}}</td>
                 <td>{{pkg.arch}}</td>
                 <td data-order="{{pkg.installsize}}">{{ query.size(pkg.installsize) }}</td>
-                <td>{{pkg.summary}} </td>
+                <td>{{ relations(pkg) }}</td>
             </tr>
             {% endfor %}
         </tbody>

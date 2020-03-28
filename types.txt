@@ -22,6 +22,8 @@ workloads_in_view(view_conf_id, arch)
 arches_in_view(view_conf_id)
 pkgs_in_view(view_conf_id, arch)
 
+url_slug_id(any_id)
+
 
 
 === Package ===
@@ -94,6 +96,7 @@ data["workloads"][workload_id]["repo_id"]
 data["workloads"][workload_id]["arch"]
 data["workloads"][workload_id]["pkg_env_ids"]
 data["workloads"][workload_id]["pkg_added_ids"]
+data["workloads"][workload_id]["pkg_relations"]
 data["workloads"][workload_id]["errors"]["non_existing_pkgs"]
 data["workloads"][workload_id]["errors"]["message"]
 data["workloads"][workload_id]["succeeded"]

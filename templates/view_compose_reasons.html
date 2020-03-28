@@ -37,13 +37,13 @@
             <a class="nav-link " href="view-workloads--{{view_conf.id}}--{{arch}}.html">Workloads</a>
         </li>
     </ul>
-    </ul>
+
 
     <br>
 
     {% macro relations(pkg, dep=True) -%}
     {% if pkg.q_required_in %}
-    Required in:
+    Required in these workloads:
     <ul>
         {% for workload_id in pkg.q_required_in | sort %}
         <li>
@@ -56,7 +56,7 @@
     {% endif %}
 
     {% if pkg.q_dep_in and dep %}
-    Dependency of:
+    Dependency in these workloads:
     <ul>
         {% for workload_id in pkg.q_dep_in | sort %}
         <li>

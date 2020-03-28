@@ -564,7 +564,7 @@ def _analyze_pkgs(tmp, repo, arch):
         all_pkgs_set = set(query())
         pkgs = {}
         for pkg_object in all_pkgs_set:
-            pkg_nevra = "{name}-{evr}-{arch}".format(
+            pkg_nevra = "{name}-{evr}.{arch}".format(
                 name=pkg_object.name,
                 evr=pkg_object.evr,
                 arch=pkg_object.arch)
@@ -719,7 +719,7 @@ def _analyze_env(tmp, env_conf, repo, arch):
         query = base.sack.query().filterm(pkg=base.transaction.install_set)
 
         for pkg in query:
-            pkg_id = "{name}-{evr}-{arch}".format(
+            pkg_id = "{name}-{evr}.{arch}".format(
                 name=pkg.name,
                 evr=pkg.evr,
                 arch=pkg.arch
@@ -767,6 +767,53 @@ def _analyze_envs(tmp, configs):
     
     return envs
 
+def _analyze_package_relations(dnf_query):
+    relations = {}
+
+    for pkg in dnf_query:
+        pkg_id = "{name}-{evr}.{arch}".format(
+            name=pkg.name,
+            evr=pkg.evr,
+            arch=pkg.arch
+        )
+        
+        required_by = set()
+        recommended_by = set()
+        suggested_by = set()
+
+        for dep_pkg in dnf_query.filter(requires=pkg.provides):
+            dep_pkg_id = "{name}-{evr}.{arch}".format(
+                name=dep_pkg.name,
+                evr=dep_pkg.evr,
+                arch=dep_pkg.arch
+            )
+            required_by.add(dep_pkg_id)
+
+        for dep_pkg in dnf_query.filter(recommends=pkg.provides):
+            dep_pkg_id = "{name}-{evr}.{arch}".format(
+                name=dep_pkg.name,
+                evr=dep_pkg.evr,
+                arch=dep_pkg.arch
+            )
+            recommended_by.add(dep_pkg_id)
+        
+        for dep_pkg in dnf_query.filter(suggests=pkg.provides):
+            dep_pkg_id = "{name}-{evr}.{arch}".format(
+                name=dep_pkg.name,
+                evr=dep_pkg.evr,
+                arch=dep_pkg.arch
+            )
+            suggested_by.add(dep_pkg_id)
+        
+        relations[pkg_id] = {}
+        relations[pkg_id]["required_by"] = sorted(list(required_by))
+        relations[pkg_id]["recommended_by"] = sorted(list(recommended_by))
+        relations[pkg_id]["suggested_by"] = sorted(list(suggested_by))
+    
+    return relations
+
+
+    
 
 def _analyze_workload(tmp, workload_conf, env_conf, repo, arch):
     workload = {}
@@ -778,6 +825,8 @@ def _analyze_workload(tmp, workload_conf, env_conf, repo, arch):
 
     workload["pkg_env_ids"] = []
     workload["pkg_added_ids"] = []
+
+    workload["pkg_relations"] = []
 
     workload["errors"] = {}
     workload["errors"]["non_existing_pkgs"] = []
@@ -887,7 +936,7 @@ def _analyze_workload(tmp, workload_conf, env_conf, repo, arch):
         query_all = base.sack.query().filterm(pkg=pkgs_all)
         
         for pkg in pkgs_env:
-            pkg_id = "{name}-{evr}-{arch}".format(
+            pkg_id = "{name}-{evr}.{arch}".format(
                 name=pkg.name,
                 evr=pkg.evr,
                 arch=pkg.arch
@@ -895,12 +944,14 @@ def _analyze_workload(tmp, workload_conf, env_conf, repo, arch):
             workload["pkg_env_ids"].append(pkg_id)
         
         for pkg in pkgs_added:
-            pkg_id = "{name}-{evr}-{arch}".format(
+            pkg_id = "{name}-{evr}.{arch}".format(
                 name=pkg.name,
                 evr=pkg.evr,
                 arch=pkg.arch
             )
             workload["pkg_added_ids"].append(pkg_id)
+        
+        workload["pkg_relations"] = _analyze_package_relations(query_all)
         
         pkg_env_count = len(workload["pkg_env_ids"])
         pkg_added_count = len(workload["pkg_added_ids"])
@@ -910,30 +961,6 @@ def _analyze_workload(tmp, workload_conf, env_conf, repo, arch):
             pkg_added_count=pkg_added_count
         ))
         log("")
-    
-    # So... DNF is leaking file descriptors :/
-    # This hack is trully horrible, but probably the only way at this point to proceed
-    # 
-    # Check how many file descriptors has this process open
-    # If it's more than 30, kill all of them except the first 5 ones
-    #TRIGGER_COUNT = 10
-    #KEEP_FD = set([0, 1, 2, 3, 4])
-#
-    #if len(os.listdir(os.path.join("/proc", str(os.getpid()), "fd"))) > TRIGGER_COUNT:
-    #    log("")
-    #    log("----------------")
-    #    log("Killing file descriptors!")
-    #    for fd in os.listdir(os.path.join("/proc", str(os.getpid()), "fd")):
-    #        if int(fd) not in KEEP_FD:
-    #            try:
-    #                os.close(int(fd))
-    #                log("  -> {}  OK".format(fd))
-    #            except OSError:
-    ##                log("  -> {}  Failed".format(fd))
-    ##                pass
-    #    log("Killings have been completed!")
-    #    log("----------------")
-    #    log("")
 
     return workload
 
@@ -1573,8 +1600,8 @@ class Query():
         )
         return slug
     
-    def url_slug_id(self,id):
-        return id.replace(":", "--")
+    def url_slug_id(self, any_id):
+        return any_id.replace(":", "--")
     
     def workloads_in_view(self, view_conf_id, arch):
         view_conf = self.configs["views"][view_conf_id]
@@ -1834,8 +1861,11 @@ def _generate_workload_pages(query):
         page_name = "workload--{workload_id}".format(
             workload_id=workload_id
         )
-
         _generate_html_page("workload", template_data, page_name, query.settings)
+        page_name = "workload-dependencies--{workload_id}".format(
+            workload_id=workload_id
+        )
+        _generate_html_page("workload_dependencies", template_data, page_name, query.settings)
     
     # Workload compare arches pages
     for workload_conf_id in query.workloads(None,None,None,None,output_change="workload_conf_ids"):
@@ -2775,8 +2805,8 @@ def run_from_cache():
 
 def main():
 
-    #query = run_create_cache()
-    query = run_from_cache()
+    query = run_create_cache()
+    #query = run_from_cache()
 
     generate_pages(query)
     generate_historic_data(query)
