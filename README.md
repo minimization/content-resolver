@@ -1,6 +1,6 @@
-# feedback-pipeline
+# Feedback Pipeline
 
-Feedback Pipeline provides reporting and notifications regarding dependencies and sizes of Fedora-based workloads.
+Reporting and notifications regarding dependencies and sizes of Fedora-based workloads.
 
 [See it live! (https://tiny.distro.builders)](https://tiny.distro.builders)
 
