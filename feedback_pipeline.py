@@ -2804,11 +2804,24 @@ def run_from_cache():
 
 def main():
 
+    time_started = datetime.datetime.now().strftime("%m/%d/%Y, %H:%M:%S")
+
     query = run_create_cache()
     #query = run_from_cache()
 
     generate_pages(query)
     generate_historic_data(query)
+
+    time_ended = datetime.datetime.now().strftime("%m/%d/%Y, %H:%M:%S")
+
+    log("")
+    log("=============================")
+    log("Feedback Pipeline build done!")
+    log("=============================")
+    log("")
+    log("  Started:  {}".format(time_started))
+    log("  Finished: {}".format(time_ended))
+    log("")
 
 
 
