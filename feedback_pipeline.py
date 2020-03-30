@@ -924,6 +924,8 @@ def _analyze_workload(tmp, workload_conf, env_conf, repo, arch):
         except dnf.exceptions.DepsolveError as err:
             workload["succeeded"] = False
             workload["errors"]["message"] = str(err)
+            log("  Failed!  (Error message will be on the workload results page.")
+            log("")
             return workload
 
         # DNF Query
@@ -982,6 +984,22 @@ def _analyze_workloads(tmp, configs):
                     # And save those.
                     workload_env_map[workload_conf_id].add(env_conf_id)
     
+    # Get the total number of workloads
+    number_of_workloads = 0
+    # And now, look at all workload configs...
+    for workload_conf_id, workload_conf in configs["workloads"].items():
+        # ... and for each, look at all env configs it should be analyzed in.
+        for env_conf_id in workload_env_map[workload_conf_id]:
+            # Each of those envs can have multiple repos associated...
+            env_conf = configs["envs"][env_conf_id]
+            for repo_id in env_conf["repositories"]:
+                # ... and each repo probably has multiple architecture.
+                repo = configs["repos"][repo_id]
+                arches = repo["source"]["architectures"]
+                number_of_workloads += len(arches)
+
+    # Analyze the workloads
+    current_workload = 0
     # And now, look at all workload configs...
     for workload_conf_id, workload_conf in configs["workloads"].items():
         # ... and for each, look at all env configs it should be analyzed in.
@@ -992,6 +1010,12 @@ def _analyze_workloads(tmp, configs):
                 # ... and each repo probably has multiple architecture.
                 repo = configs["repos"][repo_id]
                 for arch in repo["source"]["architectures"]:
+
+                    current_workload += 1
+                    log ("[ workload {current} of {total} ]".format(
+                        current=current_workload,
+                        total=number_of_workloads
+                    ))
 
                     # And now it has:
                     #   all workload configs *
@@ -1046,7 +1070,7 @@ def analyze_things(configs, settings):
     with tempfile.TemporaryDirectory() as tmp:
 
         # FIXME temporary override
-        #tmp = "/tmp/fixed-tmp"
+        tmp = "/tmp/fixed-tmp"
 
         # List of supported arches
         all_arches = settings["allowed_arches"]
@@ -2423,6 +2447,7 @@ def _generate_chartjs_data(historic_data, query):
         dataset = {}
         dataset["data"] = []
         dataset["label"] = workload_conf["name"]
+        dataset["fill"] = "false"
 
         for _,entry in historic_data.items():
             try:
@@ -2468,6 +2493,8 @@ def _generate_chartjs_data(historic_data, query):
                     name=env_conf["name"],
                     arch=workload["arch"]
                 )
+                dataset["fill"] = "false"
+
 
                 for _,entry in historic_data.items():
                     try:
@@ -2518,6 +2545,7 @@ def _generate_chartjs_data(historic_data, query):
                     dataset["label"] = "{arch}".format(
                         arch=workload["arch"]
                     )
+                    dataset["fill"] = "false"
 
                     for _,entry in historic_data.items():
                         try:
@@ -2569,6 +2597,7 @@ def _generate_chartjs_data(historic_data, query):
                         repo=repo["name"],
                         arch=workload["arch"]
                     )
+                    dataset["fill"] = "false"
 
                     for _,entry in historic_data.items():
                         try:
@@ -2610,6 +2639,8 @@ def _generate_chartjs_data(historic_data, query):
         dataset = {}
         dataset["data"] = []
         dataset["label"] = env_conf["name"]
+        dataset["fill"] = "false"
+
 
         for _,entry in historic_data.items():
             try:
@@ -2655,6 +2686,8 @@ def _generate_chartjs_data(historic_data, query):
                     name=env_conf["name"],
                     arch=env["arch"]
                 )
+                dataset["fill"] = "false"
+
 
                 for _,entry in historic_data.items():
                     try:
@@ -2702,6 +2735,7 @@ def _generate_chartjs_data(historic_data, query):
                 dataset["label"] = "{arch}".format(
                     arch=env["arch"]
                 )
+                dataset["fill"] = "false"
 
                 for _,entry in historic_data.items():
                     try:
@@ -2740,6 +2774,7 @@ def _generate_chartjs_data(historic_data, query):
             dataset = {}
             dataset["data"] = []
             dataset["label"] = "Number of packages"
+            dataset["fill"] = "false"
 
             for _,entry in historic_data.items():
                 try:
