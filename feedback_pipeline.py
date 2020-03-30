@@ -1311,8 +1311,8 @@ class Query():
 
                 # Add it to the list if it's not there already.
                 # Create a copy since it's gonna be modified, and include only what's needed
+                pkg = self.data["pkgs"][workload_repo_id][workload_arch][pkg_id]
                 if pkg_id not in pkgs[workload_repo_id][workload_arch]:
-                    pkg = self.data["pkgs"][workload_repo_id][workload_arch][pkg_id]
                     pkgs[workload_repo_id][workload_arch][pkg_id] = {}
                     pkgs[workload_repo_id][workload_arch][pkg_id]["id"] = pkg_id
                     pkgs[workload_repo_id][workload_arch][pkg_id]["name"] = pkg["name"]
@@ -1342,8 +1342,8 @@ class Query():
 
                 # Add it to the list if it's not there already
                 # and initialize extra fields
+                pkg = self.data["pkgs"][workload_repo_id][workload_arch][pkg_id]
                 if pkg_id not in pkgs[workload_repo_id][workload_arch]:
-                    pkg = self.data["pkgs"][workload_repo_id][workload_arch][pkg_id]
                     pkgs[workload_repo_id][workload_arch][pkg_id] = {}
                     pkgs[workload_repo_id][workload_arch][pkg_id]["id"] = pkg_id
                     pkgs[workload_repo_id][workload_arch][pkg_id]["name"] = pkg["name"]
@@ -1452,8 +1452,8 @@ class Query():
 
                 # Add it to the list if it's not there already.
                 # Create a copy since it's gonna be modified, and include only what's needed
+                pkg = self.data["pkgs"][env_repo_id][env_arch][pkg_id]
                 if pkg_id not in pkgs[env_repo_id][env_arch]:
-                    pkg = self.data["pkgs"][env_repo_id][env_arch][pkg_id]
                     pkgs[env_repo_id][env_arch][pkg_id] = {}
                     pkgs[env_repo_id][env_arch][pkg_id]["id"] = pkg_id
                     pkgs[env_repo_id][env_arch][pkg_id]["name"] = pkg["name"]
@@ -1672,8 +1672,8 @@ class Query():
             for pkg_id in workload["pkg_env_ids"]:
                 # Add it to the list if it's not there already.
                 # Create a copy since it's gonna be modified, and include only what's needed
+                pkg = self.data["pkgs"][repo_id][arch][pkg_id]
                 if pkg_id not in pkgs:
-                    pkg = self.data["pkgs"][repo_id][arch][pkg_id]
                     pkgs[pkg_id] = {}
                     pkgs[pkg_id]["id"] = pkg_id
                     pkgs[pkg_id]["name"] = pkg["name"]
@@ -1699,14 +1699,13 @@ class Query():
                 if pkg["name"] in self.configs["workloads"][workload_conf_id]["arch_packages"][arch]:
                     pkgs[pkg_id]["q_required_in"].add(workload_id)
 
-            
             # Second, add all the other packages
             for pkg_id in workload["pkg_added_ids"]:
 
                 # Add it to the list if it's not there already
                 # and initialize extra fields
+                pkg = self.data["pkgs"][repo_id][arch][pkg_id]
                 if pkg_id not in pkgs:
-                    pkg = self.data["pkgs"][repo_id][arch][pkg_id]
                     pkgs[pkg_id] = {}
                     pkgs[pkg_id]["id"] = pkg_id
                     pkgs[pkg_id]["name"] = pkg["name"]
