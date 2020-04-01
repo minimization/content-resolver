@@ -1070,7 +1070,7 @@ def analyze_things(configs, settings):
     with tempfile.TemporaryDirectory() as tmp:
 
         # FIXME temporary override
-        tmp = "/tmp/fixed-tmp"
+        #tmp = "/tmp/fixed-tmp"
 
         # List of supported arches
         all_arches = settings["allowed_arches"]
@@ -2224,6 +2224,57 @@ def _generate_view_pages(query):
     log("")
 
 
+def _generate_a_flat_list_file(data_list, file_name, settings):
+
+    file_contents = "\n".join(data_list)
+
+    filename = ("{file_name}.txt".format(
+        file_name=file_name.replace(":", "--")
+    ))
+
+    output = settings["output"]
+
+    log("  Writing file...  ({filename})".format(
+        filename=filename
+    ))
+    with open(os.path.join(output, filename), "w") as file:
+        file.write(file_contents)
+
+
+def _generate_view_lists(query):
+    log("Generating view lists...")
+
+    for view_conf_id,view_conf in query.configs["views"].items():
+        if view_conf["type"] == "compose":
+
+            repo_id = view_conf["repository"]
+
+            for arch in query.arches_in_view(view_conf_id):
+                # First, generate the overview page comparing all architectures
+                log("  Generating 'compose' package list {view_conf_id} for {arch}".format(
+                    view_conf_id=view_conf_id,
+                    arch=arch
+                ))
+
+                pkg_ids = query.pkgs_in_view(view_conf_id, arch, output_change="ids")
+                pkg_source_names = query.pkgs_in_view(view_conf_id, arch, output_change="source_names")
+
+                file_name = "view-binary-package-list--{view_conf_id}--{arch}".format(
+                    view_conf_id=view_conf_id,
+                    arch=arch
+                )
+                _generate_a_flat_list_file(pkg_ids, file_name, query.settings)
+
+                file_name = "view-source-package-list--{view_conf_id}--{arch}".format(
+                    view_conf_id=view_conf_id,
+                    arch=arch
+                )
+                _generate_a_flat_list_file(pkg_source_names, file_name, query.settings)
+    
+    log("  Done!")
+    log("")
+
+
 
 def generate_pages(query):
     log("")
@@ -2270,6 +2321,9 @@ def generate_pages(query):
 
     # Generate view pages
     _generate_view_pages(query)
+
+    # Generate flat lists for views
+    _generate_view_lists(query)
 
     # Generate the errors page
     template_data = {
