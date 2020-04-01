@@ -525,6 +525,8 @@ def _analyze_pkgs(tmp, repo, arch):
         )
         base.conf.installroot = os.path.join(tmp, root_name)
 
+        base.conf.fastestmirror = True
+
         # Architecture
         base.conf.arch = arch
         base.conf.ignorearch = True
@@ -620,6 +622,8 @@ def _analyze_env(tmp, env_conf, repo, arch):
             arch=arch
         )
         base.conf.installroot = os.path.join(tmp, root_name)
+
+        base.conf.fastestmirror = True
 
         # Architecture
         base.conf.arch = arch
@@ -851,6 +855,8 @@ def _analyze_workload(tmp, workload_conf, env_conf, repo, arch):
             arch=arch
         )
         base.conf.installroot = os.path.join(tmp, root_name)
+
+        base.conf.fastestmirror = True
 
         # Architecture
         base.conf.arch = arch
