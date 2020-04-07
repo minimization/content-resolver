@@ -1307,11 +1307,12 @@ class Query():
 
         # Other outputs:
         #   - "ids"         — a list ids
+        #   - "binary_names"  — a list of RPM names
         #   - "source_names"  — a list of SRPM names
         if output_change:
             list_all = True
-            if output_change not in ["ids", "source_names"]:
-                raise ValueError('output_change must be one of: "ids", "source_names"')
+            if output_change not in ["ids", "binary_names", "source_names"]:
+                raise ValueError('output_change must be one of: "ids", "binary_names", "source_names"')
         
         # Step 1: get all the matching workloads!
         workload_ids = self.workloads(workload_conf_id, env_conf_id, repo_id, arch, list_all=True)
@@ -1405,6 +1406,8 @@ class Query():
                     for pkg_id, pkg in pkgs[repo_id][arch].items():
                         if output_change == "ids":
                             pkg_names.add(pkg["id"])
+                        elif output_change == "binary_names":
+                            pkg_names.add(pkg["name"])
                         elif output_change == "source_names":
                             pkg_names.add(pkg["source_name"])
             
@@ -1682,11 +1685,12 @@ class Query():
 
         # Other outputs:
         #   - "ids"         — a list ids
+        #   - "binary_names"  — a list of RPM names
         #   - "source_names"  — a list of SRPM names
         if output_change:
             list_all = True
-            if output_change not in ["ids", "source_names"]:
-                raise ValueError('output_change must be one of: "ids", "source_names"')
+            if output_change not in ["ids", "binary_names", "source_names"]:
+                raise ValueError('output_change must be one of: "ids", "binary_names", "source_names"')
 
         workload_ids = self.workloads_in_view(view_conf_id, arch)
         repo_id = self.configs["views"][view_conf_id]["repository"]
@@ -1768,6 +1772,8 @@ class Query():
             for pkg_id, pkg in pkgs.items():
                 if output_change == "ids":
                     pkg_names.add(pkg["id"])
+                elif output_change == "binary_names":
+                    pkg_names.add(pkg["name"])
                 elif output_change == "source_names":
                     pkg_names.add(pkg["source_name"])
             
@@ -2177,9 +2183,11 @@ def _generate_view_pages(query):
                 workload_ids = query.workloads_in_view(view_conf_id, arch=arch)
 
                 pkg_ids = query.pkgs_in_view(view_conf_id, arch, output_change="ids")
+                pkg_binary_names = query.pkgs_in_view(view_conf_id, arch, output_change="binary_names")
                 pkg_source_names = query.pkgs_in_view(view_conf_id, arch, output_change="source_names")
                 
                 arch_pkg_counts[arch]["pkg_ids"] = len(pkg_ids)
+                arch_pkg_counts[arch]["pkg_binary_names"] = len(pkg_binary_names)
                 arch_pkg_counts[arch]["source_pkg_names"] = len(pkg_source_names)
 
             template_data = {
@@ -2263,6 +2271,7 @@ def _generate_view_lists(query):
                 ))
 
                 pkg_ids = query.pkgs_in_view(view_conf_id, arch, output_change="ids")
+                pkg_binary_names = query.pkgs_in_view(view_conf_id, arch, output_change="binary_names")
                 pkg_source_names = query.pkgs_in_view(view_conf_id, arch, output_change="source_names")
 
                 file_name = "view-binary-package-list--{view_conf_id}--{arch}".format(
@@ -2270,6 +2279,12 @@ def _generate_view_lists(query):
                     arch=arch
                 )
                 _generate_a_flat_list_file(pkg_ids, file_name, query.settings)
+
+                file_name = "view-binary-package-name-list--{view_conf_id}--{arch}".format(
+                    view_conf_id=view_conf_id,
+                    arch=arch
+                )
+                _generate_a_flat_list_file(pkg_binary_names, file_name, query.settings)
 
                 file_name = "view-source-package-list--{view_conf_id}--{arch}".format(
                     view_conf_id=view_conf_id,
