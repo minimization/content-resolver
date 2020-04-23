@@ -583,6 +583,7 @@ def _analyze_pkgs(tmp, repo, arch):
             #pkg["suggests"] = pkg_object.suggests
             pkg["summary"] = pkg_object.summary
             pkg["source_name"] = pkg_object.source_name
+            pkg["sourcerpm"] = pkg_object.sourcerpm
             pkgs[pkg_nevra] = pkg
         
         log("  Done!  ({pkg_count} packages in total)".format(
@@ -1499,6 +1500,7 @@ class Query():
                     pkgs[env_repo_id][env_arch][pkg_id]["description"] = pkg["description"]
                     pkgs[env_repo_id][env_arch][pkg_id]["summary"] = pkg["summary"]
                     pkgs[env_repo_id][env_arch][pkg_id]["source_name"] = pkg["source_name"]
+                    pkgs[env_repo_id][env_arch][pkg_id]["sourcerpm"] = pkg["sourcerpm"]
                     pkgs[env_repo_id][env_arch][pkg_id]["q_arch"] = env_arch
                     pkgs[env_repo_id][env_arch][pkg_id]["q_in"] = set()
                     pkgs[env_repo_id][env_arch][pkg_id]["q_required_in"] = set()
@@ -1721,6 +1723,7 @@ class Query():
                     pkgs[pkg_id]["description"] = pkg["description"]
                     pkgs[pkg_id]["summary"] = pkg["summary"]
                     pkgs[pkg_id]["source_name"] = pkg["source_name"]
+                    pkgs[pkg_id]["sourcerpm"] = pkg["sourcerpm"]
                     pkgs[pkg_id]["q_arch"] = arch
                     pkgs[pkg_id]["q_in"] = set()
                     pkgs[pkg_id]["q_required_in"] = set()
@@ -1753,6 +1756,7 @@ class Query():
                     pkgs[pkg_id]["description"] = pkg["description"]
                     pkgs[pkg_id]["summary"] = pkg["summary"]
                     pkgs[pkg_id]["source_name"] = pkg["source_name"]
+                    pkgs[pkg_id]["sourcerpm"] = pkg["sourcerpm"]
                     pkgs[pkg_id]["q_arch"] = arch
                     pkgs[pkg_id]["q_in"] = set()
                     pkgs[pkg_id]["q_required_in"] = set()
