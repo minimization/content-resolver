@@ -245,9 +245,13 @@ def _load_config_workload(document_id, document, settings):
         # architectures — that's the one to use by default.
         config["packages"] = []
         # This workaround allows for "packages" to be left empty in the config
-        if "packages" in document["data"]:
+        try:
             for pkg in document["data"]["packages"]:
                 config["packages"].append(str(pkg))
+        except TypeError:
+            err_log("Warning: {file} has an empty 'packages' field defined which is invalid. Moving on...".format(
+                file=document_id
+            ))
         
         # Labels connect things together.
         # Workloads get installed in environments with the same label.
@@ -273,10 +277,16 @@ def _load_config_workload(document_id, document, settings):
                     arch=arch
                 ))
                 continue
-            if pkgs:
+            # This workaround allows for "arch_packages/ARCH" to be left empty in the config
+            try:
                 for pkg_raw in pkgs:
                     pkg = str(pkg_raw)
                     config["arch_packages"][arch].append(pkg)
+            except TypeError:
+                err_log("Warning: {file} has an empty 'arch_packages/{arch}' field defined which is invalid. Moving on...".format(
+                    file=document_id,
+                    arch=arch
+                ))
     
     # Extra installation options.
     # The following are now supported:
