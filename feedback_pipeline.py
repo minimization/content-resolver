@@ -254,7 +254,7 @@ def _load_config_workload(document_id, document, settings):
         for repo in document["data"]["labels"]:
             config["labels"].append(str(repo))
 
-    except KeyError:
+    except (KeyError, TypeError):
         raise ConfigError("Error: {file} is invalid.".format(file=yml_file))
 
     # Step 2: Optional fields
