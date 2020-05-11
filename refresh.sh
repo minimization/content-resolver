@@ -18,29 +18,20 @@ trap cleanup EXIT
 
 cd $WORK_DIR
 
-
+# Get the latest code repo and configs
 git clone git@github.com:minimization/feedback-pipeline.git || exit 1
-git clone git@github.com:minimization/reports.git || exit 1
 cd feedback-pipeline || exit 1
 git clone git@github.com:minimization/feedback-pipeline-config.git configs || exit 1
 
-mkdir $WORK_DIR/feedback-pipeline/out || exit 1
-cp -r $WORK_DIR/reports/docs/history $WORK_DIR/feedback-pipeline/out/ || exit 1
+# Local output dir. Includes a dir for the history data, too.
+mkdir -p $WORK_DIR/feedback-pipeline/out/history || exit 1
+
+# Get a copy of the historic data
+aws s3 sync s3://tiny.distro.builders/history WORK_DIR/feedback-pipeline/out/history
+
+# Build the site
 CMD="./feedback_pipeline.py configs out" || exit 1
 podman run --rm -it -v $WORK_DIR/feedback-pipeline:/workspace:z asamalik/feedback-pipeline-env $CMD || exit 1
 
-cd $WORK_DIR || exit 1
-
-cd reports || exit 1
-#cp -r $WORK_DIR/feedback-pipeline/out/* docs/ || exit 1
-
-# Too many files for cp!
-for i in $WORK_DIR/feedback-pipeline/out/*
-do
-    cp -r "$i" docs/
-done || exit 1
-
-
-git add . || exit 1
-git commit -m "automatic update $(date)" || exit 1
-git push || exit 1
+# Publish the site
+aws s3 sync $WORK_DIR/feedback-pipeline/out s3://tiny.distro.builders || exit 1
