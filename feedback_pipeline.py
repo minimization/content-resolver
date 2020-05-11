@@ -190,7 +190,7 @@ def _load_config_env(document_id, document, settings):
             config["labels"].append(str(repo))
 
     except KeyError:
-        raise ConfigError("Error: {file} is invalid.".format(file=yml_file))
+        raise ConfigError("Error: {file} is invalid.".format(file=document_id))
 
     # Step 2: Optional fields
 
@@ -244,7 +244,8 @@ def _load_config_workload(document_id, document, settings):
         # This list includes packages for all
         # architectures — that's the one to use by default.
         config["packages"] = []
-        if document["data"]["packages"]:
+        # This workaround allows for "packages" to be left empty in the config
+        if "packages" in document["data"]:
             for pkg in document["data"]["packages"]:
                 config["packages"].append(str(pkg))
         
@@ -256,7 +257,7 @@ def _load_config_workload(document_id, document, settings):
             config["labels"].append(str(repo))
 
     except KeyError:
-        raise ConfigError("Error: {file} is invalid.".format(file=yml_file))
+        raise ConfigError("Error: {file} is invalid.".format(file=document_id))
 
     # Step 2: Optional fields
 
