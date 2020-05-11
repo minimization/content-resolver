@@ -244,8 +244,9 @@ def _load_config_workload(document_id, document, settings):
         # This list includes packages for all
         # architectures — that's the one to use by default.
         config["packages"] = []
-        for pkg in document["data"]["packages"]:
-            config["packages"].append(str(pkg))
+        if document["data"]["packages"]:
+            for pkg in document["data"]["packages"]:
+                config["packages"].append(str(pkg))
         
         # Labels connect things together.
         # Workloads get installed in environments with the same label.
@@ -254,7 +255,7 @@ def _load_config_workload(document_id, document, settings):
         for repo in document["data"]["labels"]:
             config["labels"].append(str(repo))
 
-    except (KeyError, TypeError):
+    except KeyError:
         raise ConfigError("Error: {file} is invalid.".format(file=yml_file))
 
     # Step 2: Optional fields
@@ -271,9 +272,10 @@ def _load_config_workload(document_id, document, settings):
                     arch=arch
                 ))
                 continue
-            for pkg_raw in pkgs:
-                pkg = str(pkg_raw)
-                config["arch_packages"][arch].append(pkg)
+            if pkgs:
+                for pkg_raw in pkgs:
+                    pkg = str(pkg_raw)
+                    config["arch_packages"][arch].append(pkg)
     
     # Extra installation options.
     # The following are now supported:
