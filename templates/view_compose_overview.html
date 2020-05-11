@@ -2,7 +2,7 @@
 
 {% block content %}
 
-<div class="container">
+<div class="container-fluid">
 
     <nav aria-label="breadcrumb">
         <ol class="breadcrumb">
@@ -13,10 +13,13 @@
         </ol>
     </nav>
 
+    <br>
+
     <h1>
         {{view_conf.name}}
         <small class="text-muted"> overview</small>
     </h1>
+    <p class="lead"><span class="text-muted">Description: </span>{{view_conf.description}}</p>
 
     <br>
 
