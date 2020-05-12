@@ -9,9 +9,6 @@ document: feedback-pipeline-repository
 version: 1
 data:
   # id is the filename — that automatically prevents collisions for free!
-
-
-  ### MANDATORY FIELDS ###
   
   # Name is an identifier for humans
   #
@@ -50,3 +47,12 @@ data:
     - ppc64le
     - s390x
     - x86_64
+
+    # An additional repository to be added to the mix.
+    # This repository will get a higher priority then the primary
+    # one defined by fedora_release.
+    # Practiaclly, this has been added for Fedora ELN that's used
+    # on top of Rawhide.
+    # 
+    # (Optional field)
+    additional_repository: URL

@@ -16,7 +16,7 @@ data:
   # Name is an identifier for humans
   #
   # (mandatory field)
-  name: Fedora rawhide
+  name: Fedora ELN
   
   # A short description, perhaps hinting the purpose
   #
@@ -39,10 +39,19 @@ data:
     # Fedora release.
     # 
     # (mandatory field)
-    fedora_release: "32"
+    fedora_release: "33"
     # List of architectures
     # 
     # (mandatory field)
     architectures:
     - aarch64
     - x86_64
+
+    # An additional repository to be added to the mix.
+    # This repository will get a higher priority then the primary
+    # one defined by fedora_release.
+    # Practiaclly, this has been added for Fedora ELN that's used
+    # on top of Rawhide.
+    # 
+    # (Optional field)
+    additional_repository: https://odcs.fedoraproject.org/composes/production/latest-Fedora-ELN/compose/Everything/$basearch/os/

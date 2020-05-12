@@ -149,7 +149,16 @@ def _load_config_repo(document_id, document, settings):
         raise ConfigError("Error: {file} is invalid.".format(file=yml_file))
     
     # Step 2: Optional fields
-    # none here
+
+    # An additional repository to be added to the mix.
+    # This repository will get a higher priority then the primary
+    # one defined by fedora_release.
+    # Practiaclly, this has been added for Fedora ELN that's used
+    # on top of Rawhide.
+    config["source"]["additional_repository"] = None
+    if "additional_repository" in document["data"]["source"]:
+        config["source"]["additional_repository"] = str(document["data"]["source"]["additional_repository"])
+
 
     return config
 
@@ -547,6 +556,13 @@ def _analyze_pkgs(tmp, repo, arch):
         # Repository
         base.conf.substitutions['releasever'] = repo["source"]["fedora_release"]
 
+        # Additional repository (if configured)
+        if repo["source"]["additional_repository"]:
+            additional_repo = dnf.repo.Repo(name="additional-repository",parent_conf=base.conf)
+            additional_repo.baseurl = [repo["source"]["additional_repository"]]
+            additional_repo.priority = 1
+            base.repos.add(additional_repo)
+
         # Load repos
         log("  Loading repos...")
         base.read_all_repos()
@@ -645,6 +661,13 @@ def _analyze_env(tmp, env_conf, repo, arch):
 
         # Repository
         base.conf.substitutions['releasever'] = repo["source"]["fedora_release"]
+
+        # Additional repository (if configured)
+        if repo["source"]["additional_repository"]:
+            additional_repo = dnf.repo.Repo(name="additional-repository",parent_conf=base.conf)
+            additional_repo.baseurl = [repo["source"]["additional_repository"]]
+            additional_repo.priority = 1
+            base.repos.add(additional_repo)
 
         # Additional DNF Settings
         base.conf.tsflags.append('justdb')
@@ -878,6 +901,13 @@ def _analyze_workload(tmp, workload_conf, env_conf, repo, arch):
 
         # Repository
         base.conf.substitutions['releasever'] = repo["source"]["fedora_release"]
+
+        # Additional repository (if configured)
+        if repo["source"]["additional_repository"]:
+            additional_repo = dnf.repo.Repo(name="additional-repository",parent_conf=base.conf)
+            additional_repo.baseurl = [repo["source"]["additional_repository"]]
+            additional_repo.priority = 1
+            base.repos.add(additional_repo)
 
         # Environment config
         if "include-weak-deps" not in workload_conf["options"]:
