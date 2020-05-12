@@ -17,7 +17,7 @@ Option 1: on Fedora natively:
 
 ```
 $ sudo dnf install python3-yaml python3-jinja2
-$ mkdir output
+$ mkdir -p output/history
 $ ./feedback_pipeline.py test_configs output
 ```
 
@@ -28,7 +28,7 @@ Option 2: on Fedora in a container
 ```
 $ podman pull asamalik/feedback-pipeline-env
 $ podman run --rm -it -v $(pwd):/workspace:z asamalik/feedback-pipeline-env bash
-$ mkdir output
+$ mkdir -p output/history
 $ ./feedback_pipeline.py test_configs output
 ```
 
@@ -37,7 +37,7 @@ Option 3: on a Mac using Docker:
 ```
 $ docker pull asamalik/feedback-pipeline-env
 $ docker run --rm -it -v $(pwd):/workspace asamalik/feedback-pipeline-env bash
-$ mkdir output
+$ mkdir -p output/history
 $ ./feedback_pipeline.py test_configs output
 ```
 
