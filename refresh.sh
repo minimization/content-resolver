@@ -21,7 +21,7 @@ cd $WORK_DIR
 # Get the latest code repo and configs
 git clone git@github.com:minimization/feedback-pipeline.git || exit 1
 cd feedback-pipeline || exit 1
-git clone git@github.com:minimization/feedback-pipeline-config.git configs || exit 1
+git clone git@github.com:minimization/feedback-pipeline-config.git || exit 1
 
 # Local output dir. Includes a dir for the history data, too.
 mkdir -p $WORK_DIR/feedback-pipeline/out/history || exit 1
@@ -30,7 +30,7 @@ mkdir -p $WORK_DIR/feedback-pipeline/out/history || exit 1
 aws s3 sync s3://tiny.distro.builders/history $WORK_DIR/feedback-pipeline/out/history || exit 1
 
 # Build the site
-CMD="./feedback_pipeline.py configs out" || exit 1
+CMD="./feedback_pipeline.py feedback-pipeline-config/configs out" || exit 1
 podman run --rm -it -v $WORK_DIR/feedback-pipeline:/workspace:z asamalik/feedback-pipeline-env $CMD || exit 1
 
 # Publish the site
