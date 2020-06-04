@@ -45,6 +45,7 @@
         <thead>
             <tr class="sort_control_row">
                 <th>Name</th>
+                <th>Maintainer</th>
                 <th>Status</th>
             </tr>
         </thead>
@@ -57,6 +58,9 @@
                         in
                         {{ query.configs.envs[query.data.workloads[workload_id].env_conf_id].name}}
                     </a>
+                </td>
+                <td>
+                    {{ query.configs.workloads[query.data.workloads[workload_id].workload_conf_id].maintainer }}
                 </td>
                 <td>
                     {% if query.data.workloads[workload_id].succeeded %}
