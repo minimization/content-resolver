@@ -2987,8 +2987,8 @@ def main():
 
     time_started = datetime.datetime.now().strftime("%m/%d/%Y, %H:%M:%S")
 
-    #query = run_create_cache()
-    query = run_from_cache()
+    query = run_create_cache()
+    #query = run_from_cache()
 
     generate_pages(query)
     generate_historic_data(query)
