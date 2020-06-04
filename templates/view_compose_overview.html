@@ -25,13 +25,15 @@
 
     <div class="row">
 
-        <div class="col-sm-8">
+        <div class="col-sm-9">
             <table class="table table-striped" id="table_packages">
                 <thead>
                     <tr class="sort_control_row">
                         <th>Architecture</th>
                         <th>Binary Packages</th>
                         <th>Source Packages</th>
+                        <th>Unwanted Packages</th>
+                        <th>Workload Status</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -42,10 +44,21 @@
                         <td><a href="view--{{view_conf.id}}--{{arch}}.html">{{arch}}</a></td>
                         <td> {{ pkg_counts.pkg_ids }}</td>
                         <td> {{ pkg_counts.source_pkg_names }} </td>
+                        <td> {{ pkg_counts.unwanted_packages }} </td>
+                        <td>
+                            {% if query.view_succeeded(view_conf.id, arch) %}
+                            <span class="text-success">All Succeeded</span>
+                            {% else %}
+                            <span class="text-warning">Some Errors</span>
+                            {% endif %}
+                            (<a href="view-workloads--{{view_conf.id}}--{{arch}}.html">list</a>)
+                        </td>
                     </tr>
                     {% else %}
                     <tr>
                         <td class="text-muted">{{arch}} (excluded)</td>
+                        <td></td>
+                        <td></td>
                         <td></td>
                         <td></td>
                     </tr>
@@ -55,7 +68,7 @@
                 </tbody>
             </table>
         </div>
-        <div class="col-sm-4">
+        <div class="col-sm-3">
             <div class="card">
                 <h5 class="card-header">Relations</h5>
                 <div class="card-body">

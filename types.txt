@@ -21,6 +21,7 @@ env_succeeded(env_conf_id, repo_id, arch)
 workloads_in_view(view_conf_id, arch)
 arches_in_view(view_conf_id)
 pkgs_in_view(view_conf_id, arch)
+view_succeeded(view_conf_id, arch)
 
 url_slug_id(any_id)
 

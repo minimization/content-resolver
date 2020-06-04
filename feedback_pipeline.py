@@ -1683,12 +1683,12 @@ class Query():
         repo_id = view_conf["repository"]
         labels = view_conf["labels"]
         
-        if arch not in self.settings["allowed_arches"]:
+        if arch and arch not in self.settings["allowed_arches"]:
             raise ValueError("Unsupported arch: {arch}".format(
                 arch=arch
             ))
         
-        if arch not in self.arches_in_view(view_conf_id):
+        if arch and arch not in self.arches_in_view(view_conf_id):
             return []
 
         # First, get a set of workloads matching the repo and the arch
@@ -1853,6 +1853,15 @@ class Query():
         for env_id in env_ids:
             env = self.data["envs"][env_id]
             if not env["succeeded"]:
+                return False
+        return True
+    
+    def view_succeeded(self, view_conf_id, arch):
+        workload_ids = self.workloads_in_view(view_conf_id, arch)
+
+        for workload_id in workload_ids:
+            workload = self.data["workloads"][workload_id]
+            if not workload["succeeded"]:
                 return False
         return True
     
@@ -2233,11 +2242,17 @@ def _generate_view_pages(query):
                 pkg_binary_names = query.pkgs_in_view(view_conf_id, arch, output_change="binary_names")
                 pkg_source_nvr = query.pkgs_in_view(view_conf_id, arch, output_change="source_nvr")
                 pkg_source_names = query.pkgs_in_view(view_conf_id, arch, output_change="source_names")
+
+                unwanted_packages_count = 0
+                for pkg_name in pkg_binary_names:
+                    if pkg_name in view_conf["unwanted_packages"]:
+                        unwanted_packages_count += 1
                 
                 arch_pkg_counts[arch]["pkg_ids"] = len(pkg_ids)
                 arch_pkg_counts[arch]["pkg_binary_names"] = len(pkg_binary_names)
                 arch_pkg_counts[arch]["source_pkg_nvr"] = len(pkg_source_nvr)
                 arch_pkg_counts[arch]["source_pkg_names"] = len(pkg_source_names)
+                arch_pkg_counts[arch]["unwanted_packages"] = unwanted_packages_count
 
             template_data = {
                 "query": query,
@@ -2972,8 +2987,8 @@ def main():
 
     time_started = datetime.datetime.now().strftime("%m/%d/%Y, %H:%M:%S")
 
-    query = run_create_cache()
-    #query = run_from_cache()
+    #query = run_create_cache()
+    query = run_from_cache()
 
     generate_pages(query)
     generate_historic_data(query)

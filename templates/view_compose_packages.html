@@ -30,10 +30,19 @@
             <a class="nav-link active" href="view--{{view_conf.id}}--{{arch}}.html">Packages</a>
         </li>
         <li class="nav-item">
-            <a class="nav-link" href="view-reasons--{{view_conf.id}}--{{arch}}.html">Reasons of Presence</a>
+            <a class="nav-link" href="view-reasons--{{view_conf.id}}--{{arch}}.html">Packages + Reasons of Presence</a>
         </li>
         <li class="nav-item">
-            <a class="nav-link " href="view-workloads--{{view_conf.id}}--{{arch}}.html">Workloads</a>
+            <a class="nav-link " href="view-workloads--{{view_conf.id}}--{{arch}}.html">
+                Workloads
+                (
+                {% if query.view_succeeded(view_conf.id, arch) %}
+                <span class="text-success">All Succeeded</span>
+                {% else %}
+                <span class="text-warning">Some Errors</span>
+                {% endif %}
+                )
+            </a>
         </li>
     </ul>
 
@@ -62,10 +71,14 @@
                         <dt>Flat list downloads</dt>
                         <dd>
                             <ul>
-                                <li><a href="view-binary-package-list--{{view_conf.id}}--{{arch}}.txt">Binary packages</a></li>
-                                <li><a href="view-binary-package-name-list--{{view_conf.id}}--{{arch}}.txt">Binary package names</a></li>
-                                <li><a href="view-source-package-list--{{view_conf.id}}--{{arch}}.txt">Source packages</a></li>
-                                <li><a href="view-source-package-name-list--{{view_conf.id}}--{{arch}}.txt">Source package names</a></li>
+                                <li><a href="view-binary-package-list--{{view_conf.id}}--{{arch}}.txt">Binary
+                                        packages</a></li>
+                                <li><a href="view-binary-package-name-list--{{view_conf.id}}--{{arch}}.txt">Binary
+                                        package names</a></li>
+                                <li><a href="view-source-package-list--{{view_conf.id}}--{{arch}}.txt">Source
+                                        packages</a></li>
+                                <li><a href="view-source-package-name-list--{{view_conf.id}}--{{arch}}.txt">Source
+                                        package names</a></li>
                             </ul>
                         </dd>
                     </dl>

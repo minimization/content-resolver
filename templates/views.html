@@ -40,6 +40,7 @@
             <tr class="sort_control_row">
                 <th>Name</th>
                 <th>Description</th>
+                <th>Workload Status</th>
             </tr>
         </thead>
         <tbody>
@@ -48,6 +49,13 @@
             <tr>
                 <td><a href="view--{{view_conf_id}}.html">{{view_conf.name}}</a></td>
                 <td>{{view_conf.description}}</td>
+                <td>
+                    {% if query.view_succeeded(view_conf_id, None) %}
+                    <span class="text-success">All Succeeded</span>
+                    {% else %}
+                    <span class="text-warning">Some Errors</span>
+                    {% endif %}
+                </td>
             </tr>
             {% endfor %}
 
