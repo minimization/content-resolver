@@ -86,15 +86,37 @@
     <div class="card">
         <h5 class="card-header"> Results </h5>
         <div class="card-body">
-            <br>
-            <br>
-            <br>
-            <div style="text-align: center;">
-                <h1 class="text-muted">TBD</h1>
-            </div>
-            <br>
-            <br>
-            <br>
+            <table class="table table-striped" id="table_packages">
+                <thead>
+                    <tr class="sort_control_row">
+                        <th>Name</th>
+                        <th>Results</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>{{query.configs.workloads[workload_conf.id].name}}</td>
+                        <td>
+                            {% for repo_id in query.workloads(workload_conf.id,None,None,None,output_change="repo_ids") %}
+                            <a class="card-link" href="workload-overview--{{workload_conf.id}}--{{repo_id}}.html">
+                                {{query.configs.repos[repo_id].name}}
+                                {% if not query.workload_succeeded(workload_conf.id,None,repo_id,None) %}
+                                (<span class="text-danger">Errors</span>)
+                                {% endif %}
+                            </a>
+                            {% endfor %}
+                        </td>
+                        <td>
+                            {% if query.workload_succeeded(workload_conf.id,None,repo_id,None) %}
+                            <span class="text-success">Success</span>
+                            {% else %}
+                            <span class="text-danger">Errors</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
         </div>
     </div>
 
