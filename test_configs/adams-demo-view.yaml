@@ -47,3 +47,4 @@ data:
   unwanted_packages:
   - httpd-tools
   - gawk
+  - dwm

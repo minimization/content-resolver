@@ -53,6 +53,18 @@
                         </dd>
                     </dl>
                 </div>
+                <div class="col-sm-3">
+                    <dl>
+                        <dt> Unwanted Packages <span class="text-muted">(Comments in the config ^^)</span></dt>
+                        <dd>
+                            <ul class="list-unstyled list-packages">
+                                {% for pkg_name in view_conf.unwanted_packages | sort %}
+                                <li>{{pkg_name}}</li>
+                                {% endfor %}
+                            </ul>
+                        </dd>
+                    </dl>
+                </div>
             </div>
         </div>
     </div>
@@ -62,15 +74,7 @@
     <div class="card">
         <h5 class="card-header"> Results </h5>
         <div class="card-body">
-            <br>
-            <br>
-            <br>
-            <div style="text-align: center;">
-                <h1 class="text-muted">TBD</h1>
-            </div>
-            <br>
-            <br>
-            <br>
+            <a href="view--{{view_conf.id}}.html">{{view_conf.name}} results</a>
         </div>
     </div>
 

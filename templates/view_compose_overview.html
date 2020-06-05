@@ -44,7 +44,14 @@
                         <td><a href="view--{{view_conf.id}}--{{arch}}.html">{{arch}}</a></td>
                         <td> {{ pkg_counts.pkg_ids }}</td>
                         <td> {{ pkg_counts.source_pkg_names }} </td>
-                        <td> {{ pkg_counts.unwanted_packages }} </td>
+                        <td>
+                            {{ pkg_counts.unwanted_packages }}
+                            <span class="text-muted">
+                                of
+                                {{ view_conf.unwanted_packages | count }}
+                            </span>
+                            (<a href="view-unwanted--{{view_conf.id}}--{{arch}}.html">list</a>)
+                        </td>
                         <td>
                             {% if query.view_succeeded(view_conf.id, arch) %}
                             <span class="text-success">All Succeeded</span>

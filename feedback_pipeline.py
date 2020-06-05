@@ -2286,11 +2286,19 @@ def _generate_view_pages(query):
                     arch=arch
                 )
                 _generate_html_page("view_compose_packages", template_data, page_name, query.settings)
+
                 page_name = "view-reasons--{view_conf_id}--{arch}".format(
                     view_conf_id=view_conf_id,
                     arch=arch
                 )
                 _generate_html_page("view_compose_reasons", template_data, page_name, query.settings)
+
+                page_name = "view-unwanted--{view_conf_id}--{arch}".format(
+                    view_conf_id=view_conf_id,
+                    arch=arch
+                )
+                _generate_html_page("view_compose_unwanted", template_data, page_name, query.settings)
+
                 page_name = "view-workloads--{view_conf_id}--{arch}".format(
                     view_conf_id=view_conf_id,
                     arch=arch

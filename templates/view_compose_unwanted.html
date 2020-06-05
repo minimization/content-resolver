@@ -22,19 +22,18 @@
         <small class="text-muted"> packages for </small>
         <small> {{arch}}</small>
     </h1>
-
     <p class="lead"><span class="text-muted">Description: </span>{{view_conf.description}}</p>
     <br>
 
     <ul class="nav nav-tabs">
         <li class="nav-item">
-            <a class="nav-link " href="view--{{view_conf.id}}--{{arch}}.html">Packages</a>
+            <a class="nav-link" href="view--{{view_conf.id}}--{{arch}}.html">Packages</a>
         </li>
         <li class="nav-item">
-            <a class="nav-link active" href="view-reasons--{{view_conf.id}}--{{arch}}.html">Packages + Reasons of Presence</a>
+            <a class="nav-link" href="view-reasons--{{view_conf.id}}--{{arch}}.html">Packages + Reasons of Presence</a>
         </li>
         <li class="nav-item">
-            <a class="nav-link" href="view-unwanted--{{view_conf.id}}--{{arch}}.html">Unwanted Packages</a>
+            <a class="nav-link active" href="view-unwanted--{{view_conf.id}}--{{arch}}.html">Unwanted Packages</a>
         </li>
         <li class="nav-item">
             <a class="nav-link " href="view-workloads--{{view_conf.id}}--{{arch}}.html">
@@ -61,7 +60,6 @@
             <br><br><br>
         </div>
     </div>
-
 
     <br>
 
@@ -148,6 +146,7 @@
         </thead>
         <tbody>
             {% for pkg in query.pkgs_in_view(view_conf.id, arch) %}
+            {% if pkg.name in view_conf.unwanted_packages %}
             <tr class="{{pkg_row_css_class(pkg)}}">
                 <td data-order="{{pkg_why_data_order(pkg)}}" style="padding-top: 16px; padding-bottom: 16px">{{pkg_why(pkg)}}</td>
                 <td>
@@ -162,6 +161,21 @@
                 <td> {{ relations(pkg) }}</td>
                 <td>{{pkg.source_name}}</td>
             </tr>
+            {% endif %}
+            {% endfor %}
+
+            {% for pkg_name in view_conf.unwanted_packages %}
+            {% if pkg_name not in query.pkgs_in_view(view_conf.id, arch, output_change="binary_names") %}
+            <tr>
+                <td data-order="99" class="text-muted">(not present)</td>
+                <td class="text-muted">{{pkg_name}}</td>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td class="text-muted">Not present, but listed here as it's in <a href="config-view--{{view_conf.id}}.html">this view's config</a>. </td>
+                <td></td>
+            </tr>
+            {% endif %}
             {% endfor %}
         </tbody>
     </table>
