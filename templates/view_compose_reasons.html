@@ -47,6 +47,18 @@
         </li>
     </ul>
 
+    <div id="loading">
+        <div>
+            <br><br><br><br>
+            <div class="text-center">
+                <div class="spinner-border" role="status">
+                    <span class="sr-only">Loading...</span>
+                </div>
+            </div>
+            <br><br><br>
+        </div>
+    </div>
+
 
     <br>
 
@@ -153,10 +165,14 @@
 
 <script>
     $(document).ready(function () {
+
         $('#table_packages').DataTable({
             paging: false,
             info: false
         });
+
+        var loadingDiv = document.getElementById("loading");
+        loadingDiv.parentNode.removeChild(loadingDiv);
     });
 </script>
 {% endblock %}

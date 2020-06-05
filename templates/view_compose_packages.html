@@ -46,6 +46,17 @@
         </li>
     </ul>
 
+    <div id="loading">
+        <div>
+            <br><br><br><br>
+            <div class="text-center">
+                <div class="spinner-border" role="status">
+                    <span class="sr-only">Loading...</span>
+                </div>
+            </div>
+            <br><br><br>
+        </div>
+    </div>
 
     <br>
 
@@ -86,6 +97,9 @@
             </div>
         </div>
     </div>
+
+
+
 
     <br>
 
@@ -194,6 +208,9 @@
             .then(response => {
                 plot_graph(response.data)
             })
+
+        var loadingDiv = document.getElementById("loading");
+        loadingDiv.parentNode.removeChild(loadingDiv);    
     });
 </script>
 {% endblock %}
