@@ -740,7 +740,7 @@ def _analyze_env(tmp, env_conf, repo, arch):
         log("  Running DNF transaction, writing RPMDB...")
         try:
             base.do_transaction()
-        except dnf.exceptions.TransactionCheckError as err:
+        except (dnf.exceptions.TransactionCheckError, Error) as err:
             err_log("Failed to analyze environment '{env_conf}' from '{repo}' {arch}:".format(
                     env_conf=env_conf["id"],
                     repo=repo["id"],
@@ -850,7 +850,32 @@ def _analyze_package_relations(dnf_query):
     return relations
 
 
-    
+def _return_failed_workload_env_err(workload_conf, env_conf, repo, arch):
+    workload = {}
+
+    workload["workload_conf_id"] = workload_conf["id"]
+    workload["env_conf_id"] = env_conf["id"]
+    workload["repo_id"] = repo["id"]
+    workload["arch"] = arch
+
+    workload["pkg_env_ids"] = []
+    workload["pkg_added_ids"] = []
+
+    workload["pkg_relations"] = []
+
+    workload["errors"] = {}
+    workload["errors"]["non_existing_pkgs"] = []
+    workload["succeeded"] = False
+    workload["env_succeeded"] = False
+
+    workload["errors"]["message"] = """
+    Failed to analyze this workload because of an error while analyzing the environment.
+
+    Please see the associated environment results for a detailed error message.
+    """
+
+    return workload
+
 
 def _analyze_workload(tmp, workload_conf, env_conf, repo, arch):
     workload = {}
@@ -869,6 +894,7 @@ def _analyze_workload(tmp, workload_conf, env_conf, repo, arch):
     workload["errors"]["non_existing_pkgs"] = []
 
     workload["succeeded"] = True
+    workload["env_succeeded"] = True
 
     with dnf.Base() as base:
 
@@ -1011,7 +1037,7 @@ def _analyze_workload(tmp, workload_conf, env_conf, repo, arch):
     return workload
 
 
-def _analyze_workloads(tmp, configs):
+def _analyze_workloads(tmp, configs, data):
     workloads = {}
 
     # Here, I need to mix and match workloads & envs based on labels
@@ -1084,14 +1110,29 @@ def _analyze_workloads(tmp, configs):
                         arch=arch
                     )
 
-                    # DNF leaks memory and file descriptors :/
-                    # 
-                    # So, this workaround runs it in a subprocess that should have its resources
-                    # freed when done!
-                    with concurrent.futures.ProcessPoolExecutor(max_workers=1) as executor:
-                        workloads[workload_id] = executor.submit(_analyze_workload,tmp, workload_conf, env_conf, repo, arch).result()
+                    # Before even started, look if the env succeeded. If not, there's
+                    # no point in doing anything here.
+                    env_id = "{env_conf_id}:{repo_id}:{arch}".format(
+                        env_conf_id=env_conf["id"],
+                        repo_id=repo["id"],
+                        arch=arch
+                    )
+                    env = data["envs"][env_id]
+                    if env["succeeded"]:
+                        # Let's do this! 
 
-                    #workloads[workload_id] = _analyze_workload(tmp, workload_conf, env_conf, repo, arch)
+                        # DNF leaks memory and file descriptors :/
+                        # 
+                        # So, this workaround runs it in a subprocess that should have its resources
+                        # freed when done!
+                        with concurrent.futures.ProcessPoolExecutor(max_workers=1) as executor:
+                            workloads[workload_id] = executor.submit(_analyze_workload,tmp, workload_conf, env_conf, repo, arch).result()
+
+                        #workloads[workload_id] = _analyze_workload(tmp, workload_conf, env_conf, repo, arch)
+                    
+                    else:
+                        workloads[workload_id] = _return_failed_workload_env_err(workload_conf, env_conf, repo, arch)
+
 
 
     return workloads
@@ -1139,7 +1180,7 @@ def analyze_things(configs, settings):
         log("")
         log("=====  Analyzing Workloads =====")
         log("")
-        data["workloads"] = _analyze_workloads(tmp, configs)
+        data["workloads"] = _analyze_workloads(tmp, configs, data)
 
 
     return data

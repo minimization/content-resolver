@@ -100,6 +100,7 @@ data["workloads"][workload_id]["pkg_added_ids"]
 data["workloads"][workload_id]["pkg_relations"]
 data["workloads"][workload_id]["errors"]["non_existing_pkgs"]
 data["workloads"][workload_id]["errors"]["message"]
+data["workloads"][workload_id]["env_succeeded"]
 data["workloads"][workload_id]["succeeded"]
 
 

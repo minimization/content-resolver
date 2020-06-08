@@ -95,7 +95,7 @@
                     <td class="align-middle">
 
                         <p>
-                            {% if query.workload_succeeded(workload_conf_id,None,repo_id,None) %}
+                            {% if query.workload_succeeded(workload_conf_id,env_conf_id,repo_id,arch) %}
                             {{ query.workload_pkgs(workload_conf_id,env_conf_id,repo_id,arch) | count }} packages
                             <br>
                             {{ query.size(query.workload_size(workload_conf_id,env_conf_id,repo_id,arch)) }}

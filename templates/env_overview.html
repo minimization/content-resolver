@@ -22,6 +22,12 @@
 
     <hr>
 
+    {% if not query.env_succeeded(env_conf_id,repo_id,None) %}
+    <div class="alert alert-danger" role="alert">
+        <b>Errors!</b> Dependency errors occured during analysis. Please check below for more details.
+    </div>
+    {% endif %}
+
     <div class="row">
         <div class="col-sm-9 d-flex align-items-stretch">
             <div class="card w-100">
@@ -82,9 +88,15 @@
 
                     <td class="align-middle">
                         <p>
+                            
+
+                            {% if query.env_succeeded(env_conf_id,repo_id,arch) %}
                             {{ query.env_pkgs(env_conf_id,repo_id,arch) | count }} packages
                             <br>
                             {{ query.size(query.env_size(env_conf_id,repo_id,arch))}}
+                            {% else %}
+                            <span class="text-danger">Analysis<br>Failed</span>
+                            {% endif %}
                         </p>
                         <b><a href="env--{{query.env_url_slug(env_conf_id,repo_id,arch)}}.html">Details</a></b>
                     </td>

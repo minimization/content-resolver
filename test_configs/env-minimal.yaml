@@ -46,6 +46,7 @@ data:
   packages:
   - glibc-minimal-langpack
   - coreutils-single
+  - coreutils
 
   # Labels connect things together.
   # Workloads get installed in environments with the same label.
