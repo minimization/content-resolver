@@ -740,7 +740,7 @@ def _analyze_env(tmp, env_conf, repo, arch):
         log("  Running DNF transaction, writing RPMDB...")
         try:
             base.do_transaction()
-        except (dnf.exceptions.TransactionCheckError, Error) as err:
+        except (dnf.exceptions.TransactionCheckError, dnf.exceptions.Error) as err:
             err_log("Failed to analyze environment '{env_conf}' from '{repo}' {arch}:".format(
                     env_conf=env_conf["id"],
                     repo=repo["id"],
