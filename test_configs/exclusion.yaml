@@ -1,0 +1,48 @@
+---
+# This configuration file defines a list of unwanted packages
+# used in views having the same label.
+# https://tiny.distro.builders
+
+
+document: feedback-pipeline-unwanted
+version: 1
+data:
+  # id is the filename — that automatically prevents collisions for free!
+
+
+  ### MANDATORY FIELDS ###
+  
+  # Name is an identifier for humans
+  #
+  # (mandatory field)
+  name: No reason really
+  
+  # A short description, perhaps hinting the purpose
+  #
+  # (mandatory field)
+  description: Look, I'm just testing things. Test data don't make sense often.
+
+  # Who maintains it? This is just a freeform string
+  # for humans to read. In Fedora, a FAS nick is recommended.
+  #
+  # (mandatory field)
+  maintainer: asamalik
+
+  # Labels connect things together.
+  # Views with the same label will have these packages marked as unwanted.
+  # 
+  # (mandatory field)
+  labels:
+  - label-eln-compose
+
+
+  ### OPTIONAL FIELDS ###
+
+  # Packages to be flagged as unwanted
+  #
+  # (optional field)
+  unwanted_packages:
+  - glibc
+  - grep
+  - i-dont-exist
+  - httpd

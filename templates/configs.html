@@ -24,14 +24,17 @@
             <a class="nav-link {% if conf_type == 'envs' %}active{% endif %}" href="configs_envs.html">Environments</a>
         </li>
         <li class="nav-item">
-            <a class="nav-link {% if conf_type == 'repos' %}active{% endif %}"
-                href="configs_repos.html">Repositories</a>
+            <a class="nav-link {% if conf_type == 'views' %}active{% endif %}" href="configs_views.html">User-defined Views</a>
         </li>
         <li class="nav-item">
-            <a class="nav-link {% if conf_type == 'views' %}active{% endif %}" href="configs_views.html">Views</a>
+            <a class="nav-link {% if conf_type == 'unwanteds' %}active{% endif %}" href="configs_unwanteds.html">Exclusion Lists</a>
         </li>
         <li class="nav-item">
             <a class="nav-link {% if conf_type == 'labels' %}active{% endif %}" href="configs_labels.html">Labels</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link {% if conf_type == 'repos' %}active{% endif %}"
+                href="configs_repos.html">Repositories</a>
         </li>
     </ul>
 
@@ -59,6 +62,8 @@
                     <a href="config-label--{{conf.id}}.html">{{conf.name}}</a>
                     {% elif conf_type == 'views' %}
                     <a href="config-view--{{conf.id}}.html">{{conf.name}}</a>
+                    {% elif conf_type == 'unwanteds' %}
+                    <a href="config-unwanted--{{conf.id}}.html">{{conf.name}}</a>
                     {% endif %}
 
                 </td>

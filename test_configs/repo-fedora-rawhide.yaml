@@ -54,4 +54,4 @@ data:
     # on top of Rawhide.
     # 
     # (Optional field)
-    additional_repository: https://odcs.fedoraproject.org/composes/production/latest-Fedora-ELN/compose/Everything/$basearch/os/
+    #additional_repository: https://odcs.fedoraproject.org/composes/production/latest-Fedora-ELN/compose/Everything/$basearch/os/

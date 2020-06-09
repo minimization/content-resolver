@@ -1,0 +1,74 @@
+{% extends "layout.html" %}
+
+{% block content %}
+
+<div class="container">
+
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="./">Home</a></li>
+            <li class="breadcrumb-item"><a href="./configs_unwanteds.html">Configuration Files</a></li>
+            <li class="breadcrumb-item active" aria-current="page">Repository: {{unwanted_conf.name}}</li>
+        </ol>
+    </nav>
+
+    <h1>
+        {{unwanted_conf.name}}
+        <small class="text-muted">exclusion list</small>
+    </h1>
+
+    <hr>
+
+    <div class="card">
+        <h5 class="card-header">
+            <a href="https://github.com/minimization/feedback-pipeline-config/blob/master/configs/{{unwanted_conf.id}}.yaml" class="btn btn-sm btn-primary float-right">Edit Configuration</a>
+            Configuration
+        </h5>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-sm-6">
+                    <dl>
+                        <dt>Name</dt>
+                        <dd>{{unwanted_conf.name}}</dd>
+
+                        <dt>Description</dt>
+                        <dd>{{unwanted_conf.description}}</dd>
+
+                        <dt>maintainer</dt>
+                        <dd>{{unwanted_conf.maintainer}}</dd>
+                    </dl>
+                </div>
+                <div class="col-sm-3">
+                    <dl>
+                        <dt> Type </dt>
+                        <dd> {{unwanted_conf.type}} </dd>
+
+                        <dt> Labels </dt>
+                        <dd>
+                            <ul class="list-unstyled list-packages">
+                                {% for label_id in unwanted_conf.labels %}
+                                <li>{{label_id}}</li>
+                                {% endfor %}
+                            </ul>
+                        </dd>
+                    </dl>
+                </div>
+                <div class="col-sm-3">
+                    <dl>
+                        <dt> Unwanted Packages <span class="text-muted">(Comments in the config ^^)</span></dt>
+                        <dd>
+                            <ul class="list-unstyled list-packages">
+                                {% for pkg_name in unwanted_conf.unwanted_packages | sort %}
+                                <li>{{pkg_name}}</li>
+                                {% endfor %}
+                            </ul>
+                        </dd>
+                    </dl>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+</div>
+{% endblock %}

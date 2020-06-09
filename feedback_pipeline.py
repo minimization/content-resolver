@@ -399,6 +399,80 @@ def _load_config_compose_view(document_id, document, settings):
     return config
 
 
+def _load_config_unwanted(document_id, document, settings):
+    config = {}
+    config["id"] = document_id
+
+    # Step 1: Mandatory fields
+    try:
+        # Name is an identifier for humans
+        config["name"] = str(document["data"]["name"])
+
+        # A short description, perhaps hinting the purpose
+        config["description"] = str(document["data"]["description"])
+
+        # Who maintains it? This is just a freeform string
+        # for humans to read. In Fedora, a FAS nick is recommended.
+        config["maintainer"] = str(document["data"]["maintainer"])
+
+        # Labels connect things together.
+        # Workloads get installed in environments with the same label.
+        # They also get included in views with the same label.
+        config["labels"] = []
+        for repo in document["data"]["labels"]:
+            config["labels"].append(str(repo))
+    
+    except KeyError:
+        raise ConfigError("Error: {document_id}.yml is invalid.".format(document_id=document_id))
+    
+    # Step 2: Optional fields
+
+    # Limit this view only to the following pkgs
+    config["unwanted_packages"] = []
+    if "unwanted_packages" in document["data"]:
+        for pkg in document["data"]["unwanted_packages"]:
+            config["unwanted_packages"].append(str(pkg))
+
+    # Architecture-specific packages.
+    config["unwanted_arch_packages"] = {}
+    for arch in settings["allowed_arches"]:
+        config["unwanted_arch_packages"][arch] = []
+    if "unwanted_arch_packages" in document["data"]:
+        for arch, pkgs in document["data"]["unwanted_arch_packages"].items():
+            if arch not in settings["allowed_arches"]:
+                err_log("Error: {file}.yaml lists an invalid architecture: {arch}. Ignoring.".format(
+                    file=document_id,
+                    arch=arch
+                ))
+                continue
+            for pkg_raw in pkgs:
+                pkg = str(pkg_raw)
+                config["unwanted_arch_packages"][arch].append(pkg)
+    
+    # Limit this view only to the following pkgs
+    config["unwanted_source_packages"] = []
+    if "unwanted_source_packages" in document["data"]:
+        for pkg in document["data"]["unwanted_source_packages"]:
+            config["unwanted_source_packages"].append(str(pkg))
+
+    # Architecture-specific packages.
+    config["unwanted_arch_source_packages"] = {}
+    for arch in settings["allowed_arches"]:
+        config["unwanted_arch_source_packages"][arch] = []
+    if "unwanted_arch_source_packages" in document["data"]:
+        for arch, pkgs in document["data"]["unwanted_arch_source_packages"].items():
+            if arch not in settings["allowed_arches"]:
+                err_log("Error: {file}.yaml lists an invalid architecture: {arch}. Ignoring.".format(
+                    file=document_id,
+                    arch=arch
+                ))
+                continue
+            for pkg_raw in pkgs:
+                pkg = str(pkg_raw)
+                config["unwanted_arch_source_packages"][arch].append(pkg)
+    return config
+
+
 def get_configs(settings):
     log("")
     log("###############################################################################")
@@ -423,6 +497,7 @@ def get_configs(settings):
     configs["workloads"] = {}
     configs["labels"] = {}
     configs["views"] = {}
+    configs["unwanteds"] = {}
 
     # Step 1: Load all configs
     log("Loading config files...")
@@ -467,6 +542,10 @@ def get_configs(settings):
                 # === Case: View config ===
                 if document["document"] == "feedback-pipeline-compose-view":
                     configs["views"][document_id] = _load_config_compose_view(document_id, document, settings)
+
+                # === Case: Unwanted config ===
+                if document["document"] == "feedback-pipeline-unwanted":
+                    configs["unwanteds"][document_id] = _load_config_unwanted(document_id, document, settings)
 
 
         except ConfigError as err:
@@ -1906,8 +1985,72 @@ class Query():
                 return False
         return True
     
+    def view_unwanted_pkgs(self, view_conf_id, arch):
+        view_conf = self.configs["views"][view_conf_id]
+
+        unwanted_ids = set()
+        for view_label in view_conf["labels"]:
+            for unwanted_id, unwanted in self.configs["unwanteds"].items():
+                for unwanted_label in unwanted["labels"]:
+                    if view_label == unwanted_label:
+                        unwanted_ids.add(unwanted_id)
+        
+        unwanted_pkg_names = {}
+
+        for pkg_name in view_conf["unwanted_packages"]:
+            pkg = {}
+            pkg["name"] = pkg_name
+            pkg["unwanted_in_view"] = True
+            pkg["unwanted_list_ids"] = []
+
+            unwanted_pkg_names[pkg_name] = pkg
+        
+        arches = self.settings["allowed_arches"]
+        if arch:
+            arches = [arch]
+
+        for arch in arches:
+            for pkg_name in view_conf["unwanted_arch_packages"][arch]:
+                if pkg_name in unwanted_pkg_names:
+                    continue
+                
+                pkg = {}
+                pkg["name"] = pkg_name
+                pkg["unwanted_in_view"] = True
+                pkg["unwanted_list_ids"] = []
+
+                unwanted_pkg_names[pkg_name] = pkg
+            
+        for unwanted_id in unwanted_ids:
+            unwanted_conf = self.configs["unwanteds"][unwanted_id]
+
+            for pkg_name in unwanted_conf["unwanted_packages"]:
+                if pkg_name in unwanted_pkg_names:
+                    unwanted_pkg_names[pkg_name]["unwanted_list_ids"].append(unwanted_id)
+                    continue
+                
+                pkg = {}
+                pkg["name"] = pkg_name
+                pkg["unwanted_in_view"] = False
+                pkg["unwanted_list_ids"] = [unwanted_id]
+
+                unwanted_pkg_names[pkg_name] = pkg
+        
+            for arch in arches:
+                for pkg_name in unwanted_conf["unwanted_arch_packages"][arch]:
+                    if pkg_name in unwanted_pkg_names:
+                        unwanted_pkg_names[pkg_name]["unwanted_list_ids"].append(unwanted_id)
+                        continue
+                    
+                    pkg = {}
+                    pkg["name"] = pkg_name
+                    pkg["unwanted_in_view"] = True
+                    pkg["unwanted_list_ids"] = []
+
+                    unwanted_pkg_names[pkg_name] = pkg
 
 
+        return unwanted_pkg_names
 
 
 
@@ -2170,7 +2313,7 @@ def _generate_env_pages(query):
 def _generate_config_pages(query):
     log("Generating config pages...")
 
-    for conf_type in ["repos", "envs", "workloads", "labels", "views"]:
+    for conf_type in ["repos", "envs", "workloads", "labels", "views", "unwanteds"]:
         template_data = {
             "query": query,
             "conf_type": conf_type
@@ -2234,6 +2377,17 @@ def _generate_config_pages(query):
             view_conf_id=view_conf_id
         )
         _generate_html_page("config_view", template_data, page_name, query.settings)
+    
+    # Config unwanted pages
+    for unwanted_conf_id,unwanted_conf in query.configs["unwanteds"].items():
+        template_data = {
+            "query": query,
+            "unwanted_conf": unwanted_conf
+        }
+        page_name = "config-unwanted--{unwanted_conf_id}".format(
+            unwanted_conf_id=unwanted_conf_id
+        )
+        _generate_html_page("config_unwanted", template_data, page_name, query.settings)
 
     log("  Done!")
     log("")
@@ -2285,8 +2439,8 @@ def _generate_view_pages(query):
                 pkg_source_names = query.pkgs_in_view(view_conf_id, arch, output_change="source_names")
 
                 unwanted_packages_count = 0
-                for pkg_name in pkg_binary_names:
-                    if pkg_name in view_conf["unwanted_packages"]:
+                for pkg_name in query.view_unwanted_pkgs(view_conf_id, arch):
+                    if pkg_name in pkg_binary_names:
                         unwanted_packages_count += 1
                 
                 arch_pkg_counts[arch]["pkg_ids"] = len(pkg_ids)

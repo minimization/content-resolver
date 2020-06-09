@@ -97,7 +97,7 @@
     {%- endmacro %}
 
     {% macro pkg_row_css_class(pkg) -%}
-    {% if pkg.name in view_conf.unwanted_packages %}
+    {% if pkg.name in query.view_unwanted_pkgs(view_conf.id, arch) %}
     unwanted
     {% elif pkg.q_required_in and pkg.q_env_in %}
     required
@@ -152,7 +152,7 @@
                 <td data-order="{{pkg_why_data_order(pkg)}}" style="padding-top: 16px; padding-bottom: 16px">{{pkg_why(pkg)}}</td>
                 <td>
                     {{pkg.name}}
-                    {% if pkg.name in view_conf.unwanted_packages %}
+                    {% if pkg.name in query.view_unwanted_pkgs(view_conf.id, arch) %}
                     <span class="text-danger">(unwanted)</span>
                     {% endif %}
                 </td>

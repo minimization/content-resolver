@@ -1,0 +1,55 @@
+---
+# This configuration file defines a list of unwanted packages
+# used in views having the same label.
+# https://tiny.distro.builders
+
+
+document: feedback-pipeline-unwanted
+version: 1
+data:
+  # id is the filename — that automatically prevents collisions for free!
+
+
+  ### MANDATORY FIELDS ###
+  
+  # Name is an identifier for humans
+  #
+  # (mandatory field)
+  name: Weird crypto packages
+  
+  # A short description, perhaps hinting the purpose
+  #
+  # (mandatory field)
+  description: Packages using various of weird crypto implementations no one should use.
+
+  # Who maintains it? This is just a freeform string
+  # for humans to read. In Fedora, a FAS nick is recommended.
+  #
+  # (mandatory field)
+  maintainer: asamalik
+
+  # Labels connect things together.
+  # Views with the same label will have these packages marked as unwanted.
+  # 
+  # (mandatory field)
+  labels:
+  - label
+
+
+  ### OPTIONAL FIELDS ###
+
+  # Packages to be flagged as unwanted
+  #
+  # (optional field)
+  unwanted_packages:
+  - pkg-name
+  - pkg-other-name
+
+  # Arch-specific packages to be flagged as unwanted
+  #
+  # (optional field)
+  unwanted_arch_packages:
+    x86_64:
+    - arch-specific-package
+    aarch64:
+    - another-one

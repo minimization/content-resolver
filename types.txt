@@ -122,3 +122,15 @@ configs["views"][view_conf_id]["maintainer"]
 configs["views"][view_conf_id]["type"]
 configs["views"][view_conf_id]["labels"]
 
+
+=== Unwanted ===
+
+configs["unwanteds"][unwanted_conf_id]["id"]
+configs["unwanteds"][unwanted_conf_id]["name"]
+configs["unwanteds"][unwanted_conf_id]["description"]
+configs["unwanteds"][unwanted_conf_id]["maintainer"]
+configs["unwanteds"][unwanted_conf_id]["type"]
+configs["unwanteds"][unwanted_conf_id]["labels"]
+configs["unwanteds"][unwanted_conf_id]["unwanted_packages"]
+configs["unwanteds"][unwanted_conf_id]["unwanted_arch_packages"][arch]
+

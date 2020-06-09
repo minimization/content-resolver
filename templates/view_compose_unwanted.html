@@ -63,13 +63,33 @@
 
     <br>
 
-    {% macro relations(pkg, dep=True) -%}
+    {% macro relations(pkg, unwanted_pkgs, dep=True) -%}
+
+    {% if pkg.name in unwanted_pkgs %}
+    Unwanted because listed in:
+    <ul>
+        {% if unwanted_pkgs[pkg.name]["unwanted_in_view"] %}
+        <li>
+            <a href="config-view--{{view_conf.id}}.html">This view's config</a>
+        </li>
+        {% endif %}
+        {% for unwanted_id in unwanted_pkgs[pkg.name]["unwanted_list_ids"] %}
+        <li>
+            <a href="config-unwanted--{{unwanted_id}}.html">{{ query.configs.unwanteds[unwanted_id].name }}</a>
+            exclusion list
+            (maintainer: {{ query.configs.unwanteds[unwanted_id].maintainer }})
+        </li>
+        {% endfor %}
+    </ul>
+    {% endif %}
+
     {% if pkg.q_required_in %}
     Required in these workloads:
     <ul>
         {% for workload_id in pkg.q_required_in | sort %}
         <li>
-            <a href="workload-overview--{{query.data.workloads[workload_id].workload_conf_id}}--{{view_conf.repository}}.html">
+            <a
+                href="workload-overview--{{query.data.workloads[workload_id].workload_conf_id}}--{{view_conf.repository}}.html">
                 {{ query.configs.workloads[query.data.workloads[workload_id].workload_conf_id].name }}
             </a>
         </li>
@@ -95,7 +115,7 @@
     {%- endmacro %}
 
     {% macro pkg_row_css_class(pkg) -%}
-    {% if pkg.name in view_conf.unwanted_packages %}
+    {% if pkg.name in query.view_unwanted_pkgs(view_conf.id, arch) %}
     unwanted
     {% elif pkg.q_required_in and pkg.q_env_in %}
     required
@@ -145,26 +165,27 @@
             </tr>
         </thead>
         <tbody>
+
+
             {% for pkg in query.pkgs_in_view(view_conf.id, arch) %}
-            {% if pkg.name in view_conf.unwanted_packages %}
+            {% if pkg.name in query.view_unwanted_pkgs(view_conf.id, arch) %}
             <tr class="{{pkg_row_css_class(pkg)}}">
-                <td data-order="{{pkg_why_data_order(pkg)}}" style="padding-top: 16px; padding-bottom: 16px">{{pkg_why(pkg)}}</td>
+                <td data-order="{{pkg_why_data_order(pkg)}}" style="padding-top: 16px; padding-bottom: 16px">
+                    {{pkg_why(pkg)}}</td>
                 <td>
                     {{pkg.name}}
-                    {% if pkg.name in view_conf.unwanted_packages %}
                     <span class="text-danger">(unwanted)</span>
-                    {% endif %}
                 </td>
                 <td>{{pkg.evr}}</td>
                 <td>{{pkg.arch}}</td>
                 <td data-order="{{pkg.installsize}}">{{ query.size(pkg.installsize) }}</td>
-                <td> {{ relations(pkg) }}</td>
+                <td> {{ relations(pkg, query.view_unwanted_pkgs(view_conf.id, arch)) }}</td>
                 <td>{{pkg.source_name}}</td>
             </tr>
             {% endif %}
             {% endfor %}
 
-            {% for pkg_name in view_conf.unwanted_packages %}
+            {% for pkg_name, pkg_entry in query.view_unwanted_pkgs(view_conf.id, arch).items() %}
             {% if pkg_name not in query.pkgs_in_view(view_conf.id, arch, output_change="binary_names") %}
             <tr>
                 <td data-order="99" class="text-muted">(not present)</td>
@@ -172,7 +193,26 @@
                 <td></td>
                 <td></td>
                 <td></td>
-                <td class="text-muted">Not present, but listed here as it's in <a href="config-view--{{view_conf.id}}.html">this view's config</a>. </td>
+                <td class="text-muted">
+                    {% if pkg_name in query.view_unwanted_pkgs(view_conf.id, arch) %}
+                    Not present, but listed here as it's in:
+                    <ul>
+                        {% if query.view_unwanted_pkgs(view_conf.id, arch)[pkg_name]["unwanted_in_view"] %}
+                        <li>
+                            <a href="config-view--{{view_conf.id}}.html">This view's config</a>
+                        </li>
+                        {% endif %}
+                        {% for unwanted_id in query.view_unwanted_pkgs(view_conf.id, arch)[pkg_name]["unwanted_list_ids"] %}
+                        <li>
+                            <a
+                                href="config-unwanted--{{unwanted_id}}.html">{{ query.configs.unwanteds[unwanted_id].name }}</a>
+                            exclusion list
+                            (maintainer: {{ query.configs.unwanteds[unwanted_id].maintainer }})
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    {% endif %}
+                </td>
                 <td></td>
             </tr>
             {% endif %}

@@ -48,7 +48,7 @@
                             {{ pkg_counts.unwanted_packages }}
                             <span class="text-muted">
                                 of
-                                {{ view_conf.unwanted_packages | count }}
+                                {{ query.view_unwanted_pkgs(view_conf.id, arch) | count }}
                             </span>
                             (<a href="view-unwanted--{{view_conf.id}}--{{arch}}.html">list</a>)
                         </td>
