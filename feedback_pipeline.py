@@ -307,6 +307,18 @@ def _load_config_workload(document_id, document, settings):
             config["options"].append("include-docs")
         if "include-weak-deps" in document["data"]["options"]:
             config["options"].append("include-weak-deps")
+    
+    # Disable module streams.
+    config["modules_disable"] = []
+    if "modules_disable" in document["data"]:
+        for module in document["data"]["modules_disable"]:
+            config["modules_disable"].append(module)
+    
+    # Enable module streams.
+    config["modules_enable"] = []
+    if "modules_enable" in document["data"]:
+        for module in document["data"]["modules_enable"]:
+            config["modules_enable"].append(module)
 
     return config
 
@@ -643,6 +655,14 @@ def _analyze_pkgs(tmp, repo, arch):
         # Load repos
         log("  Loading repos...")
         base.read_all_repos()
+
+        # At this stage, I need to get all packages from the repo listed.
+        # That also includes modular packages. Modular packages in non-enabled
+        # streams would be normally hidden. So I mark all the available repos as
+        # hotfix repos to make all packages visible, including non-enabled streams.
+        for repo in base.repos.all():
+            repo.module_hotfixes = True
+
         # This sometimes fails, so let's try at least N times
         # before totally giving up!
         MAX_TRIES = 10
@@ -1049,6 +1069,33 @@ def _analyze_workload(tmp, workload_conf, env_conf, repo, arch):
                 err_log(err)
                 raise RepoDownloadError(err)
         
+        # Disabling modules
+        if workload_conf["modules_disable"]:
+            try:
+                log("  Disabling modules...")
+                module_base = dnf.module.module_base.ModuleBase(base)
+                module_base.disable(workload_conf["modules_disable"])
+            except dnf.exceptions.MarkingErrors as err:
+                workload["succeeded"] = False
+                workload["errors"]["message"] = str(err)
+                log("  Failed!  (Error message will be on the workload results page.")
+                log("")
+                return workload
+
+
+        # Enabling modules
+        if workload_conf["modules_enable"]:
+            try:
+                log("  Dnabling modules...")
+                module_base = dnf.module.module_base.ModuleBase(base)
+                module_base.enable(workload_conf["modules_enable"])
+            except dnf.exceptions.MarkingErrors as err:
+                workload["succeeded"] = False
+                workload["errors"]["message"] = str(err)
+                log("  Failed!  (Error message will be on the workload results page.")
+                log("")
+                return workload
+
         # Packages
         log("  Adding packages...")
         for pkg in workload_conf["packages"]:
