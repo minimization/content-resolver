@@ -28,7 +28,7 @@ data:
   # for humans to read. In Fedora, a FAS nick is recommended.
   #
   # (mandatory field)
-  maintainer: asamalik
+  maintainer: some-weird-rando
 
   # Packages defining this workload.
   # This list includes packages for all
