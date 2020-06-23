@@ -1845,7 +1845,7 @@ class Query():
     def url_slug_id(self, any_id):
         return any_id.replace(":", "--")
     
-    def workloads_in_view(self, view_conf_id, arch):
+    def workloads_in_view(self, view_conf_id, arch, maintainer=None):
         view_conf = self.configs["views"][view_conf_id]
         repo_id = view_conf["repository"]
         labels = view_conf["labels"]
@@ -1869,6 +1869,12 @@ class Query():
             workload = self.data["workloads"][workload_id]
             workload_conf_id = workload["workload_conf_id"]
             workload_conf = self.configs["workloads"][workload_conf_id]
+
+            if maintainer:
+                workload_maintainer = workload_conf["maintainer"]
+                if workload_maintainer != maintainer:
+                    continue
+
             workload_labels = workload_conf["labels"]
             for workload_label in workload_labels:
                 if workload_label in labels:
@@ -1876,7 +1882,7 @@ class Query():
 
         return sorted(list(final_workload_ids))
     
-    def arches_in_view(self, view_conf_id):
+    def arches_in_view(self, view_conf_id, maintainer=None):
 
         if len(self.configs["views"][view_conf_id]["architectures"]):
             arches = self.configs["views"][view_conf_id]["architectures"]
@@ -1884,13 +1890,14 @@ class Query():
         
         return self.settings["allowed_arches"]
     
-    def pkgs_in_view(self, view_conf_id, arch, output_change=None):
+    def pkgs_in_view(self, view_conf_id, arch, output_change=None, maintainer=None):
 
         # Extra fields will be added into each package:
         # q_in          - set of workload_ids including this pkg
         # q_required_in - set of workload_ids where this pkg is required (top-level)
         # q_env_in      - set of workload_ids where this pkg is in env
         # q_dep_in      - set of workload_ids where this pkg is a dependency (that means not required)
+        # q_maintainers - set of workload maintainers 
 
         # Other outputs:
         #   - "ids"         — a list ids
@@ -1911,6 +1918,7 @@ class Query():
         for workload_id in workload_ids:
             workload = self.data["workloads"][workload_id]
             workload_conf_id = workload["workload_conf_id"]
+            workload_conf = self.configs["workloads"][workload_conf_id]
 
             # First, get all pkgs in the env
             for pkg_id in workload["pkg_env_ids"]:
@@ -1933,6 +1941,7 @@ class Query():
                     pkgs[pkg_id]["q_required_in"] = set()
                     pkgs[pkg_id]["q_dep_in"] = set()
                     pkgs[pkg_id]["q_env_in"] = set()
+                    pkgs[pkg_id]["q_maintainers"] = set()
                 
                 # It's here, so add it
                 pkgs[pkg_id]["q_in"].add(workload_id)
@@ -1966,6 +1975,7 @@ class Query():
                     pkgs[pkg_id]["q_required_in"] = set()
                     pkgs[pkg_id]["q_dep_in"] = set()
                     pkgs[pkg_id]["q_env_in"] = set()
+                    pkgs[pkg_id]["q_maintainers"] = set()
                 
                 # It's here, so add it
                 pkgs[pkg_id]["q_in"].add(workload_id)
@@ -1977,6 +1987,20 @@ class Query():
                     pkgs[pkg_id]["q_required_in"].add(workload_id)
                 else:
                     pkgs[pkg_id]["q_dep_in"].add(workload_id)
+                # Maintainer
+                pkgs[pkg_id]["q_maintainers"].add(workload_conf["maintainer"])
+
+        # Filtering by a maintainer?
+        # Filter out packages not belonging to the maintainer
+        # It's filtered out at this stage to keep the context of fields like
+        # "q_required_in" etc. to be the whole view
+        pkg_ids_to_delete = set()
+        if maintainer:
+            for pkg_id, pkg in pkgs.items():
+                if maintainer not in pkg["q_maintainers"]:
+                    pkg_ids_to_delete.add(pkg_id)
+        for pkg_id in pkg_ids_to_delete:
+            del pkgs[pkg_id]
 
         # Is it supposed to only output ids?
         if output_change:
@@ -2023,51 +2047,69 @@ class Query():
                 return False
         return True
     
-    def view_succeeded(self, view_conf_id, arch):
+    def view_succeeded(self, view_conf_id, arch, maintainer=None):
         workload_ids = self.workloads_in_view(view_conf_id, arch)
 
         for workload_id in workload_ids:
             workload = self.data["workloads"][workload_id]
+            workload_conf_id = workload["workload_conf_id"]
+            workload_conf = self.configs["workloads"][workload_conf_id]
+
+            if maintainer:
+                workload_maintainer = workload_conf["maintainer"]
+                if workload_maintainer != maintainer:
+                    continue
+
             if not workload["succeeded"]:
                 return False
         return True
     
-    def view_unwanted_pkgs(self, view_conf_id, arch):
+    def view_unwanted_pkgs(self, view_conf_id, arch, maintainer=None):
         view_conf = self.configs["views"][view_conf_id]
 
+        # Find exclusion lists mathing this view's label(s)
         unwanted_ids = set()
         for view_label in view_conf["labels"]:
             for unwanted_id, unwanted in self.configs["unwanteds"].items():
+                if maintainer:
+                    unwanted_maintainer = unwanted["maintainer"]
+                    if unwanted_maintainer != maintainer:
+                        continue
                 for unwanted_label in unwanted["labels"]:
                     if view_label == unwanted_label:
                         unwanted_ids.add(unwanted_id)
         
+        # This will be the package list
         unwanted_pkg_names = {}
 
-        for pkg_name in view_conf["unwanted_packages"]:
-            pkg = {}
-            pkg["name"] = pkg_name
-            pkg["unwanted_in_view"] = True
-            pkg["unwanted_list_ids"] = []
-
-            unwanted_pkg_names[pkg_name] = pkg
-        
         arches = self.settings["allowed_arches"]
         if arch:
             arches = [arch]
 
-        for arch in arches:
-            for pkg_name in view_conf["unwanted_arch_packages"][arch]:
-                if pkg_name in unwanted_pkg_names:
-                    continue
-                
+        ### Step 1: Get packages from this view's config 
+        if not maintainer:
+            for pkg_name in view_conf["unwanted_packages"]:
                 pkg = {}
                 pkg["name"] = pkg_name
                 pkg["unwanted_in_view"] = True
                 pkg["unwanted_list_ids"] = []
 
                 unwanted_pkg_names[pkg_name] = pkg
-            
+
+            for arch in arches:
+                for pkg_name in view_conf["unwanted_arch_packages"][arch]:
+                    if pkg_name in unwanted_pkg_names:
+                        continue
+                    
+                    pkg = {}
+                    pkg["name"] = pkg_name
+                    pkg["unwanted_in_view"] = True
+                    pkg["unwanted_list_ids"] = []
+
+                    unwanted_pkg_names[pkg_name] = pkg
+
+
+        ### Step 2: Get packages from the various exclusion lists    
         for unwanted_id in unwanted_ids:
             unwanted_conf = self.configs["unwanteds"][unwanted_id]
 
@@ -2098,6 +2140,22 @@ class Query():
 
 
         return unwanted_pkg_names
+
+
+    def view_maintainers(self, view_conf_id, arch):
+        workload_ids = self.workloads_in_view(view_conf_id, arch)
+
+        maintainers = set()
+
+        for workload_id in workload_ids:
+            workload = self.data["workloads"][workload_id]
+            workload_conf_id = workload["workload_conf_id"]
+            workload_conf = self.configs["workloads"][workload_conf_id]
+            maintainers.add(workload_conf["maintainer"])
+
+        return maintainers
+
+
 
 
 
@@ -3237,8 +3295,8 @@ def main():
 
     time_started = datetime.datetime.now().strftime("%m/%d/%Y, %H:%M:%S")
 
-    query = run_create_cache()
-    #query = run_from_cache()
+    #query = run_create_cache()
+    query = run_from_cache()
 
     generate_pages(query)
     generate_historic_data(query)

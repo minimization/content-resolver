@@ -18,10 +18,12 @@ env_size(self, env_conf_id, repo_id, arch)
 env_size_id(id)
 env_succeeded(env_conf_id, repo_id, arch)
 
-workloads_in_view(view_conf_id, arch)
-arches_in_view(view_conf_id)
-pkgs_in_view(view_conf_id, arch)
-view_succeeded(view_conf_id, arch)
+workloads_in_view(view_conf_id, arch, maintainer=None)
+arches_in_view(view_conf_id, maintainer=None)
+pkgs_in_view(view_conf_id, arch, output_change=None, maintainer=None)
+view_succeeded(view_conf_id, arch, maintainer=None)
+view_unwanted_pkgs(view_conf_id, arch, maintainer=None)
+view_maintainers(view_conf_id, arch)
 
 url_slug_id(any_id)
 
