@@ -583,6 +583,7 @@ def get_configs(settings):
     log("  - {} workloads".format(len(configs["workloads"])))
     log("  - {} labels".format(len(configs["labels"])))
     log("  - {} views".format(len(configs["views"])))
+    log("  - {} exclusion lists".format(len(configs["unwanteds"])))
     log("")
 
     return configs
