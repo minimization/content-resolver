@@ -17,12 +17,12 @@ data:
   # Name is an identifier for humans
   #
   # (mandatory field)
-  name: Apache httpd
+  name: Non-existing packages
   
   # A short description, perhaps hinting the purpose
   #
   # (mandatory field)
-  description: The Apache HTTPd server.
+  description: Maybe they'll be created one day!
 
   # Who maintains it? This is just a freeform string
   # for humans to read. In Fedora, a FAS nick is recommended.
@@ -35,8 +35,7 @@ data:
   # architectures — that's the one to use by default.
   #
   # (mandatory field)
-  packages:
-  - package
+  packages: []
 
   # Labels connect things together.
   # Workloads get installed in environments with the same label.
@@ -44,59 +43,26 @@ data:
   # 
   # (mandatory field)
   labels:
-  - label
+  - label-fedora-31-all
+  - label-fedora-rawhide-all
+  - label-eln-compose
+  - adams-demo-label
 
 
   ### OPTIONAL FIELDS ###
 
-  # Architecture-specific packages.
-  #
-  # (optional field)
-  arch_packages:
-    x86_64:
-    - arch-specific-package
-
-  # Extra installation options.
-  # The following are now supported:
-  # - "include-docs" - include documentation packages
-  # - "include-weak-deps" - automatically pull in "recommends" weak dependencies
-  #
-  # (optional field)
-  options:
-  - option
-
-  # Disable module streams.
-  # The following modules get disabled before any
-  # packages are installed, or before any modules
-  # are enabled.
-  # This is useful for switching default module
-  # streams off, for example.
-  modules_disable:
-  - module1:stream
-  - module2
-
-  # Enable module streams.
-  # The following modules get enabled before
-  # any packages get installed.
-  # So to analyze a module, enable it here first,
-  # and then list its packages in the "packages"
-  # section.
-  modules_enable:
-  - module:stream
-
   # Add packages to the workload that don't exist (yet) in the repositories.
   package_placeholders:
-    package-name:
+    non-existing-webserver-package:
       description: This package is not in Fedora (yet), but we want to see it here.
       requires:
-      - pkg1
-      - pkg2
+      - httpd
+      - nginx
       buildrequires:
-      - pkg2
-      - pkg3
-    another-package:
+      - bash
+      - glibc
+    non-existing-lone-wolf-package:
       description: Another one, this time without dependencies.
       requires: []
       buildrequires: []
-
 

@@ -78,6 +78,14 @@ def size(num, suffix='B'):
         num /= 1024.0
     return "%.1f %s%s" % (num, 'T', suffix)
 
+def pkg_id_to_name(pkg_id):
+    pkg_name = pkg_id.rsplit("-",2)[0]
+    return pkg_name
+
+def pkg_placeholder_name_to_id(placeholder_name):
+    placeholder_id = "{name}-000-placeholder.placeholder".format(name=placeholder_name)
+    return placeholder_id
+
 def load_settings():
     settings = {}
 
@@ -319,6 +327,21 @@ def _load_config_workload(document_id, document, settings):
     if "modules_enable" in document["data"]:
         for module in document["data"]["modules_enable"]:
             config["modules_enable"].append(module)
+
+    # Package placeholders
+    # Add packages to the workload that don't exist (yet) in the repositories.
+    config["package_placeholders"] = {}
+    if "package_placeholders" in document["data"]:
+        for pkg_name, pkg_data in document["data"]["package_placeholders"].items():
+            pkg_description = pkg_data.get("description", "Description not provided.")
+            pkg_requires = pkg_data.get("requires", [])
+            pkg_buildrequires = pkg_data.get("buildrequires", [])
+
+            config["package_placeholders"][pkg_name] = {}
+            config["package_placeholders"][pkg_name]["name"] = pkg_name
+            config["package_placeholders"][pkg_name]["description"] = pkg_description
+            config["package_placeholders"][pkg_name]["requires"] = pkg_requires
+            config["package_placeholders"][pkg_name]["buildrequires"] = pkg_buildrequires
 
     return config
 
@@ -904,7 +927,7 @@ def _analyze_envs(tmp, configs):
     
     return envs
 
-def _analyze_package_relations(dnf_query):
+def _analyze_package_relations(dnf_query, package_placeholders = None):
     relations = {}
 
     for pkg in dnf_query:
@@ -947,6 +970,23 @@ def _analyze_package_relations(dnf_query):
         relations[pkg_id]["recommended_by"] = sorted(list(recommended_by))
         relations[pkg_id]["suggested_by"] = sorted(list(suggested_by))
     
+    if package_placeholders:
+        for placeholder_name,placeholder_data in package_placeholders.items():
+            placeholder_id = pkg_placeholder_name_to_id(placeholder_name)
+
+            relations[placeholder_id] = {}
+            relations[placeholder_id]["required_by"] = []
+            relations[placeholder_id]["recommended_by"] = []
+            relations[placeholder_id]["suggested_by"] = []
+        
+        for placeholder_name,placeholder_data in package_placeholders.items():
+            placeholder_id = pkg_placeholder_name_to_id(placeholder_name)
+            for placeholder_dependency_name in placeholder_data["requires"]:
+                for pkg_id in relations:
+                    pkg_name = pkg_id_to_name(pkg_id)
+                    if pkg_name == placeholder_dependency_name:
+                        relations[pkg_id]["required_by"].append(placeholder_id)
+    
     return relations
 
 
@@ -960,6 +1000,7 @@ def _return_failed_workload_env_err(workload_conf, env_conf, repo, arch):
 
     workload["pkg_env_ids"] = []
     workload["pkg_added_ids"] = []
+    workload["pkg_placeholder_ids"] = []
 
     workload["pkg_relations"] = []
 
@@ -987,6 +1028,7 @@ def _analyze_workload(tmp, workload_conf, env_conf, repo, arch):
 
     workload["pkg_env_ids"] = []
     workload["pkg_added_ids"] = []
+    workload["pkg_placeholder_ids"] = []
 
     workload["pkg_relations"] = []
 
@@ -1105,6 +1147,17 @@ def _analyze_workload(tmp, workload_conf, env_conf, repo, arch):
             except dnf.exceptions.MarkingError:
                 workload["errors"]["non_existing_pkgs"].append(pkg)
                 continue
+        
+        # Dependencies of package placeholders
+        log("  Adding package placeholder dependencies...")
+        for placeholder_name,placeholder_data in workload_conf["package_placeholders"].items():
+            workload["pkg_placeholder_ids"].append(pkg_placeholder_name_to_id(placeholder_name))
+            for pkg in placeholder_data["requires"]:
+                try:
+                    base.install(pkg)
+                except dnf.exceptions.MarkingError:
+                    workload["errors"]["non_existing_pkgs"].append(pkg)
+                    continue
 
         # Architecture-specific packages
         for pkg in workload_conf["arch_packages"][arch]:
@@ -1150,7 +1203,7 @@ def _analyze_workload(tmp, workload_conf, env_conf, repo, arch):
             )
             workload["pkg_added_ids"].append(pkg_id)
         
-        workload["pkg_relations"] = _analyze_package_relations(query_all)
+        workload["pkg_relations"] = _analyze_package_relations(query_all, workload_conf["package_placeholders"])
         
         pkg_env_count = len(workload["pkg_env_ids"])
         pkg_added_count = len(workload["pkg_added_ids"])
@@ -1543,6 +1596,7 @@ class Query():
             workload_arch = workload["arch"]
             workload_repo_id = workload["repo_id"]
             workload_conf_id = workload["workload_conf_id"]
+            workload_conf = self.configs["workloads"][workload_conf_id]
 
             # First, get all pkgs in the env
             for pkg_id in workload["pkg_env_ids"]:
@@ -1604,6 +1658,29 @@ class Query():
                     pkgs[workload_repo_id][workload_arch][pkg_id]["q_required_in"].add(workload_id)
                 if pkg["name"] in self.configs["workloads"][workload_conf_id]["arch_packages"][workload_arch]:
                     pkgs[workload_repo_id][workload_arch][pkg_id]["q_required_in"].add(workload_id)
+            
+            # Third, add package placeholders if any
+            for placeholder_id in workload["pkg_placeholder_ids"]:
+                placeholder = workload_conf["package_placeholders"][pkg_id_to_name(placeholder_id)]
+                if placeholder_id not in pkgs[workload_repo_id][workload_arch]:
+                    pkgs[workload_repo_id][workload_arch][placeholder_id] = {}
+                    pkgs[workload_repo_id][workload_arch][placeholder_id]["id"] = placeholder_id
+                    pkgs[workload_repo_id][workload_arch][placeholder_id]["name"] = placeholder["name"]
+                    pkgs[workload_repo_id][workload_arch][placeholder_id]["evr"] = "000-placeholder"
+                    pkgs[workload_repo_id][workload_arch][placeholder_id]["arch"] = "placeholder"
+                    pkgs[workload_repo_id][workload_arch][placeholder_id]["installsize"] = 0
+                    pkgs[workload_repo_id][workload_arch][placeholder_id]["description"] = placeholder["description"]
+                    pkgs[workload_repo_id][workload_arch][placeholder_id]["summary"] = placeholder["description"]
+                    pkgs[workload_repo_id][workload_arch][placeholder_id]["source_name"] = ""
+                    pkgs[workload_repo_id][workload_arch][placeholder_id]["q_arch"] = workload_arch
+                    pkgs[workload_repo_id][workload_arch][placeholder_id]["q_in"] = set()
+                    pkgs[workload_repo_id][workload_arch][placeholder_id]["q_required_in"] = set()
+                    pkgs[workload_repo_id][workload_arch][placeholder_id]["q_env_in"] = set()
+
+                # It's here, so add it
+                pkgs[workload_repo_id][workload_arch][placeholder_id]["q_in"].add(workload_id)
+                # All placeholders are required
+                pkgs[workload_repo_id][workload_arch][placeholder_id]["q_required_in"].add(workload_id)
 
         # Is it supposed to only output ids?
         if output_change:
@@ -1990,6 +2067,35 @@ class Query():
                     pkgs[pkg_id]["q_dep_in"].add(workload_id)
                 # Maintainer
                 pkgs[pkg_id]["q_maintainers"].add(workload_conf["maintainer"])
+
+            # Third, add package placeholders if any
+            for placeholder_id in workload["pkg_placeholder_ids"]:
+                placeholder = workload_conf["package_placeholders"][pkg_id_to_name(placeholder_id)]
+                if placeholder_id not in pkgs:
+                    pkgs[placeholder_id] = {}
+                    pkgs[placeholder_id]["id"] = placeholder_id
+                    pkgs[placeholder_id]["name"] = placeholder["name"]
+                    pkgs[placeholder_id]["evr"] = "000-placeholder"
+                    pkgs[placeholder_id]["arch"] = "placeholder"
+                    pkgs[placeholder_id]["installsize"] = 0
+                    pkgs[placeholder_id]["description"] = placeholder["description"]
+                    pkgs[placeholder_id]["summary"] = placeholder["description"]
+                    pkgs[placeholder_id]["source_name"] = ""
+                    pkgs[placeholder_id]["sourcerpm"] = ""
+                    pkgs[placeholder_id]["q_arch"] = arch
+                    pkgs[placeholder_id]["q_in"] = set()
+                    pkgs[placeholder_id]["q_required_in"] = set()
+                    pkgs[placeholder_id]["q_dep_in"] = set()
+                    pkgs[placeholder_id]["q_env_in"] = set()
+                    pkgs[placeholder_id]["q_maintainers"] = set()
+                
+                # It's here, so add it
+                pkgs[placeholder_id]["q_in"].add(workload_id)
+                # All placeholders are required
+                pkgs[placeholder_id]["q_required_in"].add(workload_id)
+                # Maintainer
+                pkgs[placeholder_id]["q_maintainers"].add(workload_conf["maintainer"])
+                
 
         # Filtering by a maintainer?
         # Filter out packages not belonging to the maintainer
