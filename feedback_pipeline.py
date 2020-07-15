@@ -61,9 +61,15 @@ def log(msg):
 def err_log(msg):
     print("ERROR LOG:  {}".format(msg))
 
+class SetEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, set):
+            return list(obj)
+        return json.JSONEncoder.default(self, obj)
+
 def dump_data(path, data):
     with open(path, 'w') as file:
-        json.dump(data, file)
+        json.dump(data, file, cls=SetEncoder)
 
 
 def load_data(path):
@@ -2878,6 +2884,210 @@ def generate_pages(query):
 ### Historic Data #############################################################
 ###############################################################################
 
+def _save_package_history(query):
+    log("Generating current package history lists...")
+
+
+    # /history/
+    # /history/2020-week_28/
+    # /history/2020-week_28/workload--WORKLOAD_ID.json
+    # /history/2020-week_28/workload-conf--WORKLOAD_CONF_ID.json
+    # /history/2020-week_28/env--ENV_ID.json
+    # /history/2020-week_28/env-conf--ENV_CONF_ID.json
+    # /history/2020-week_28/view--VIEW_CONF_ID.json
+
+    # Where to save it
+    year = datetime.datetime.now().strftime("%Y")
+    week = datetime.datetime.now().strftime("%W")
+    date = str(datetime.datetime.now().strftime("%Y-%m-%d"))
+
+    output_dir = os.path.join(query.settings["output"], "history")
+    output_subdir = "{year}-week_{week}".format(
+        year=year,
+        week=week
+    )
+    subprocess.run(["mkdir", "-p", os.path.join(output_dir, output_subdir)])
+
+    # == Workloads
+    log("")
+    log("Workloads:")
+    for workload_conf_id, workload_conf in query.configs["workloads"].items():
+
+        # === Config
+
+        log("")
+        log("  Config for: {}".format(workload_conf_id))
+
+        # Where to save
+        filename = "workload-conf--{workload_conf_id_slug}.json".format(
+            workload_conf_id_slug = query.url_slug_id(workload_conf_id)
+        )
+        file_path = os.path.join(output_dir, output_subdir, filename)
+
+        # What to save
+        output_data = {}
+        output_data["date"] = date
+        output_data["id"] = workload_conf_id
+        output_data["type"] = "workload_conf"
+        output_data["data"] = query.configs["workloads"][workload_conf_id]
+
+        # And save it
+        log("    Saving in: {file_path}".format(
+            file_path=file_path
+        ))
+        dump_data(file_path, output_data)
+
+
+        # === Results
+
+        for workload_id in query.workloads(workload_conf_id, None, None, None, list_all=True):
+            workload = query.data["workloads"][workload_id]
+
+            log("  Results: {}".format(workload_id))
+
+            # Where to save
+            filename = "workload--{workload_id_slug}.json".format(
+                workload_id_slug = query.url_slug_id(workload_id)
+            )
+            file_path = os.path.join(output_dir, output_subdir, filename)
+
+            # What to save
+            output_data = {}
+            output_data["date"] = date
+            output_data["id"] = workload_id
+            output_data["type"] = "workload"
+            output_data["data"] = query.data["workloads"][workload_id]
+            output_data["pkg_query"] = query.workload_pkgs_id(workload_id)
+
+            # And save it
+            log("    Saving in: {file_path}".format(
+                file_path=file_path
+            ))
+            dump_data(file_path, output_data)
+    
+    # == envs
+    log("")
+    log("Envs:")
+    for env_conf_id, env_conf in query.configs["envs"].items():
+
+        # === Config
+
+        log("")
+        log("  Config for: {}".format(env_conf_id))
+
+        # Where to save
+        filename = "env-conf--{env_conf_id_slug}.json".format(
+            env_conf_id_slug = query.url_slug_id(env_conf_id)
+        )
+        file_path = os.path.join(output_dir, output_subdir, filename)
+
+        # What to save
+        output_data = {}
+        output_data["date"] = date
+        output_data["id"] = env_conf_id
+        output_data["type"] = "env_conf"
+        output_data["data"] = query.configs["envs"][env_conf_id]
+
+        # And save it
+        log("    Saving in: {file_path}".format(
+            file_path=file_path
+        ))
+        dump_data(file_path, output_data)
+
+
+        # === Results
+
+        for env_id in query.envs(env_conf_id, None, None, list_all=True):
+            env = query.data["envs"][env_id]
+
+            log("  Results: {}".format(env_id))
+
+            # Where to save
+            filename = "env--{env_id_slug}.json".format(
+                env_id_slug = query.url_slug_id(env_id)
+            )
+            file_path = os.path.join(output_dir, output_subdir, filename)
+
+            # What to save
+            output_data = {}
+            output_data["date"] = date
+            output_data["id"] = env_id
+            output_data["type"] = "env"
+            output_data["data"] = query.data["envs"][env_id]
+            output_data["pkg_query"] = query.env_pkgs_id(env_id)
+
+            # And save it
+            log("    Saving in: {file_path}".format(
+                file_path=file_path
+            ))
+            dump_data(file_path, output_data)
+    
+    # == views
+    log("")
+    log("views:")
+    for view_conf_id, view_conf in query.configs["views"].items():
+
+        # === Config
+
+        log("")
+        log("  Config for: {}".format(view_conf_id))
+
+        # Where to save
+        filename = "view-conf--{view_conf_id_slug}.json".format(
+            view_conf_id_slug = query.url_slug_id(view_conf_id)
+        )
+        file_path = os.path.join(output_dir, output_subdir, filename)
+
+        # What to save
+        output_data = {}
+        output_data["date"] = date
+        output_data["id"] = view_conf_id
+        output_data["type"] = "view_conf"
+        output_data["data"] = query.configs["views"][view_conf_id]
+
+        # And save it
+        log("    Saving in: {file_path}".format(
+            file_path=file_path
+        ))
+        dump_data(file_path, output_data)
+
+
+        # === Results
+
+        for arch in query.arches_in_view(view_conf_id):
+
+            log("  Results: {}".format(env_id))
+
+            view_id = "{view_conf_id}:{arch}".format(
+                view_conf_id=view_conf_id,
+                arch=arch
+            )
+
+            # Where to save
+            filename = "view--{view_id_slug}.json".format(
+                view_id_slug = query.url_slug_id(view_id)
+            )
+            file_path = os.path.join(output_dir, output_subdir, filename)
+
+            # What to save
+            output_data = {}
+            output_data["date"] = date
+            output_data["id"] = view_id
+            output_data["type"] = "view"
+            output_data["workload_ids"] = query.workloads_in_view(view_conf_id, arch)
+            output_data["pkg_query"] = query.pkgs_in_view(view_conf_id, arch)
+
+            # And save it
+            log("    Saving in: {file_path}".format(
+                file_path=file_path
+            ))
+            dump_data(file_path, output_data)
+
+
+    log("  Done!")
+    log("")
+
+
 def _save_current_historic_data(query):
     log("Generating current historic data...")
 
@@ -3393,6 +3603,9 @@ def generate_historic_data(query):
     log("### Historic Data #############################################################")
     log("###############################################################################")
     log("")
+
+    # Save historic package lists
+    _save_package_history(query)
 
     # Step 1: Save current data
     _save_current_historic_data(query)
