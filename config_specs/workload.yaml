@@ -34,6 +34,11 @@ data:
   # This list includes packages for all
   # architectures — that's the one to use by default.
   #
+  # If you need to leave this list empty (maybe you only have
+  # architecture-specific packages), please use an empty list
+  # notation like this:
+  # packages: []
+  #
   # (mandatory field)
   packages:
   - package
