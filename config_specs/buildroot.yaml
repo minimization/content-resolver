@@ -23,15 +23,15 @@ data:
   - label
 
   # Buildroot data
-  buildroot_data:
+  source_packages:
     x86_64:
-      package-name:
-        buildrequires:
-        - pkg1
-        - pkg2
-      another-one:
-        buildrequires:
-        - pkg2
-        - pkg3
+      srpm-name:
+        requires:
+        - binary-dep
+        - binary-dep2
+      another-srpm:
+        requires:
+        - binary-dep3
+        - binary-dep4
 
 
