@@ -1,0 +1,37 @@
+---
+# This configuration file defines a buildroot data in Feedback Pipeline.
+# https://tiny.distro.builders
+#
+
+document: feedback-pipeline-buildroot
+version: 1
+data:
+  # id is the filename — that automatically prevents collisions for free!
+
+  # Who maintains it? This is just a freeform string
+  # for humans to read. In Fedora, a FAS nick is recommended.
+  #
+  # (mandatory field)
+  maintainer: asamalik
+
+  # Labels connect things together.
+  # Workloads get installed in environments with the same label.
+  # They also get included in views with the same label.
+  # 
+  # (mandatory field)
+  labels:
+  - label
+
+  # Buildroot data
+  buildroot_data:
+    x86_64:
+      package-name:
+        buildrequires:
+        - pkg1
+        - pkg2
+      another-one:
+        buildrequires:
+        - pkg2
+        - pkg3
+
+
