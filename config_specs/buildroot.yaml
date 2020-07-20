@@ -16,6 +16,14 @@ data:
 
   # What view is this for
   view_id: view_id_incontent_resolver
+  
+  # A list of packages that is always in the buildroot.
+  # And if a source package from the list below only needs this,
+  # its list will be empty.
+  base_buildroot:
+    x86_64:
+      - binary-pkg1
+      - binary-pkg2
 
   # Buildroot data
   source_packages:
