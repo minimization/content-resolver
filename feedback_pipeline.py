@@ -2219,6 +2219,83 @@ class Query():
 
         return final_pkg_list_sorted
     
+
+    @lru_cache(maxsize = None)
+    def view_buildroot_pkgs(self, view_conf_id, arch, maintainer=None):
+        pkgs = {}
+
+        buildroot_conf_id = None
+        for conf_id, conf in self.configs["buildroots"].items():
+            if conf["view_id"] == view_conf_id:
+                buildroot_conf_id = conf_id
+
+        if not buildroot_conf_id:
+            return None
+
+        # Populate pkgs
+
+        base_buildroot = self.configs["buildroots"][buildroot_conf_id]["base_buildroot"][arch]
+        source_pkgs = self.configs["buildroots"][buildroot_conf_id]["source_packages"][arch]
+
+        for pkg_name in base_buildroot:
+            if pkg_name not in pkgs:
+                pkgs[pkg_name] = {}
+                pkgs[pkg_name]["required_by"] = set()
+                pkgs[pkg_name]["base_buildroot"] = True
+
+        for srpm_name, srpm_data in source_pkgs.items():
+            for pkg_name in srpm_data["requires"]:
+                if pkg_name not in pkgs:
+                    pkgs[pkg_name] = {}
+                    pkgs[pkg_name]["required_by"] = set()
+                    pkgs[pkg_name]["base_buildroot"] = False
+                pkgs[pkg_name]["required_by"].add(srpm_name)
+        
+        return pkgs
+    
+
+    @lru_cache(maxsize = None)
+    def view_buildroot_srpms_why(self, view_conf_id, arch, maintainer=None):
+        srpms_why = {}
+
+        buildroot_conf_id = None
+        for conf_id, conf in self.configs["buildroots"].items():
+            if conf["view_id"] == view_conf_id:
+                buildroot_conf_id = conf_id
+
+        if not buildroot_conf_id:
+            return None
+
+        # Populate srpms_why
+
+        view_pkgs = self.pkgs_in_view(view_conf_id, arch, maintainer=None)
+
+        for pkg in view_pkgs:
+            srpm_name = pkg["source_name"]
+            if srpm_name not in srpms_why:
+                srpms_why[srpm_name] = {}
+                srpms_why[srpm_name]["pkgs"] = {}
+                srpms_why[srpm_name]["q_required_in"] = set()
+                srpms_why[srpm_name]["q_dep_in"] = set()
+                srpms_why[srpm_name]["q_env_in"] = set()
+
+            srpms_why[srpm_name]["pkgs"][pkg["id"]] = pkg
+            
+            for workload_id in pkg["q_required_in"]:
+                srpms_why[srpm_name]["q_required_in"].add(workload_id)
+            
+            for workload_id in pkg["q_dep_in"]:
+                srpms_why[srpm_name]["q_dep_in"].add(workload_id)
+            
+            for workload_id in pkg["q_env_in"]:
+                srpms_why[srpm_name]["q_env_in"].add(workload_id)
+                
+
+        return srpms_why
+        
+        
+
+    
     @lru_cache(maxsize = None)
     def workload_succeeded(self, workload_conf_id, env_conf_id, repo_id, arch):
         workload_ids = self.workloads(workload_conf_id, env_conf_id, repo_id, arch, list_all=True)
@@ -2797,6 +2874,12 @@ def _generate_view_pages(query):
                 )
                 _generate_html_page("view_compose_unwanted", template_data, page_name, query.settings)
 
+                page_name = "view-buildroot--{view_conf_id}--{arch}".format(
+                    view_conf_id=view_conf_id,
+                    arch=arch
+                )
+                _generate_html_page("view_compose_buildroot", template_data, page_name, query.settings)
+
                 page_name = "view-workloads--{view_conf_id}--{arch}".format(
                     view_conf_id=view_conf_id,
                     arch=arch
@@ -2827,6 +2910,13 @@ def _generate_view_pages(query):
                         maintainer=maintainer
                     )
                     _generate_html_page("view_compose_unwanted", template_data, page_name, query.settings)
+
+                    page_name = "view-buildroot--{view_conf_id}--{arch}--maintainer-{maintainer}".format(
+                        view_conf_id=view_conf_id,
+                        arch=arch,
+                        maintainer=maintainer
+                    )
+                    _generate_html_page("view_compose_buildroot", template_data, page_name, query.settings)
 
                     page_name = "view-workloads--{view_conf_id}--{arch}--maintainer-{maintainer}".format(
                         view_conf_id=view_conf_id,
