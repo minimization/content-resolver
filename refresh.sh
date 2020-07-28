@@ -27,7 +27,7 @@ git clone git@github.com:minimization/feedback-pipeline-config.git || exit 1
 mkdir -p $WORK_DIR/feedback-pipeline/out/history || exit 1
 
 # Get a copy of the historic data
-aws s3 sync s3://tiny.distro.builders/history $WORK_DIR/feedback-pipeline/out/history || exit 1
+aws s3 sync s3://tiny.distro.builders/history/historic_data* $WORK_DIR/feedback-pipeline/out/history/ || exit 1
 
 # Build the site
 CMD="./feedback_pipeline.py feedback-pipeline-config/configs out" || exit 1
