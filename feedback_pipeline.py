@@ -515,6 +515,61 @@ def _load_config_unwanted(document_id, document, settings):
     return config
 
 
+def _load_config_buildroot(document_id, document, settings):
+    config = {}
+    config["id"] = document_id
+
+    # Step 1: Mandatory fields
+    try:
+        # Who maintains it? This is just a freeform string
+        # for humans to read. In Fedora, a FAS nick is recommended.
+        config["maintainer"] = str(document["data"]["maintainer"])
+
+        # What view is this for
+        config["view_id"] = str(document["data"]["view_id"])
+
+    except KeyError:
+        raise ConfigError("Error: {file} is invalid.".format(file=yml_file))
+
+    # Step 2: Optional fields
+    config["base_buildroot"] = {}
+    for arch in settings["allowed_arches"]:
+        config["base_buildroot"][arch] = []
+    if "base_buildroot" in document["data"]:
+        for arch, pkgs in document["data"]["base_buildroot"].items():
+            if arch not in settings["allowed_arches"]:
+                err_log("Error: {file}.yaml lists an invalid architecture: {arch}. Ignoring.".format(
+                    file=document_id,
+                    arch=arch
+                ))
+                continue
+            for pkg_raw in pkgs:
+                pkg = str(pkg_raw)
+                config["base_buildroot"][arch].append(pkg)
+
+    config["source_packages"] = {}
+    for arch in settings["allowed_arches"]:
+        config["source_packages"][arch] = {}
+    if "source_packages" in document["data"]:
+        for arch, srpms_dict in document["data"]["source_packages"].items():
+            if arch not in settings["allowed_arches"]:
+                err_log("Error: {file}.yaml lists an invalid architecture: {arch}. Ignoring.".format(
+                    file=document_id,
+                    arch=arch
+                ))
+                continue
+            for srpm_name, srpm_data in srpms_dict.items():
+                requires = []
+                if "requires" in srpm_data:
+                    for pkg_raw in srpm_data["requires"]:
+                        requires.append(str(pkg_raw))
+                
+                config["source_packages"][arch][str(srpm_name)] = {}
+                config["source_packages"][arch][str(srpm_name)]["requires"] = requires
+
+    return config
+
+
 def get_configs(settings):
     log("")
     log("###############################################################################")
@@ -540,6 +595,7 @@ def get_configs(settings):
     configs["labels"] = {}
     configs["views"] = {}
     configs["unwanteds"] = {}
+    configs["buildroots"] = {}
 
     # Step 1: Load all configs
     log("Loading config files...")
@@ -589,6 +645,9 @@ def get_configs(settings):
                 if document["document"] == "feedback-pipeline-unwanted":
                     configs["unwanteds"][document_id] = _load_config_unwanted(document_id, document, settings)
 
+                # === Case: Buildroot config ===
+                if document["document"] == "feedback-pipeline-buildroot":
+                    configs["buildroots"][document_id] = _load_config_buildroot(document_id, document, settings)
 
         except ConfigError as err:
             err_log("Config load error: {err}. Ignoring.".format(err=err))
@@ -614,7 +673,9 @@ def get_configs(settings):
     log("  - {} labels".format(len(configs["labels"])))
     log("  - {} views".format(len(configs["views"])))
     log("  - {} exclusion lists".format(len(configs["unwanteds"])))
+    log("  - {} buildroots".format(len(configs["buildroots"])))
     log("")
+
 
     return configs
 
