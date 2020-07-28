@@ -561,8 +561,13 @@ def _load_config_buildroot(document_id, document, settings):
             for srpm_name, srpm_data in srpms_dict.items():
                 requires = []
                 if "requires" in srpm_data:
-                    for pkg_raw in srpm_data["requires"]:
-                        requires.append(str(pkg_raw))
+                    try:
+                        for pkg_raw in srpm_data["requires"]:
+                            requires.append(str(pkg_raw))
+                    except TypeError:
+                        err_log("Warning: {file} has an empty 'requires' field defined which is invalid. Moving on...".format(
+                            file=document_id
+                        ))
                 
                 config["source_packages"][arch][str(srpm_name)] = {}
                 config["source_packages"][arch][str(srpm_name)]["requires"] = requires
