@@ -1,0 +1,47 @@
+---
+# This configuration file defines a list of unwanted packages
+# used in views having the same label.
+# https://tiny.distro.builders
+
+
+document: feedback-pipeline-unwanted
+version: 1
+data:
+  # id is the filename — that automatically prevents collisions for free!
+
+
+  ### MANDATORY FIELDS ###
+  
+  # Name is an identifier for humans
+  #
+  # (mandatory field)
+  name: Remove extraneous assemblers
+  
+  # A short description, perhaps hinting the purpose
+  #
+  # (mandatory field)
+  description: There are currently four assemblers available to programmers - gas, clang (via its built-in assembler), nasm and yasm.  This is a request to mark the nasm and yasm packages as unwanted in order to help packages which use them migrate over to gas.
+
+  # Who maintains it? This is just a freeform string
+  # for humans to read. In Fedora, a FAS nick is recommended.
+  #
+  # (mandatory field)
+  maintainer: nickc
+
+  # Labels connect things together.
+  # Views with the same label will have these packages marked as unwanted.
+  # 
+  # (mandatory field)
+  labels:
+  - assembler
+
+
+  ### OPTIONAL FIELDS ###
+
+  # Packages to be flagged as unwanted
+  #
+  # (optional field)
+  unwanted_packages:
+  - nasm
+  - yasm
+
