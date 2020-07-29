@@ -168,34 +168,7 @@
                 <td>{{pkg_name}}</td>
                 <td>
                     {% if pkg_data.required_by %}
-                    Required to build {{ pkg_data.required_by | count }} SRPM(s):
-                    <ul>
-                        {% for srpm_name in pkg_data.required_by | sort %}
-                        <li>
-                            
-                            
-                            
-                            {% if srpm_name in query.view_buildroot_srpms_why(view_conf.id, arch) %}
-                            {% if query.view_buildroot_srpms_why(view_conf.id, arch)[srpm_name]["q_required_in"] %}
-                            <span style="color:#CC0066">{{ srpm_name }}</span>    
-                            <span class="text-muted">(required)</span>
-                            {% elif query.view_buildroot_srpms_why(view_conf.id, arch)[srpm_name]["q_dep_in"] %}
-                            {{ srpm_name }}
-                            <span class="text-muted">(dependency)</span>
-                            {% elif query.view_buildroot_srpms_why(view_conf.id, arch)[srpm_name]["q_env_in"] %}
-                            {{ srpm_name }}
-                            <span class="text-muted">(env)</span>
-                            {% else %}
-                            {{ srpm_name }}
-                            <span class="text-muted">(buildroot only)</span>
-                            {% endif %}
-                            {% else %}
-                            {{ srpm_name }}
-                            <span class="text-muted">(buildroot only)</span>
-                            {% endif %}
-                        </li>
-                        {% endfor %}
-                    </ul>
+                    Required to build {{ pkg_data.required_by | count }} SRPM(s). <span class="text-muted">(More info coming soon.)</span>
                     {% endif %}
 
                     {% if pkg_data.base_buildroot %}
