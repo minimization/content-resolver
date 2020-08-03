@@ -558,6 +558,8 @@ def _load_config_buildroot(document_id, document, settings):
                     arch=arch
                 ))
                 continue
+            if not srpms_dict:
+                continue
             for srpm_name, srpm_data in srpms_dict.items():
                 requires = []
                 if "requires" in srpm_data:
@@ -2257,48 +2259,6 @@ class Query():
                 pkgs[pkg_name]["required_by"].add(srpm_name)
         
         return pkgs
-    
-
-    @lru_cache(maxsize = None)
-    def view_buildroot_srpms_why(self, view_conf_id, arch, maintainer=None):
-        srpms_why = {}
-
-        buildroot_conf_id = None
-        for conf_id, conf in self.configs["buildroots"].items():
-            if conf["view_id"] == view_conf_id:
-                buildroot_conf_id = conf_id
-
-        if not buildroot_conf_id:
-            return None
-
-        # Populate srpms_why
-
-        view_pkgs = self.pkgs_in_view(view_conf_id, arch, maintainer=None)
-
-        for pkg in view_pkgs:
-            srpm_name = pkg["source_name"]
-            if srpm_name not in srpms_why:
-                srpms_why[srpm_name] = {}
-                srpms_why[srpm_name]["pkgs"] = {}
-                srpms_why[srpm_name]["q_required_in"] = set()
-                srpms_why[srpm_name]["q_dep_in"] = set()
-                srpms_why[srpm_name]["q_env_in"] = set()
-
-            srpms_why[srpm_name]["pkgs"][pkg["id"]] = pkg
-            
-            for workload_id in pkg["q_required_in"]:
-                srpms_why[srpm_name]["q_required_in"].add(workload_id)
-            
-            for workload_id in pkg["q_dep_in"]:
-                srpms_why[srpm_name]["q_dep_in"].add(workload_id)
-            
-            for workload_id in pkg["q_env_in"]:
-                srpms_why[srpm_name]["q_env_in"].add(workload_id)
-                
-
-        return srpms_why
-        
-        
 
     
     @lru_cache(maxsize = None)
