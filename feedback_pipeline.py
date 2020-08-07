@@ -1226,7 +1226,6 @@ def _analyze_workload(tmp, workload_conf, env_conf, repo, arch):
         # Dependencies of package placeholders
         log("  Adding package placeholder dependencies...")
         for placeholder_name,placeholder_data in workload_conf["package_placeholders"].items():
-            workload["pkg_placeholder_ids"].append(pkg_placeholder_name_to_id(placeholder_name))
             for pkg in placeholder_data["requires"]:
                 try:
                     base.install(pkg)
@@ -1277,6 +1276,12 @@ def _analyze_workload(tmp, workload_conf, env_conf, repo, arch):
                 arch=pkg.arch
             )
             workload["pkg_added_ids"].append(pkg_id)
+        
+        # No errors so far? That means the analysis has succeeded,
+        # so placeholders can be added to the list as well.
+        # (Failed workloads need to have empty results, that's why)
+        for placeholder_name,placeholder_data in workload_conf["package_placeholders"].items():
+            workload["pkg_placeholder_ids"].append(pkg_placeholder_name_to_id(placeholder_name))
         
         workload["pkg_relations"] = _analyze_package_relations(query_all, workload_conf["package_placeholders"])
         
