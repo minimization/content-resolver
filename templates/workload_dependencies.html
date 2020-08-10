@@ -51,7 +51,7 @@
     {% if not query.workload_succeeded(workload_conf.id,env_conf.id,repo.id,workload.arch) %}
 
     <div class="card border-danger">
-        <h5 class="card-header bg-danger text-white">Dependency errors!</h5>
+        <h5 class="card-header bg-danger text-white">Analysis errors</h5>
         <div class="card-body">
             <pre class="pre-scrollable">
                 {{ workload.errors.message }}

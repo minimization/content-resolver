@@ -1222,6 +1222,19 @@ def _analyze_workload(tmp, workload_conf, env_conf, repo, arch):
             except dnf.exceptions.MarkingError:
                 workload["errors"]["non_existing_pkgs"].append(pkg)
                 continue
+        if workload["errors"]["non_existing_pkgs"]:
+            error_message_list = ["The following required packages are not available:"]
+            for pkg_name in workload["errors"]["non_existing_pkgs"]:
+                pkg_string = "  - {pkg_name}".format(
+                    pkg_name=pkg_name
+                )
+                error_message_list.append(pkg_string)
+            error_message = "\n".join(error_message_list)
+            workload["succeeded"] = False
+            workload["errors"]["message"] = str(error_message)
+            log("  Failed!  (Error message will be on the workload results page.")
+            log("")
+            return workload
         
         # Dependencies of package placeholders
         log("  Adding package placeholder dependencies...")

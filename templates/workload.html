@@ -53,9 +53,9 @@
     {% if not workload.env_succeeded %}
 
     <div class="card border-danger">
-        <h5 class="card-header bg-danger text-white">Skipped for environment errors!</h5>
+        <h5 class="card-header bg-danger text-white">Skipped for environment errors</h5>
         <div class="card-body">
-                The analysis of this workload has been skipped because of dependency errors in the environment.
+                The analysis of this workload has been skipped because of errors in the environment.
 
                 <br>
 
@@ -67,7 +67,7 @@
     {% else %}
 
     <div class="card border-danger">
-        <h5 class="card-header bg-danger text-white">Dependency errors!</h5>
+        <h5 class="card-header bg-danger text-white">Analysis errors</h5>
         <div class="card-body">
             <pre class="pre-scrollable">
                 {{ workload.errors.message }}

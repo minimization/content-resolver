@@ -58,6 +58,15 @@ div.footer div.row {
   margin-bottom: 40px;
 }
 
+/* Navigation */
+
+h3.nav-header {
+  margin-left: 16px;
+  font-size: 1.4rem;
+}
+
+
+
 /*  General table */
 
 table.dataTable thead td,
