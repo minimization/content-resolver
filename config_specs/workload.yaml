@@ -99,9 +99,13 @@ data:
       buildrequires:
       - pkg2
       - pkg3
+      limit_arches:
+      - x86_64
+      - aarch64
     another-package:
       description: Another one, this time without dependencies.
       requires: []
       buildrequires: []
+      limit_arches: []  # empty means all arches
 
 
