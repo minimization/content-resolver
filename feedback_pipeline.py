@@ -2978,6 +2978,21 @@ def _generate_view_lists(query):
     log("")
 
 
+def _dump_all_data(query):
+    log("Dumping all data...")
+
+    data = {}
+    data["data"] = query.data
+    data["configs"] = query.configs
+    data["settings"] = query.settings
+
+    file_name = "data.json"
+    file_path = os.path.join(query.settings["output"], file_name)
+    dump_data(file_path, data)
+
+    log("  Done!")
+    log("")
+
 
 def generate_pages(query):
     log("")
@@ -3027,6 +3042,9 @@ def generate_pages(query):
 
     # Generate flat lists for views
     _generate_view_lists(query)
+
+    # Dump all data
+    _dump_all_data(query)
 
     # Generate the errors page
     template_data = {
