@@ -3040,6 +3040,8 @@ def generate_pages(query):
 ### Historic Data #############################################################
 ###############################################################################
 
+# This is generating historic (and present) package lists
+# Data for the historic charts is the function below
 def _save_package_history(query):
     log("Generating current package history lists...")
 
@@ -3064,6 +3066,9 @@ def _save_package_history(query):
     )
     subprocess.run(["mkdir", "-p", os.path.join(output_dir, output_subdir)])
 
+    # Also save the current data to the standard output dir
+    current_version_output_dir = query.settings["output"]
+
     # == Workloads
     log("")
     log("Workloads:")
@@ -3079,6 +3084,7 @@ def _save_package_history(query):
             workload_conf_id_slug = query.url_slug_id(workload_conf_id)
         )
         file_path = os.path.join(output_dir, output_subdir, filename)
+        current_version_file_path = os.path.join(current_version_output_dir, filename)
 
         # What to save
         output_data = {}
@@ -3093,6 +3099,12 @@ def _save_package_history(query):
         ))
         dump_data(file_path, output_data)
 
+        # Also save the current data to the standard output dir
+        log("    Saving in: {current_version_file_path}".format(
+            current_version_file_path=current_version_file_path
+        ))
+        dump_data(current_version_file_path, output_data)
+
 
         # === Results
 
@@ -3106,6 +3118,7 @@ def _save_package_history(query):
                 workload_id_slug = query.url_slug_id(workload_id)
             )
             file_path = os.path.join(output_dir, output_subdir, filename)
+            current_version_file_path = os.path.join(current_version_output_dir, filename)
 
             # What to save
             output_data = {}
@@ -3120,6 +3133,12 @@ def _save_package_history(query):
                 file_path=file_path
             ))
             dump_data(file_path, output_data)
+
+            # Also save the current data to the standard output dir
+            log("    Saving in: {current_version_file_path}".format(
+                current_version_file_path=current_version_file_path
+            ))
+            dump_data(current_version_file_path, output_data)
     
     # == envs
     log("")
@@ -3136,6 +3155,7 @@ def _save_package_history(query):
             env_conf_id_slug = query.url_slug_id(env_conf_id)
         )
         file_path = os.path.join(output_dir, output_subdir, filename)
+        current_version_file_path = os.path.join(current_version_output_dir, filename)
 
         # What to save
         output_data = {}
@@ -3150,6 +3170,12 @@ def _save_package_history(query):
         ))
         dump_data(file_path, output_data)
 
+        # Also save the current data to the standard output dir
+        log("    Saving in: {current_version_file_path}".format(
+            current_version_file_path=current_version_file_path
+        ))
+        dump_data(current_version_file_path, output_data)
+
 
         # === Results
 
@@ -3163,6 +3189,7 @@ def _save_package_history(query):
                 env_id_slug = query.url_slug_id(env_id)
             )
             file_path = os.path.join(output_dir, output_subdir, filename)
+            current_version_file_path = os.path.join(current_version_output_dir, filename)
 
             # What to save
             output_data = {}
@@ -3177,6 +3204,12 @@ def _save_package_history(query):
                 file_path=file_path
             ))
             dump_data(file_path, output_data)
+
+            # Also save the current data to the standard output dir
+            log("    Saving in: {current_version_file_path}".format(
+                current_version_file_path=current_version_file_path
+            ))
+            dump_data(current_version_file_path, output_data)
     
     # == views
     log("")
@@ -3193,6 +3226,7 @@ def _save_package_history(query):
             view_conf_id_slug = query.url_slug_id(view_conf_id)
         )
         file_path = os.path.join(output_dir, output_subdir, filename)
+        current_version_file_path = os.path.join(current_version_output_dir, filename)
 
         # What to save
         output_data = {}
@@ -3206,6 +3240,12 @@ def _save_package_history(query):
             file_path=file_path
         ))
         dump_data(file_path, output_data)
+
+        # Also save the current data to the standard output dir
+        log("    Saving in: {current_version_file_path}".format(
+            current_version_file_path=current_version_file_path
+        ))
+        dump_data(current_version_file_path, output_data)
 
 
         # === Results
@@ -3224,6 +3264,7 @@ def _save_package_history(query):
                 view_id_slug = query.url_slug_id(view_id)
             )
             file_path = os.path.join(output_dir, output_subdir, filename)
+            current_version_file_path = os.path.join(current_version_output_dir, filename)
 
             # What to save
             output_data = {}
@@ -3232,6 +3273,7 @@ def _save_package_history(query):
             output_data["type"] = "view"
             output_data["workload_ids"] = query.workloads_in_view(view_conf_id, arch)
             output_data["pkg_query"] = query.pkgs_in_view(view_conf_id, arch)
+            output_data["unwanted_pkg"] = query.view_unwanted_pkgs(view_conf_id, arch)
 
             # And save it
             log("    Saving in: {file_path}".format(
@@ -3239,11 +3281,19 @@ def _save_package_history(query):
             ))
             dump_data(file_path, output_data)
 
+            # Also save the current data to the standard output dir
+            log("    Saving in: {current_version_file_path}".format(
+                current_version_file_path=current_version_file_path
+            ))
+            dump_data(current_version_file_path, output_data)
+
 
     log("  Done!")
     log("")
 
 
+# This is the historic data for charts
+# Package lists are above 
 def _save_current_historic_data(query):
     log("Generating current historic data...")
 
