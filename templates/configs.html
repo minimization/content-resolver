@@ -1,85 +1,77 @@
 {% extends "layout.html" %}
 
 {% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-sm-4 col-md-3 col-lg-2 main-menu">
+            <nav class="nav nav-pills flex-column">
+                <h3 class="nav-header">Results</h3>
 
-<div class="container">
+                <a class="nav-link" href="workloads.html">Workloads</a>
+                <a class="nav-link" href="envs.html">Environments</a>
+                <a class="nav-link" href="views.html">Views</a>
+                <a class="nav-link" href="repos.html">Repositories</a>
+                <a class="nav-link" href="maintainers.html">Maintainers</a>
+            </nav>
+            <br>
+            <br>
+            <nav class="nav nav-pills flex-column">
+                <h3 class="nav-header">Configuration</h3>
+                <a class="nav-link {% if conf_type == 'workloads' %}active{% endif %}"
+                    href="configs_workloads.html">Workloads</a>
+                <a class="nav-link {% if conf_type == 'envs' %}active{% endif %}"
+                    href="configs_envs.html">Environments</a>
+                <a class="nav-link {% if conf_type == 'views' %}active{% endif %}" href="configs_views.html">Views</a>
+                <a class="nav-link {% if conf_type == 'unwanteds' %}active{% endif %}"
+                    href="configs_unwanteds.html">Exclusion Lists</a>
+                <a class="nav-link {% if conf_type == 'repos' %}active{% endif %}"
+                    href="configs_repos.html">Repositories</a>
+            </nav>
+        </div>
+        <div class="col-sm-8 col-md-9 col-lg-10">
+            <h1><small class="text-muted">Configs of </small>{{conf_type}}</h1>
 
-    <nav aria-label="breadcrumb">
-        <ol class="breadcrumb">
-            <li class="breadcrumb-item"><a href="./results.html">Home</a></li>
-            <li class="breadcrumb-item active" aria-current="page">Configuration Files</li>
-        </ol>
-    </nav>
+            <table class="table table-striped" id="table_packages">
+                <thead>
+                    <tr class="sort_control_row">
+                        <th>Name</th>
+                        <th>File Name</th>
+                        <th>Maintainer</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for conf_id, conf in query.configs[conf_type].items() %}
+                    <tr>
+                        <td>
+                            {% if conf_type == 'repos' %}
+                            <a href="config-repo--{{conf.id}}.html">{{conf.name}}</a>
+                            {% elif conf_type == 'envs' %}
+                            <a href="config-env--{{conf.id}}.html">{{conf.name}}</a>
+                            {% elif conf_type == 'workloads' %}
+                            <a href="config-workload--{{conf.id}}.html">{{conf.name}}</a>
+                            {% elif conf_type == 'labels' %}
+                            <a href="config-label--{{conf.id}}.html">{{conf.name}}</a>
+                            {% elif conf_type == 'views' %}
+                            <a href="config-view--{{conf.id}}.html">{{conf.name}}</a>
+                            {% elif conf_type == 'unwanteds' %}
+                            <a href="config-unwanted--{{conf.id}}.html">{{conf.name}}</a>
+                            {% endif %}
 
-    <h1> Configuration </h1>
-
-    <hr>
-
-    <ul class="nav nav-tabs">
-        <li class="nav-item">
-            <a class="nav-link {% if conf_type == 'workloads' %}active{% endif %}"
-                href="configs_workloads.html">Workloads</a>
-        </li>
-        <li class="nav-item">
-            <a class="nav-link {% if conf_type == 'envs' %}active{% endif %}" href="configs_envs.html">Environments</a>
-        </li>
-        <li class="nav-item">
-            <a class="nav-link {% if conf_type == 'views' %}active{% endif %}" href="configs_views.html">User-defined Views</a>
-        </li>
-        <li class="nav-item">
-            <a class="nav-link {% if conf_type == 'unwanteds' %}active{% endif %}" href="configs_unwanteds.html">Exclusion Lists</a>
-        </li>
-        <li class="nav-item">
-            <a class="nav-link {% if conf_type == 'labels' %}active{% endif %}" href="configs_labels.html">Labels</a>
-        </li>
-        <li class="nav-item">
-            <a class="nav-link {% if conf_type == 'repos' %}active{% endif %}"
-                href="configs_repos.html">Repositories</a>
-        </li>
-    </ul>
-
-    <br>
-
-    <table class="table table-striped" id="table_packages">
-        <thead>
-            <tr class="sort_control_row">
-                <th>Name</th>
-                <th>File Name</th>
-                <th>Maintainer</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for conf_id, conf in query.configs[conf_type].items() %}
-            <tr>
-                <td>
-                    {% if conf_type == 'repos' %}
-                    <a href="config-repo--{{conf.id}}.html">{{conf.name}}</a>
-                    {% elif conf_type == 'envs' %}
-                    <a href="config-env--{{conf.id}}.html">{{conf.name}}</a>
-                    {% elif conf_type == 'workloads' %}
-                    <a href="config-workload--{{conf.id}}.html">{{conf.name}}</a>
-                    {% elif conf_type == 'labels' %}
-                    <a href="config-label--{{conf.id}}.html">{{conf.name}}</a>
-                    {% elif conf_type == 'views' %}
-                    <a href="config-view--{{conf.id}}.html">{{conf.name}}</a>
-                    {% elif conf_type == 'unwanteds' %}
-                    <a href="config-unwanted--{{conf.id}}.html">{{conf.name}}</a>
-                    {% endif %}
-
-                </td>
-                <td class="text-monospace">{{conf.id}}.yaml</td>
-                <td>{{conf.maintainer}}</td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+                        </td>
+                        <td class="text-monospace">{{conf.id}}.yaml</td>
+                        <td>{{conf.maintainer}}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
 </div>
 
 <script>
     $(document).ready(function () {
         $('#table_packages').DataTable({
             paging: false,
-            filter: false,
             info: false
         });
     });

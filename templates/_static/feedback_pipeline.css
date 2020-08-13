@@ -58,11 +58,25 @@ div.footer div.row {
   margin-bottom: 40px;
 }
 
+h1 {
+  margin-top: 30px;
+}
+
 /* Navigation */
+
+ol.breadcrumb {
+  margin-top: 20px;
+}
 
 h3.nav-header {
   margin-left: 16px;
   font-size: 1.4rem;
+}
+
+div.main-menu {
+  background-color: #eee;
+  padding-top: 30px;
+  padding-bottom: 60px;
 }
 
 
@@ -178,19 +192,23 @@ table.table-packages tbody th {
   border-top: #6c757d 1px solid;
 }
 
-#table_packages_filter {
+#table_packages_filter,
+.dataTables_filter {
   padding: 12px 12px 0;
   background-color: #e9ecef;
 }
 
-#table_packages_filter input {
+#table_packages_filter input,
+.dataTables_filter input {
   margin-left: 10px;
   border: 1px solid #ccc;
   border-radius: 4px;
   height:34px;
 }
 
-#table_packages_wrapper {
+#table_packages_wrapper,
+.dataTables_wrapper {
+
   border: 1px solid #ccc;
   border-radius: 5px;
 }

@@ -2,72 +2,68 @@
 
 {% block content %}
 
-<div class="container">
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-sm-4 col-md-3 col-lg-2 main-menu">
+            <nav class="nav nav-pills flex-column">
+                <h3 class="nav-header">Results</h3>
 
-    <nav aria-label="breadcrumb">
-        <ol class="breadcrumb">
-            <li class="breadcrumb-item"><a href="./results.html">Home</a></li>
-            <li class="breadcrumb-item active" aria-current="page">Results</li>
-        </ol>
-    </nav>
+                <a class="nav-link " href="workloads.html">Workloads</a>
+                <a class="nav-link active" href="envs.html">Environments</a>
+                <a class="nav-link" href="views.html">Views</a>
+                <a class="nav-link" href="repos.html">Repositories</a>
+                <a class="nav-link" href="maintainers.html">Maintainers</a>
+            </nav>
+            <br>
+            <br>
+            <nav class="nav flex-column">
+                <h3 class="nav-header">Configuration</h3>
 
-    <h1> Results </h1>
+                <a class="nav-link" href="configs_workloads.html">Workloads</a>
+                <a class="nav-link" href="configs_envs.html">Environments</a>
+                <a class="nav-link" href="configs_views.html">Views</a>
+                <a class="nav-link" href="configs_unwanteds.html">Exclusion Lists</a>
+                <a class="nav-link" href="configs_repos.html">Repositories</a>
+            </nav>
+        </div>
+        <div class="col-sm-8 col-md-9 col-lg-10">
+            <h1>Environments</h1>
 
-    <hr>
-
-    <ul class="nav nav-tabs">
-        <li class="nav-item">
-            <a class="nav-link " href="workloads.html">Workloads</a>
-        </li>
-        <li class="nav-item">
-            <a class="nav-link active" href="envs.html">Environments</a>
-        </li>
-        <li class="nav-item">
-            <a class="nav-link " href="views.html">User-defined views</a>
-        </li>
-        <li class="nav-item">
-            <a class="nav-link " href="labels.html">Labels</a>
-        </li>
-        <li class="nav-item">
-            <a class="nav-link " href="repos.html">Repositories</a>
-        </li>
-    </ul>
-
-    <br>
-
-    <table class="table table-striped" id="table_packages">
-        <thead>
-            <tr class="sort_control_row">
-                <th>Name</th>
-                <th>Results</th>
-                <th>Status</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for env_conf_id in query.envs(None,None,None,output_change="env_conf_ids") %}
-            <tr>
-                <td>{{query.configs.envs[env_conf_id].name}}</td>
-                <td>
-                    {% for repo_id in query.envs(env_conf_id,None,None,output_change="repo_ids") %}
-                    <a class="card-link" href="env-overview--{{env_conf_id}}--{{repo_id}}.html">
-                        {{query.configs.repos[repo_id].name}}
-                        {% if not query.env_succeeded(env_conf_id,repo_id,None) %}
-                        (<span class="text-danger">Errors</span>)
-                        {% endif %}
-                    </a>
+            <table class="table table-striped" id="table_packages">
+                <thead>
+                    <tr class="sort_control_row">
+                        <th>Name</th>
+                        <th>Results</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for env_conf_id in query.envs(None,None,None,output_change="env_conf_ids") %}
+                    <tr>
+                        <td>{{query.configs.envs[env_conf_id].name}}</td>
+                        <td>
+                            {% for repo_id in query.envs(env_conf_id,None,None,output_change="repo_ids") %}
+                            <a class="card-link" href="env-overview--{{env_conf_id}}--{{repo_id}}.html">
+                                {{query.configs.repos[repo_id].name}}
+                                {% if not query.env_succeeded(env_conf_id,repo_id,None) %}
+                                (<span class="text-danger">Errors</span>)
+                                {% endif %}
+                            </a>
+                            {% endfor %}
+                        </td>
+                        <td>
+                            {% if query.env_succeeded(env_conf_id,repo_id,None) %}
+                            <span class="text-success">Success</span>
+                            {% else %}
+                            <span class="text-danger">Errors</span>
+                            {% endif %}
+                        </td>
+                    </tr>
                     {% endfor %}
-                </td>
-                <td>
-                    {% if query.env_succeeded(env_conf_id,repo_id,None) %}
-                    <span class="text-success">Success</span>
-                    {% else %}
-                    <span class="text-danger">Errors</span>
-                    {% endif %}
-                </td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+                </tbody>
+            </table>
+        </div>
+    </div>
 </div>
 
 <script>

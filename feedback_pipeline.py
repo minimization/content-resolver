@@ -2435,6 +2435,42 @@ class Query():
         return maintainers
 
 
+    @lru_cache(maxsize = None)
+    def maintainers(self):
+
+        maintainers = {}
+
+        for workload_id in self.workloads(None, None, None, None, list_all=True):
+            workload = self.data["workloads"][workload_id]
+            workload_conf_id = workload["workload_conf_id"]
+            workload_conf = self.configs["workloads"][workload_conf_id]
+            maintainer = workload_conf["maintainer"]
+
+            if maintainer not in maintainers:
+                maintainers[maintainer] = {}
+                maintainers[maintainer]["name"] = maintainer
+                maintainers[maintainer]["all_succeeded"] = True
+            
+            if not workload["succeeded"]:
+                maintainers[maintainer]["all_succeeded"] = False
+
+        for env_id in self.envs(None, None, None, list_all=True):
+            env = self.data["envs"][env_id]
+            env_conf_id = env["env_conf_id"]
+            env_conf = self.configs["envs"][env_conf_id]
+            maintainer = env_conf["maintainer"]
+
+            if maintainer not in maintainers:
+                maintainers[maintainer] = {}
+                maintainers[maintainer]["name"] = maintainer
+                maintainers[maintainer]["all_succeeded"] = True
+            
+            if not env["succeeded"]:
+                maintainers[maintainer]["all_succeeded"] = False
+
+        return maintainers
+
+
 
 
 
@@ -2689,6 +2725,24 @@ def _generate_env_pages(query):
             )
 
             _generate_html_page("env_cmp_arches", template_data, page_name, query.settings)
+
+    log("  Done!")
+    log("")
+
+def _generate_maintainer_pages(query):
+    log("Generating maintainer pages...")
+
+    for maintainer in query.maintainers():
+    
+        template_data = {
+            "query": query,
+            "maintainer": maintainer
+        }
+
+        page_name = "maintainer--{maintainer}".format(
+            maintainer=maintainer
+        )
+        _generate_html_page("maintainer", template_data, page_name, query.settings)
 
     log("  Done!")
     log("")
@@ -3050,9 +3104,13 @@ def generate_pages(query):
     _generate_html_page("workloads", template_data, "workloads", query.settings)
     _generate_html_page("labels", template_data, "labels", query.settings)
     _generate_html_page("views", template_data, "views", query.settings)
+    _generate_html_page("maintainers", template_data, "maintainers", query.settings)
 
     # Generate repo pages
     _generate_repo_pages(query)
+
+    # Generate maintainer pages
+    _generate_maintainer_pages(query)
 
     # Generate env_overview pages
     _generate_env_pages(query)
@@ -3896,8 +3954,8 @@ def main():
 
     time_started = datetime.datetime.now().strftime("%m/%d/%Y, %H:%M:%S")
 
-    query = run_create_cache()
-    #query = run_from_cache()
+    #query = run_create_cache()
+    query = run_from_cache()
 
     generate_pages(query)
     generate_historic_data(query)
