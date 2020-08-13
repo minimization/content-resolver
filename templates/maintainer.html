@@ -15,8 +15,8 @@
     </nav>
 
     <h1>
-        {{maintainer}} <small class="text-muted">maintainer</small>
-        
+        {{maintainer}} <small class="text-muted">'s status page</small>
+
     </h1>
 
     <hr>
@@ -60,6 +60,7 @@
     </table>
 
     <br>
+    <br>
 
     <h2> Environments </h2>
 
@@ -98,19 +99,19 @@
             {% endfor %}
         </tbody>
     </table>
+</div>
 
 
-    <script>
-        $(document).ready(function () {
-            $('#table_packages').DataTable({
-                paging: false,
-                info: false
-            });
-
-            $('#table_packages2').DataTable({
-                paging: false,
-                info: false
-            });
+<script>
+    $(document).ready(function () {
+        $('#table_packages').DataTable({
+            paging: false,
+            info: false
         });
-    </script>
-    {% endblock %}
+        $('#table_packages2').DataTable({
+            paging: false,
+            info: false
+        });
+    });
+</script>
+{% endblock %}
