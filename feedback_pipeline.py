@@ -1111,6 +1111,7 @@ def _analyze_workload(tmp, workload_conf, env_conf, repo, arch):
 
     workload["errors"] = {}
     workload["errors"]["non_existing_pkgs"] = []
+    workload["errors"]["non_existing_placeholder_deps"] = []
 
     workload["succeeded"] = True
     workload["env_succeeded"] = True
@@ -1225,14 +1226,24 @@ def _analyze_workload(tmp, workload_conf, env_conf, repo, arch):
                 workload["errors"]["non_existing_pkgs"].append(pkg)
                 continue
         
+        # Filter out the relevant package placeholders for this arch
+        package_placeholders = {}
+        for placeholder_name,placeholder_data in workload_conf["package_placeholders"].items():
+            # If this placeholder is not limited to just a usbset of arches, add it
+            if not placeholder_data["limit_arches"]:
+                package_placeholders[placeholder_name] = placeholder_data
+            # otherwise it is limited. In that case, only add it if the current arch is on its list
+            elif arch in placeholder_data["limit_arches"]:
+                package_placeholders[placeholder_name] = placeholder_data
+
         # Dependencies of package placeholders
         log("  Adding package placeholder dependencies...")
-        for placeholder_name,placeholder_data in workload_conf["package_placeholders"].items():
+        for placeholder_name,placeholder_data in package_placeholders.items():
             for pkg in placeholder_data["requires"]:
                 try:
                     base.install(pkg)
                 except dnf.exceptions.MarkingError:
-                    workload["errors"]["non_existing_pkgs"].append(pkg)
+                    workload["errors"]["non_existing_placeholder_deps"].append(pkg)
                     continue
 
         # Architecture-specific packages
@@ -1243,13 +1254,22 @@ def _analyze_workload(tmp, workload_conf, env_conf, repo, arch):
                 workload["errors"]["non_existing_pkgs"].append(pkg)
                 continue
 
-        if workload["errors"]["non_existing_pkgs"]:
-            error_message_list = ["The following required packages are not available:"]
-            for pkg_name in workload["errors"]["non_existing_pkgs"]:
-                pkg_string = "  - {pkg_name}".format(
-                    pkg_name=pkg_name
-                )
-                error_message_list.append(pkg_string)
+        if workload["errors"]["non_existing_pkgs"] or workload["errors"]["non_existing_placeholder_deps"]:
+            error_message_list = []
+            if workload["errors"]["non_existing_pkgs"]:
+                error_message_list.append("The following required packages are not available:")
+                for pkg_name in workload["errors"]["non_existing_pkgs"]:
+                    pkg_string = "  - {pkg_name}".format(
+                        pkg_name=pkg_name
+                    )
+                    error_message_list.append(pkg_string)
+            if workload["errors"]["non_existing_placeholder_deps"]:
+                error_message_list.append("The following dependencies of package placeholders are not available:")
+                for pkg_name in workload["errors"]["non_existing_placeholder_deps"]:
+                    pkg_string = "  - {pkg_name}".format(
+                        pkg_name=pkg_name
+                    )
+                    error_message_list.append(pkg_string)
             error_message = "\n".join(error_message_list)
             workload["succeeded"] = False
             workload["errors"]["message"] = str(error_message)
@@ -1292,14 +1312,14 @@ def _analyze_workload(tmp, workload_conf, env_conf, repo, arch):
                 arch=pkg.arch
             )
             workload["pkg_added_ids"].append(pkg_id)
-        
+
         # No errors so far? That means the analysis has succeeded,
         # so placeholders can be added to the list as well.
         # (Failed workloads need to have empty results, that's why)
-        for placeholder_name,placeholder_data in workload_conf["package_placeholders"].items():
+        for placeholder_name in package_placeholders:
             workload["pkg_placeholder_ids"].append(pkg_placeholder_name_to_id(placeholder_name))
         
-        workload["pkg_relations"] = _analyze_package_relations(query_all, workload_conf["package_placeholders"])
+        workload["pkg_relations"] = _analyze_package_relations(query_all, package_placeholders)
         
         pkg_env_count = len(workload["pkg_env_ids"])
         pkg_added_count = len(workload["pkg_added_ids"])
