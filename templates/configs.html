@@ -29,8 +29,21 @@
             </nav>
         </div>
         <div class="col-sm-8 col-md-9 col-lg-10">
-            <h1><small class="text-muted">Configs of </small>{{conf_type}}</h1>
-
+            <h1><small class="text-muted">Configs of </small>
+            {% if conf_type == "workloads" %}
+            Workloads
+            {% elif conf_type == "envs" %}
+            Environments
+            {% elif conf_type == "views" %}
+            Views
+            {% elif conf_type == "unwanteds" %}
+            Exclusion lists
+            {% elif conf_type == "repos" %}
+            Repositories
+            {% else %}
+            {{conf_type}}
+            {% endif %}
+            </h1>
             <table class="table table-striped" id="table_packages">
                 <thead>
                     <tr class="sort_control_row">

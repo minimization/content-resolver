@@ -38,8 +38,28 @@
         </div>
         <div class="col-sm-3 d-flex align-items-stretch">
             <div class="card w-100">
-                <h5 class="card-header"> Relations </h5>
+                <h5 class="card-header"> Additional info </h5>
                 <div class="card-body">
+                    {% if query.configs.workloads[workload_conf_id].modules_disable %}
+                    <dt> Disabled modules </dt>
+                    <dd>
+                        <ul class="list-unstyled list-packages">
+                            {% for module_stream in query.configs.workloads[workload_conf_id].modules_disable %}
+                            <li>{{module_stream}}</li>
+                            {% endfor %}
+                        </ul>
+                    </dd>
+                    {% endif %}
+                    {% if query.configs.workloads[workload_conf_id].modules_enable %}
+                    <dt> Enabled modules </dt>
+                    <dd>
+                        <ul class="list-unstyled list-packages">
+                            {% for module_stream in query.configs.workloads[workload_conf_id].modules_enable %}
+                            <li>{{module_stream}}</li>
+                            {% endfor %}
+                        </ul>
+                    </dd>
+                    {% endif %}
                     <dl>
                         <dt>Configuration</dt>
                         <dd><a href="config-workload--{{workload_conf_id}}.html">{{workload_conf_id}}.yaml</a></dd>
@@ -100,7 +120,7 @@
                             {% else %}
                             <span class="text-danger">Analysis<br>Failed</span>
                             {% endif %}
-                            
+
                         </p>
                         <b><a
                                 href="workload--{{query.workload_url_slug(workload_conf_id,env_conf_id,repo_id,arch)}}.html">Details</a></b>

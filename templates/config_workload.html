@@ -6,7 +6,7 @@
 
     <nav aria-label="breadcrumb">
         <ol class="breadcrumb">
-            <li class="breadcrumb-item"><a href="./configs_repos.html">Workoad configs</a></li>
+            <li class="breadcrumb-item"><a href="./configs_workloads.html">Workoad configs</a></li>
             <li class="breadcrumb-item active" aria-current="page">{{workload_conf.name}}</li>
         </ol>
     </nav>
@@ -39,6 +39,7 @@
                 </div>
                 <div class="col-sm-3">
                     <dl>
+                        
                         <dt> Labels </dt>
                         <dd>
                             <ul class="list-unstyled list-packages">
@@ -51,6 +52,26 @@
                 </div>
                 <div class="col-sm-3">
                     <dl>
+                        {% if workload_conf.modules_disable %}
+                        <dt> Disabled modules </dt>
+                        <dd>
+                            <ul class="list-unstyled list-packages">
+                                {% for module_stream in workload_conf.modules_disable %}
+                                <li>{{module_stream}}</li>
+                                {% endfor %}
+                            </ul>
+                        </dd>
+                        {% endif %}
+                        {% if workload_conf.modules_enable %}
+                        <dt> Enabled modules </dt>
+                        <dd>
+                            <ul class="list-unstyled list-packages">
+                                {% for module_stream in workload_conf.modules_enable %}
+                                <li>{{module_stream}}</li>
+                                {% endfor %}
+                            </ul>
+                        </dd>
+                        {% endif %}
                         <dt> Required Packages </dt>
                         <dd>
                             <ul class="list-unstyled list-packages">
@@ -74,6 +95,8 @@
                         </dd>
                         {% endif %}
                         {% endfor %}
+
+                        
                     </dl>
                 </div>
             </div>

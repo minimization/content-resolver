@@ -39,7 +39,8 @@
             <a class="nav-link active" href="workload--{{ query.url_slug_id(workload_id) }}.html">Packages</a>
         </li>
         <li class="nav-item">
-            <a class="nav-link " href="workload-dependencies--{{ query.url_slug_id(workload_id) }}.html">Reasons of Presence</a>
+            <a class="nav-link " href="workload-dependencies--{{ query.url_slug_id(workload_id) }}.html">Reasons of
+                Presence</a>
         </li>
     </ul>
 
@@ -47,21 +48,21 @@
     <br>
 
     {% if not query.workload_succeeded(workload_conf.id,env_conf.id,repo.id,workload.arch) %}
- 
+
     {% if not workload.env_succeeded %}
 
     <div class="card border-danger">
         <h5 class="card-header bg-danger text-white">Skipped for environment errors</h5>
         <div class="card-body">
-                The analysis of this workload has been skipped because of errors in the environment.
+            The analysis of this workload has been skipped because of errors in the environment.
 
-                <br>
+            <br>
 
-                Details: <a href="env--{{env_conf.id}}--{{repo.id}}--{{workload.arch}}.html">{{env_conf.name}}</a>
-                
+            Details: <a href="env--{{env_conf.id}}--{{repo.id}}--{{workload.arch}}.html">{{env_conf.name}}</a>
+
         </div>
     </div>
-    
+
     {% else %}
 
     <div class="card border-danger">
@@ -88,8 +89,28 @@
         </div>
         <div class="col-sm-3 d-flex align-items-stretch">
             <div class="card w-100">
-                <h5 class="card-header"> Relations </h5>
+                <h5 class="card-header"> Additional info </h5>
                 <div class="card-body">
+                    {% if workload_conf.modules_disable %}
+                    <dt> Disabled modules </dt>
+                    <dd>
+                        <ul class="list-unstyled list-packages">
+                            {% for module_stream in workload_conf.modules_disable %}
+                            <li>{{module_stream}}</li>
+                            {% endfor %}
+                        </ul>
+                    </dd>
+                    {% endif %}
+                    {% if workload_conf.modules_enable %}
+                    <dt> Enabled modules </dt>
+                    <dd>
+                        <ul class="list-unstyled list-packages">
+                            {% for module_stream in workload_conf.modules_enable %}
+                            <li>{{module_stream}}</li>
+                            {% endfor %}
+                        </ul>
+                    </dd>
+                    {% endif %}
                     <dl>
                         <dt>Configuration</dt>
                         <dd><a href="config-workload--{{workload_conf.id}}.html">{{workload_conf.id}}.yaml</a></dd>

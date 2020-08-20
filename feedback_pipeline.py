@@ -1107,6 +1107,8 @@ def _analyze_workload(tmp, workload_conf, env_conf, repo, arch):
     workload["pkg_added_ids"] = []
     workload["pkg_placeholder_ids"] = []
 
+    workload["enabled_modules"] = []
+
     workload["pkg_relations"] = []
 
     workload["errors"] = {}
@@ -1207,7 +1209,7 @@ def _analyze_workload(tmp, workload_conf, env_conf, repo, arch):
         # Enabling modules
         if workload_conf["modules_enable"]:
             try:
-                log("  Dnabling modules...")
+                log("  Enabling modules...")
                 module_base = dnf.module.module_base.ModuleBase(base)
                 module_base.enable(workload_conf["modules_enable"])
             except dnf.exceptions.MarkingErrors as err:
@@ -1216,6 +1218,10 @@ def _analyze_workload(tmp, workload_conf, env_conf, repo, arch):
                 log("  Failed!  (Error message will be on the workload results page.")
                 log("")
                 return workload
+        
+        # Get a list of enabled modules
+        # FIXME: The DNF API docs don't have this, so I asked and will
+        #        implement this when I know how.
 
         # Packages
         log("  Adding packages...")
