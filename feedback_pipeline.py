@@ -3028,10 +3028,17 @@ def _generate_view_lists(query):
                     arch=arch
                 ))
 
+
                 pkg_ids = query.pkgs_in_view(view_conf_id, arch, output_change="ids")
                 pkg_binary_names = query.pkgs_in_view(view_conf_id, arch, output_change="binary_names")
                 pkg_source_nvr = query.pkgs_in_view(view_conf_id, arch, output_change="source_nvr")
                 pkg_source_names = query.pkgs_in_view(view_conf_id, arch, output_change="source_names")
+                
+                buildroot_data = query.view_buildroot_pkgs(view_conf_id, arch)
+                if buildroot_data:
+                    pkg_buildroot_names = buildroot_data.keys()
+                else:
+                    pkg_buildroot_names = []
 
                 file_name = "view-binary-package-list--{view_conf_id}--{arch}".format(
                     view_conf_id=view_conf_id,
@@ -3056,6 +3063,12 @@ def _generate_view_lists(query):
                     arch=arch
                 )
                 _generate_a_flat_list_file(pkg_source_names, file_name, query.settings)
+
+                file_name = "view-buildroot-package-name-list--{view_conf_id}--{arch}".format(
+                    view_conf_id=view_conf_id,
+                    arch=arch
+                )
+                _generate_a_flat_list_file(pkg_buildroot_names, file_name, query.settings)
     
     log("  Done!")
     log("")
@@ -3379,6 +3392,36 @@ def _save_package_history(query):
             output_data["workload_ids"] = query.workloads_in_view(view_conf_id, arch)
             output_data["pkg_query"] = query.pkgs_in_view(view_conf_id, arch)
             output_data["unwanted_pkg"] = query.view_unwanted_pkgs(view_conf_id, arch)
+            
+
+            # And save it
+            log("    Saving in: {file_path}".format(
+                file_path=file_path
+            ))
+            dump_data(file_path, output_data)
+
+            # Also save the current data to the standard output dir
+            log("    Saving in: {current_version_file_path}".format(
+                current_version_file_path=current_version_file_path
+            ))
+            dump_data(current_version_file_path, output_data)
+
+
+            # == Also, save the buildroot data
+
+            # Where to save
+            filename = "view-buildroot--{view_id_slug}.json".format(
+                view_id_slug = query.url_slug_id(view_id)
+            )
+            file_path = os.path.join(output_dir, output_subdir, filename)
+            current_version_file_path = os.path.join(current_version_output_dir, filename)
+
+            # What to save
+            output_data = {}
+            output_data["date"] = date
+            output_data["id"] = view_id
+            output_data["type"] = "view-buildroot"
+            output_data["pkgs"] = query.view_buildroot_pkgs(view_conf_id, arch)
 
             # And save it
             log("    Saving in: {file_path}".format(
