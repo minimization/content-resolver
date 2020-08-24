@@ -95,17 +95,17 @@
                     <dt> Disabled modules </dt>
                     <dd>
                         <ul class="list-unstyled list-packages">
-                            {% for module_stream in workload_conf.modules_disable %}
+                            {% for module_stream in workload_conf.modules_disable | sort %}
                             <li>{{module_stream}}</li>
                             {% endfor %}
                         </ul>
                     </dd>
                     {% endif %}
-                    {% if workload_conf.modules_enable %}
+                    {% if query.data.workloads[workload_id].enabled_modules %}
                     <dt> Enabled modules </dt>
                     <dd>
                         <ul class="list-unstyled list-packages">
-                            {% for module_stream in workload_conf.modules_enable %}
+                            {% for module_stream in query.data.workloads[workload_id].enabled_modules | sort %}
                             <li>{{module_stream}}</li>
                             {% endfor %}
                         </ul>

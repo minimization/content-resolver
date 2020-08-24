@@ -263,19 +263,6 @@ def _load_config_workload(document_id, document, settings):
         # Who maintains it? This is just a freeform string
         # for humans to read. In Fedora, a FAS nick is recommended.
         config["maintainer"] = str(document["data"]["maintainer"])
-
-        # Packages defining this workload.
-        # This list includes packages for all
-        # architectures — that's the one to use by default.
-        config["packages"] = []
-        # This workaround allows for "packages" to be left empty in the config
-        try:
-            for pkg in document["data"]["packages"]:
-                config["packages"].append(str(pkg))
-        except TypeError:
-            err_log("Warning: {file} has an empty 'packages' field defined which is invalid. Moving on...".format(
-                file=document_id
-            ))
         
         # Labels connect things together.
         # Workloads get installed in environments with the same label.
@@ -288,6 +275,19 @@ def _load_config_workload(document_id, document, settings):
         raise ConfigError("Error: {file} is invalid.".format(file=document_id))
 
     # Step 2: Optional fields
+
+    # Packages defining this workload.
+    # This list includes packages for all
+    # architectures — that's the one to use by default.
+    config["packages"] = []
+    # This workaround allows for "packages" to be left empty in the config
+    try:
+        for pkg in document["data"]["packages"]:
+            config["packages"].append(str(pkg))
+    except (TypeError, KeyError):
+        err_log("Warning: {file} has an empty 'packages' field defined which is invalid. Moving on...".format(
+            file=document_id
+        ))
 
     # Architecture-specific packages.
     config["arch_packages"] = {}
@@ -1220,8 +1220,26 @@ def _analyze_workload(tmp, workload_conf, env_conf, repo, arch):
                 return workload
         
         # Get a list of enabled modules
-        # FIXME: The DNF API docs don't have this, so I asked and will
-        #        implement this when I know how.
+        # The official DNF API doesn't support it. I got this from the DNF folks
+        # (thanks!) as a solution, but just keeping it in a generic try/except
+        # as it's not an official API. 
+        enabled_modules = set()
+        try:
+            all_modules = base._moduleContainer.getModulePackages()
+            for module in all_modules:
+                if base._moduleContainer.isEnabled(module):
+                    module_name = module.getName()
+                    module_stream = module.getStream()
+                    module_nsv = "{module_name}:{module_stream}".format(
+                        module_name=module_name,
+                        module_stream=module_stream
+                    )
+                    enabled_modules.add(module_nsv)
+        except:
+            log("  Something went wrong with getting a list of enabled modules. (This uses non-API DNF calls. Skipping.)")
+            enabled_modules = set()
+        workload["enabled_modules"] = list(enabled_modules)
+
 
         # Packages
         log("  Adding packages...")
