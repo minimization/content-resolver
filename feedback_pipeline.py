@@ -2293,7 +2293,13 @@ class Query():
     
 
     @lru_cache(maxsize = None)
-    def view_buildroot_pkgs(self, view_conf_id, arch, maintainer=None):
+    def view_buildroot_pkgs(self, view_conf_id, arch, output_change=None, maintainer=None):
+        # Other outputs:
+        #   - "source_names"  — a list of SRPM names
+        if output_change:
+            if output_change not in ["source_names"]:
+                raise ValueError('output_change must be one of: "source_names"')
+
         pkgs = {}
 
         buildroot_conf_id = None
@@ -2302,6 +2308,8 @@ class Query():
                 buildroot_conf_id = conf_id
 
         if not buildroot_conf_id:
+            if output_change == "source_names":
+                return []
             return None
 
         # Populate pkgs
@@ -2323,8 +2331,23 @@ class Query():
                     pkgs[pkg_name]["base_buildroot"] = False
                 pkgs[pkg_name]["required_by"].add(srpm_name)
         
-        return pkgs
+        if output_change == "source_names":
+            srpms = set()
 
+            repo_id = self.configs["views"][view_conf_id]["repository"]
+
+            if arch in self.data["pkgs"][repo_id]:
+                for pkg_id, pkg in self.data["pkgs"][repo_id][arch].items():
+                    if pkg["name"] in pkgs:
+                        srpms.add(pkg["source_name"])
+            else:
+                return []
+
+            srpm_names_sorted = sorted(list(srpms))
+            return srpm_names_sorted
+        
+        return pkgs
+    
     
     @lru_cache(maxsize = None)
     def workload_succeeded(self, workload_conf_id, env_conf_id, repo_id, arch):
@@ -3098,6 +3121,7 @@ def _generate_view_lists(query):
                 pkg_source_names = query.pkgs_in_view(view_conf_id, arch, output_change="source_names")
                 
                 buildroot_data = query.view_buildroot_pkgs(view_conf_id, arch)
+                pkg_buildroot_source_names = query.view_buildroot_pkgs(view_conf_id, arch, output_change="source_names")
                 if buildroot_data:
                     pkg_buildroot_names = buildroot_data.keys()
                 else:
@@ -3134,6 +3158,12 @@ def _generate_view_lists(query):
                     arch=arch
                 )
                 _generate_a_flat_list_file(pkg_buildroot_names, file_name, query.settings)
+
+                file_name = "view-buildroot-source-package-name-list--{view_conf_id}--{arch}".format(
+                    view_conf_id=view_conf_id,
+                    arch=arch
+                )
+                _generate_a_flat_list_file(pkg_buildroot_source_names, file_name, query.settings)
 
                 file_name = "view-module-list--{view_conf_id}--{arch}".format(
                     view_conf_id=view_conf_id,

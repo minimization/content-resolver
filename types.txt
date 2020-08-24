@@ -40,6 +40,9 @@ data["pkgs"][repo_id][arch][pkg_id]["arch"]
 data["pkgs"][repo_id][arch][pkg_id]["installsize"]
 data["pkgs"][repo_id][arch][pkg_id]["description"]
 data["pkgs"][repo_id][arch][pkg_id]["summary"]
+data["pkgs"][repo_id][arch][pkg_id]["source_name"]
+data["pkgs"][repo_id][arch][pkg_id]["sourcerpm"]
+
 
 
 === Repository ===
@@ -127,6 +130,7 @@ configs["views"][view_conf_id]["description"]
 configs["views"][view_conf_id]["maintainer"]
 configs["views"][view_conf_id]["type"]
 configs["views"][view_conf_id]["labels"]
+configs["views"][view_conf_id]["repository"]
 
 
 === Unwanted ===
