@@ -3026,6 +3026,13 @@ def _generate_view_pages(query):
                     )
                     _generate_html_page("view_compose_reasons", template_data, page_name, query.settings)
 
+                    page_name = "view-modules--{view_conf_id}--{arch}--maintainer-{maintainer}".format(
+                        view_conf_id=view_conf_id,
+                        arch=arch,
+                        maintainer=maintainer
+                    )
+                    _generate_html_page("view_compose_modules", template_data, page_name, query.settings)
+
                     page_name = "view-unwanted--{view_conf_id}--{arch}--maintainer-{maintainer}".format(
                         view_conf_id=view_conf_id,
                         arch=arch,
