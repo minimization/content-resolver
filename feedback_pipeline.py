@@ -2445,6 +2445,38 @@ class Query():
 
 
     @lru_cache(maxsize = None)
+    def view_modules(self, view_conf_id, arch, maintainer=None):
+        workload_ids = self.workloads_in_view(view_conf_id, arch, maintainer)
+
+        modules = {}
+
+        for workload_id in workload_ids:
+            workload = self.data["workloads"][workload_id]
+            workload_conf_id = workload["workload_conf_id"]
+            workload_conf = self.configs["workloads"][workload_conf_id]
+
+            required_modules = workload_conf["modules_enable"]
+
+            for module_id in workload["enabled_modules"]:
+                if module_id not in modules:
+                    modules[module_id] = {}
+                    modules[module_id]["id"] = module_id
+                    modules[module_id]["q_in"] = set()
+                    modules[module_id]["q_required_in"] = set()
+                    modules[module_id]["q_dep_in"] = set()
+                
+                modules[module_id]["q_in"].add(workload_id)
+
+                if module_id in required_modules:
+                    modules[module_id]["q_required_in"].add(workload_id)
+                else:
+                    modules[module_id]["q_dep_in"].add(workload_id)
+                
+
+        return modules
+
+
+    @lru_cache(maxsize = None)
     def view_maintainers(self, view_conf_id, arch):
         workload_ids = self.workloads_in_view(view_conf_id, arch)
 
@@ -2951,6 +2983,12 @@ def _generate_view_pages(query):
                     arch=arch
                 )
                 _generate_html_page("view_compose_reasons", template_data, page_name, query.settings)
+
+                page_name = "view-modules--{view_conf_id}--{arch}".format(
+                    view_conf_id=view_conf_id,
+                    arch=arch
+                )
+                _generate_html_page("view_compose_modules", template_data, page_name, query.settings)
 
                 page_name = "view-unwanted--{view_conf_id}--{arch}".format(
                     view_conf_id=view_conf_id,

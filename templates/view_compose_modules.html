@@ -51,10 +51,10 @@
             <a class="nav-link " href="view--{{view_conf.id}}--{{arch}}{{maintainer_url_part}}.html">Packages</a>
         </li>
         <li class="nav-item">
-            <a class="nav-link active" href="view-reasons--{{view_conf.id}}--{{arch}}{{maintainer_url_part}}.html">Packages + Reasons of Presence</a>
+            <a class="nav-link " href="view-reasons--{{view_conf.id}}--{{arch}}{{maintainer_url_part}}.html">Packages + Reasons of Presence</a>
         </li>
         <li class="nav-item">
-            <a class="nav-link " href="view-modules--{{view_conf.id}}--{{arch}}{{maintainer_url_part}}.html">Modules</a>
+            <a class="nav-link active" href="view-modules--{{view_conf.id}}--{{arch}}{{maintainer_url_part}}.html">Modules</a>
         </li>
         <li class="nav-item">
             <a class="nav-link" href="view-unwanted--{{view_conf.id}}--{{arch}}{{maintainer_url_part}}.html">Unwanted Packages</a>
@@ -93,12 +93,14 @@
 
     {% macro relations(pkg, dep=True) -%}
     {% if pkg.q_required_in %}
-    Required in these workloads:
+    Enabled explicitly (required) in these workloads:
     <ul>
         {% for workload_id in pkg.q_required_in | sort %}
         <li>
             <a href="workload-overview--{{query.data.workloads[workload_id].workload_conf_id}}--{{view_conf.repository}}.html">
                 {{ query.configs.workloads[query.data.workloads[workload_id].workload_conf_id].name }}
+                in
+                {{ query.configs.envs[query.data.workloads[workload_id].env_conf_id].name}}
             </a>
             (maintainer: {{ query.configs.workloads[query.data.workloads[workload_id].workload_conf_id].maintainer }})
         </li>
@@ -107,7 +109,7 @@
     {% endif %}
 
     {% if pkg.q_dep_in and dep %}
-    Dependency in these workloads:
+    Enabled as a dependency in these workloads:
     <ul>
         {% for workload_id in pkg.q_dep_in | sort %}
         <li>
@@ -130,8 +132,6 @@
     required
     {% elif pkg.q_required_in %}
     required
-    {% elif pkg.q_env_in %}
-    env
     {% else %}
     dependency
     {% endif %}
@@ -142,8 +142,6 @@
     <span>(required, env)</span>
     {% elif pkg.q_required_in %}
     <span>(required)</span>
-    {% elif pkg.q_env_in %}
-    <span class="text-muted">(env)</span>
     {% else %}
     <span class="text-muted">(dependency)</span>
     {% endif %}
@@ -154,8 +152,6 @@
     1
     {% elif pkg.q_required_in %}
     0
-    {% elif pkg.q_env_in %}
-    2
     {% else %}
     3
     {% endif %}
@@ -166,28 +162,17 @@
             <tr class="sort_control_row">
                 <th>Flag</th>
                 <th>Name</th>
-                <th>Epoch:Version-Release</th>
-                <th>Arch</th>
-                <th>Size</th>
                 <th>Reasons of Presence</th>
-                <th>Source Name</th>
             </tr>
         </thead>
         <tbody>
-            {% for pkg in query.pkgs_in_view(view_conf.id, arch, maintainer=maintainer) %}
-            <tr class="{{pkg_row_css_class(pkg)}}">
-                <td data-order="{{pkg_why_data_order(pkg)}}" style="padding-top: 16px; padding-bottom: 16px">{{pkg_why(pkg)}}</td>
+            {% for module_id, module in query.view_modules(view_conf.id, arch, maintainer=maintainer).items() %}
+            <tr class="{{pkg_row_css_class(module)}}">
+                <td data-order="{{pkg_why_data_order(module)}}" style="padding-top: 16px; padding-bottom: 16px">{{pkg_why(module)}}</td>
                 <td>
-                    {{pkg.name}}
-                    {% if pkg.name in query.view_unwanted_pkgs(view_conf.id, arch) %}
-                    <span class="text-danger">(unwanted)</span>
-                    {% endif %}
+                    {{module.id}}
                 </td>
-                <td>{{pkg.evr}}</td>
-                <td>{{pkg.arch}}</td>
-                <td data-order="{{pkg.installsize}}">{{ query.size(pkg.installsize) }}</td>
-                <td> {{ relations(pkg) }}</td>
-                <td>{{pkg.source_name}}</td>
+                <td> {{ relations(module) }}</td>
             </tr>
             {% endfor %}
         </tbody>
