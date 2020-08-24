@@ -23,7 +23,7 @@
 
         <div class="btn-group">
             {% if maintainer %}
-            <a href="view-reasons--{{view_conf.id}}--{{arch}}.html" class="btn btn-sm  btn-secondary"> clear </a>
+            <a href="view-modules--{{view_conf.id}}--{{arch}}.html" class="btn btn-sm  btn-secondary"> clear </a>
             <a class="btn btn-sm btn-info dropdown-toggle" href="#" role="button" id="dropdownMenuLink" data-toggle="dropdown"
                 aria-haspopup="true" aria-expanded="false">
                 Filter by maintainer: <b>{{maintainer}}</b>
@@ -37,7 +37,7 @@
 
             <div class="dropdown-menu dropdown-menu-right" aria-labelledby="dropdownMenuLink">
                 {% for maint in query.view_maintainers(view_conf.id, arch) | sort %}
-                <a class="dropdown-item" href="view-reasons--{{view_conf.id}}--{{arch}}--maintainer-{{maint}}.html">{{maint}}</a>
+                <a class="dropdown-item" href="view-modules--{{view_conf.id}}--{{arch}}--maintainer-{{maint}}.html">{{maint}}</a>
                 {% endfor %}
             </div>
         </div>
