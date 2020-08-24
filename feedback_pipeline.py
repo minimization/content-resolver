@@ -3102,6 +3102,8 @@ def _generate_view_lists(query):
                     pkg_buildroot_names = buildroot_data.keys()
                 else:
                     pkg_buildroot_names = []
+                
+                modules = query.view_modules(view_conf_id, arch)
 
                 file_name = "view-binary-package-list--{view_conf_id}--{arch}".format(
                     view_conf_id=view_conf_id,
@@ -3132,6 +3134,12 @@ def _generate_view_lists(query):
                     arch=arch
                 )
                 _generate_a_flat_list_file(pkg_buildroot_names, file_name, query.settings)
+
+                file_name = "view-module-list--{view_conf_id}--{arch}".format(
+                    view_conf_id=view_conf_id,
+                    arch=arch
+                )
+                _generate_a_flat_list_file(modules, file_name, query.settings)
     
     log("  Done!")
     log("")
