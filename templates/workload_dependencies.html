@@ -158,7 +158,29 @@
     $(document).ready(function () {
         $('#table_packages').DataTable({
             paging: false,
-            info: false
+            info: false,
+            initComplete: function () {
+                var input = $('.dataTables_filter input').unbind(),
+                    self = this.api(),
+                    $searchButton = $('<button>')
+                        .text('search')
+                        .click(function () {
+                            self.search(input.val()).draw();
+                        }),
+                    $clearButton = $('<button>')
+                        .text('clear')
+                        .click(function () {
+                            input.val('');
+                            $searchButton.click();
+                        });
+                $(document).keypress(function (event) {
+                    if (event.which == 13) {
+                        $searchButton.click();
+                    }
+                });
+
+                $('.dataTables_filter').append($searchButton, $clearButton);
+            }
         });
 
         function plot_graph(chartData) {
