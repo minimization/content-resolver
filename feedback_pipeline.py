@@ -2591,6 +2591,25 @@ def _generate_html_page(template_name, template_data, page_name, settings):
     log("")
 
 
+def _generate_json_page(data, page_name, settings):
+    log("Generating the '{page_name}' JSON page...".format(
+        page_name=page_name
+    ))
+
+    output = settings["output"]
+
+    filename = ("{page_name}.json".format(
+        page_name=page_name.replace(":", "--")
+    ))
+    log("  Writing file...  ({filename})".format(
+        filename=filename
+    ))
+    dump_data(os.path.join(output, filename), data)
+    
+    log("  Done!")
+    log("")
+
+
 def _generate_workload_pages(query):
     log("Generating workload pages...")
 
@@ -3225,7 +3244,7 @@ def generate_pages(query):
     _generate_html_page("labels", template_data, "labels", query.settings)
     _generate_html_page("views", template_data, "views", query.settings)
     _generate_html_page("maintainers", template_data, "maintainers", query.settings)
-
+    
     # Generate repo pages
     _generate_repo_pages(query)
 
@@ -3253,7 +3272,21 @@ def generate_pages(query):
     }
     _generate_html_page("errors", template_data, "errors", query.settings)
 
-    
+
+
+    log("")
+    log("###############################################################################")
+    log("### Generating JSON pages! ####################################################")
+    log("###############################################################################")
+    log("")
+
+    # Generate data for the top-level results pages
+    maintainer_data = query.maintainers()
+    _generate_json_page(maintainer_data, "maintainers", query.settings)
+
+
+
+
 
 ###############################################################################
 ### Historic Data #############################################################
