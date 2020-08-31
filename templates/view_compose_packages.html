@@ -202,9 +202,9 @@
                 <th>Name</th>
                 <th>Epoch:Version-Release</th>
                 <th>Arch</th>
-                <th>Size</th>
-                <th>Summary</th>
                 <th>Source Name</th>
+                <th>Summary</th>
+                <th>Size</th>
             </tr>
         </thead>
         <tbody>
@@ -219,9 +219,9 @@
                 </td>
                 <td>{{pkg.evr}}</td>
                 <td>{{pkg.arch}}</td>
-                <td data-order="{{pkg.installsize}}">{{ query.size(pkg.installsize) }}</td>
+                <td> <a href="view-srpm--{{view_conf.id}}--{{pkg.source_name}}.html">{{pkg.source_name}}</a></td>
                 <td> {{ pkg.summary }}</td>
-                <td>{{pkg.source_name}}</td>
+                <td data-order="{{pkg.installsize}}">{{ query.size(pkg.installsize) }}</td>
             </tr>
             {% endfor %}
         </tbody>

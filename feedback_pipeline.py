@@ -3095,6 +3095,84 @@ def _generate_view_pages(query):
                         maintainer=maintainer
                     )
                     _generate_html_page("view_compose_workloads", template_data, page_name, query.settings)
+            
+            # third, generate one page per SRPM
+            all_arches = query.arches_in_view(view_conf_id)
+            all_pkgs = {}
+            for arch in all_arches:
+                all_pkgs[arch] = {}
+                _all_pkgs_list = query.pkgs_in_view(view_conf_id, arch)
+                for pkg in _all_pkgs_list:
+                    all_pkgs[arch][pkg["id"]] = pkg
+            all_workloads = {}
+            for arch in all_arches:
+                all_workload_ids = query.workloads_in_view(view_conf_id, arch)
+                all_workloads[arch] = ""
+                for workload_id in all_workload_ids:
+                    all_workloads[workload_id] = query.data["workloads"][workload_id]
+
+            for srpm_name in pkg_source_names:
+
+                reasons_of_presense = {}
+
+                for arch in all_arches:
+                    for pkg_id, pkg in all_pkgs[arch].items():
+                        # For each package, I need to find all the reasons it's here
+                        # some-other-binary (some-other) pulls this-pkg-binary (this-pkg)
+
+                        if pkg["source_name"] != srpm_name:
+                            continue
+
+                        for workload_id in pkg["q_in"]:
+                            workload = query.data["workloads"][workload_id]
+
+                            for related_pkg_id in workload["pkg_relations"][pkg_id]["required_by"]:
+
+                                related_pkg = all_pkgs[arch][related_pkg_id]
+
+                                if related_pkg_id not in reasons_of_presense:
+                                    reasons_of_presense[related_pkg_id] = {}
+                                    reasons_of_presense[related_pkg_id]["source_name"] = related_pkg["source_name"]
+                                    reasons_of_presense[related_pkg_id]["requires"] = set()
+                                    reasons_of_presense[related_pkg_id]["workload_conf_ids"] = set()
+                                
+                                reasons_of_presense[related_pkg_id]["requires"].add(pkg_id)
+                                reasons_of_presense[related_pkg_id]["workload_conf_ids"].add(workload["workload_conf_id"])
+
+
+                pkgs = {}
+                srpm_arches = set()
+
+                for arch, arch_pkgs in all_pkgs.items():
+                    for pkg_id, pkg in all_pkgs[arch].items():
+                        if pkg["source_name"] == srpm_name:
+                            pkg_nevr = "{name}-{evr}".format(
+                                name=pkg["name"],
+                                evr=pkg["evr"]
+                            )
+
+                            if pkg_nevr not in pkgs:
+                                pkgs[pkg_nevr] = {}
+                            
+                            if arch not in pkgs[pkg_nevr]:
+                                pkgs[pkg_nevr][arch] = {}
+                            
+                            pkgs[pkg_nevr][arch][pkg["id"]] = pkg
+                            srpm_arches.add(arch)
+
+                template_data = {
+                    "query": query,
+                    "view_conf": view_conf,
+                    "srpm_name": srpm_name,
+                    "pkgs": pkgs,
+                    "arches": sorted(list(srpm_arches)),
+                    "reasons_of_presense": reasons_of_presense
+                }
+                page_name = "view-srpm--{view_conf_id}--{srpm_name}".format(
+                    view_conf_id=view_conf_id,
+                    srpm_name=srpm_name
+                )
+                _generate_html_page("view_compose_srpm_package", template_data, page_name, query.settings)
 
 
     log("  Done!")
