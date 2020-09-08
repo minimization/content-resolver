@@ -1,22 +1,70 @@
----
-# This configuration file defines a buildroot data in Feedback Pipeline.
-# https://tiny.distro.builders
+# This config is used to define repository split of the
+# ELN Package Set in Content Resolver.
+#  - https://tiny.distro.builders/view--view-eln.html
 #
+#
+# This config expects binary RPM names. Not SRPM or component names.
+#
+# 
+# ## Essential information ##
+# 
+# Runtime packages (explicitly required (listed in workloads) and 
+# their runtime dependencies) are divided between baseos, appstream,
+# and the addons.
+# The default is appstream.
+#
+# Build dependencies are divided between buildroot-only and crb.
+# The default is buildroot-only.
+#
+#
+# ## Deep dive into must vs. want ##
+#
+# There is a distinction between actually moving a package (must),
+# and just flagging a package (want).
+#
+# Example 1: I want to put bash and all of its runtime dependencies in
+# baseos. To do that, I just list 'bash' under baseos / must. 
+#
+# Example 2: I want to make sure ruby is in appstream. But I don't
+# want to move anything around by force. I just want to be notified
+# when it's not the case. To do that, I list 'ruby' under
+# appstream / want.
+#
+# Some categories don't have the must list. This is to prevent
+# conflicts and unclear behavior. For example, appstream doesn't
+# have the must list. That's because:
+# a) it's the default
+# b) baseos has it, and pulls packages (and their dependencies)
+#    out of appstream.
+# So anything that can stay in appstream stays there. Anything that
+# can't, won't. Forcing a package in appstream even if it can't be there
+# would either break things (if it forced the move), or would lead
+# to unpredictable results (if it just ignored it).
+#
+#
+# Addons, on the other hand, don't have the want list. That's because
+# packages listed under addons are pulled out without their dependencies.
+# Addons depend on baseos and appstream. If, however, something requires
+# an addon package, the addon package will be duplicated and reported.
+#
+# Example: Let's say ruby needs kernel-rt. Don't ask me why, this is
+# just a silly example to demonstrate things. And kernel-rt is pulled
+# out to addon-rt. What happens is that addon-rt will be also duplicated
+# into appstream, and reported as it shouldn't be there.
 
-document: eln-repo-splitter
+
+
+document: eln-repo-split
 version: 1
 data:
+
+  ### Metadata (all required) ###
 
   name: Adam's opinions
   maintainer: asamalik
 
 
-  # Main categories
-
-  appstream:
-    want:
-      - pkg
-      - pkg
+  ###  Runtime packages (all optional) ###
 
   baseos:
     must:
@@ -26,8 +74,10 @@ data:
       - pkg
       - pkg
   
-
-  # Addons
+  appstream:
+    want:
+      - pkg
+      - pkg
 
   addon-ha:
     must:
@@ -54,7 +104,7 @@ data:
       - pkg
 
 
-  # Build dependencies
+  ### Build dependencies (all optional) ###
 
   buildroot-only:
     want:
