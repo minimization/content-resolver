@@ -1,0 +1,70 @@
+---
+# This configuration file defines a buildroot data in Feedback Pipeline.
+# https://tiny.distro.builders
+#
+
+document: eln-repo-splitter
+version: 1
+data:
+
+  name: Adam's opinions
+  maintainer: asamalik
+
+
+  # Main categories
+
+  appstream:
+    want:
+      - pkg
+      - pkg
+
+  baseos:
+    must:
+      - pkg
+      - pkg
+    want:
+      - pkg
+      - pkg
+  
+
+  # Addons
+
+  addon-ha:
+    must:
+      - pkg
+
+  addon-nfv:
+    must:
+      - pkg
+
+  addon-rt:
+    must:
+      - pkg
+
+  addon-rs:
+    must:
+      - pkg
+
+  addon-sap:
+    must:
+      - pkg
+
+  addon-saphana:
+    must:
+      - pkg
+
+
+  # Build dependencies
+
+  buildroot-only:
+    want:
+      - pkg
+      - pkg
+
+  crb:
+    must:
+      - pkg
+      - pkg
+    want:
+      - pkg
+      - pkg
