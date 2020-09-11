@@ -545,9 +545,10 @@ def _load_config_buildroot(document_id, document, settings):
                     arch=arch
                 ))
                 continue
-            for pkg_raw in pkgs:
-                pkg = str(pkg_raw)
-                config["base_buildroot"][arch].append(pkg)
+            if pkgs:
+                for pkg_raw in pkgs:
+                    pkg = str(pkg_raw)
+                    config["base_buildroot"][arch].append(pkg)
 
     config["source_packages"] = {}
     for arch in settings["allowed_arches"]:
