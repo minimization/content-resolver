@@ -4,6 +4,7 @@ import argparse, yaml, tempfile, os, subprocess, json, jinja2, datetime, copy, r
 import concurrent.futures
 import rpm_showme as showme
 from functools import lru_cache
+import eln_repo_split as reposplit
 
 
 # Features of this new release
@@ -104,11 +105,23 @@ def load_settings():
     settings["configs"] = args.configs
     settings["output"] = args.output
 
-    # FIXME: This is hardcorded, and it shouldn't be!
-    #settings["allowed_arches"] = ["armv7hl","aarch64","i686","ppc64le","s390x","x86_64"]
-    # FIXME Limiting arches for faster results during development
     settings["allowed_arches"] = ["armv7hl","aarch64","ppc64le","s390x","x86_64"]
-    return(settings)
+
+    settings["repos"] = {
+        "appstream": ["aarch64", "ppc64le", "s390x", "x86_64"],
+        "baseos": ["aarch64", "ppc64le", "s390x", "x86_64"],
+        "crb": ["aarch64", "ppc64le", "s390x", "x86_64"],
+        "addon-ha": ["aarch64", "ppc64le", "s390x", "x86_64"],
+        "addon-nfv": ["x86_64"],
+        "addon-rt": ["x86_64"],
+        "addon-rs": ["ppc64le", "s390x", "x86_64"],
+        "addon-sap": ["ppc64le", "s390x", "x86_64"],
+        "addon-saphana": ["ppc64le", "x86_64"]
+    }
+
+    settings["addons"] = ["addon-ha", "addon-nfv", "addon-rt", "addon-rs", "addon-sap", "addon-saphana"]
+
+    return settings
 
 
 
@@ -4221,6 +4234,20 @@ def main():
 
     generate_pages(query)
     generate_historic_data(query)
+
+    log("")
+    log("Repo split time!")
+
+    query.settings["allowed_arches"] = ["aarch64","ppc64le","s390x","x86_64"]
+    reposplit_configs = reposplit.get_configs(query.settings)
+    reposplit_data = reposplit.get_data(query)
+    reposplit_query = reposplit.Query(reposplit_data, reposplit_configs, query.settings)
+    reposplit_query.sort_out_pkgs()
+    reposplit.generate_pages(reposplit_query, include_content_resolver_breadcrumb=True)
+    reposplit.print_summary(reposplit_query)
+
+    log("Done!")
+    log("")
 
     time_ended = datetime.datetime.now().strftime("%m/%d/%Y, %H:%M:%S")
 

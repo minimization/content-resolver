@@ -1,0 +1,159 @@
+{% extends "layout.html" %}
+
+{% block content %}
+
+{% if include_content_resolver_breadcrumb %}
+<div style="background-color:#eee; padding: 30px">
+
+    <a href="./views.html">Views</a>
+    <span class="text-muted">/</span>
+    <a href="./view--view-eln.html">ELN Package Set</a>
+    <span class="text-muted">/</span>
+    <span class="text-muted">Repo Split</span>
+
+</div>
+{% endif %}
+
+
+
+{% macro menu_item(macro_repo_name) -%}
+
+{% if page_repo == macro_repo_name %}
+<a class="nav-link active" href="./repo-split--{{view_id}}--{{macro_repo_name}}.html">
+    {{macro_repo_name}}
+    <span class=" badge badge-pill badge-light float-right"
+        style="margin-top: 3px">{{query.repos[macro_repo_name] | count }}</span>
+</a>
+{% else %}
+<a class="nav-link" href="./repo-split--{{view_id}}--{{macro_repo_name}}.html">
+    {{macro_repo_name}}
+    <span class=" badge badge-pill badge-dark float-right"
+        style="margin-top: 3px">{{query.repos[macro_repo_name] | count }}</span>
+</a>
+{% endif %}
+
+{% endmacro %}
+
+
+<div class="container-fluid">
+    <h1>ELN Package Set <small class="text-muted">Repo Split</small></h1>
+    <br>
+</div>
+<div style="background:#eee; height: 2px"></div>
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-sm-4 col-md-3 col-lg-2 main-menu">
+            <br>
+            <nav class="nav nav-pills flex-column">
+                <a class="nav-link" href="./repo-split--{{view_id}}.html">Overview & Log</a>
+            </nav>
+            <br>
+            <nav class="nav nav-pills flex-column">
+                {{ menu_item("baseos") }}
+                {{ menu_item("appstream") }}
+            </nav>
+            <br>
+            <nav class="nav nav-pills flex-column">
+                {% for addon in ["addon-ha", "addon-nfv", "addon-rt", "addon-rs", "addon-sap", "addon-saphana"] %}
+                {{ menu_item(addon) }}
+                {% endfor %}
+            </nav>
+
+
+            <!--br>
+            <nav class="nav nav-pills flex-column">
+                {{ menu_item("crb") }}
+                {{ menu_item("buildroot-only") }}
+            </nav-->
+        </div>
+        <div class="col-sm-8 col-md-9 col-lg-10">
+
+
+
+            <br>
+            <a class="btn btn-light" href="./repo-split--{{view_id}}--{{page_repo}}.txt">Export (txt)</a>
+            <br>
+
+            <div id="loading">
+                <div>
+                    <br><br><br><br>
+                    <div class="text-center">
+                        <div class="spinner-border" role="status">
+                            <span class="sr-only">Loading...</span>
+                        </div>
+                    </div>
+                    <br><br><br>
+                </div>
+            </div>
+
+
+            <br>
+
+            <table id="table_packages" class="table-packages">
+                <thead>
+                    <tr class="sort_control_row">
+                        <th>Name</th>
+                        <th>Note</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for pkg_name, pkg in query.all_pkgs.items() %}
+                    {% if pkg.target_repo == page_repo or page_repo in pkg.addon_repos %}
+                    <tr class="">
+                        <td>
+                            {{pkg_name}}
+                        </td>
+                        <td>
+                            {% if pkg.target_repo and  pkg.addon_repos%}
+                            Warning: This is an addon ({{pkg.addon_repos | join(", ")}}) package that couldn't be pulled
+                            out of {{pkg.target_repo}}. <a href="./repo-split--{{view_id}}.html">See the overview for
+                                details.</a>
+                            {% else %}
+                            -
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endif %}
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+    $(document).ready(function () {
+
+        $('#table_packages').DataTable({
+            paging: false,
+            info: false,
+            initComplete: function () {
+                var input = $('.dataTables_filter input').unbind(),
+                    self = this.api(),
+                    $searchButton = $('<button>')
+                        .text('search')
+                        .click(function () {
+                            self.search(input.val()).draw();
+                        }),
+                    $clearButton = $('<button>')
+                        .text('clear')
+                        .click(function () {
+                            input.val('');
+                            $searchButton.click();
+                        });
+                $(document).keypress(function (event) {
+                    if (event.which == 13) {
+                        $searchButton.click();
+                    }
+                });
+
+                $('.dataTables_filter').append($searchButton, $clearButton);
+            }
+        });
+
+        var loadingDiv = document.getElementById("loading");
+        loadingDiv.parentNode.removeChild(loadingDiv);
+    });
+</script>
+
+{% endblock %}
