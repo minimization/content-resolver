@@ -347,6 +347,12 @@ def _load_config_workload(document_id, document, settings):
     if "modules_enable" in document["data"]:
         for module in document["data"]["modules_enable"]:
             config["modules_enable"].append(module)
+    
+    # Comps groups
+    config["groups"] = []
+    if "groups" in document["data"]:
+        for module in document["data"]["groups"]:
+            config["groups"].append(module)
 
     # Package placeholders
     # Add packages to the workload that don't exist (yet) in the repositories.
@@ -1263,6 +1269,25 @@ def _analyze_workload(tmp, workload_conf, env_conf, repo, arch):
             except dnf.exceptions.MarkingError:
                 workload["errors"]["non_existing_pkgs"].append(pkg)
                 continue
+        
+        # Groups
+        log("  Adding groups...")
+        if workload_conf["groups"]:
+            base.read_comps(arch_filter=True)
+        for grp_spec in workload_conf["groups"]:
+            group = base.comps.group_by_pattern(grp_spec)
+            if not group:
+                workload["errors"]["non_existing_pkgs"].append(grp_spec)
+                continue
+            base.group_install(group.id, ['mandatory', 'default'])
+        
+        
+            # TODO: Mark group packages as required... the following code doesn't work
+            #for pkg in group.packages_iter():
+            #    print(pkg.name)
+            #    workload_conf["packages"].append(pkg.name)
+               
+                
         
         # Filter out the relevant package placeholders for this arch
         package_placeholders = {}

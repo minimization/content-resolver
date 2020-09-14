@@ -89,6 +89,10 @@ data:
   modules_enable:
   - module:stream
 
+  # Analyze a group
+  groups:
+  - core
+
   # Add packages to the workload that don't exist (yet) in the repositories.
   package_placeholders:
     package-name:
