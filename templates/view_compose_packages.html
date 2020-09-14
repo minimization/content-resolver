@@ -219,7 +219,8 @@
                 </td>
                 <td>{{pkg.evr}}</td>
                 <td>{{pkg.arch}}</td>
-                <td> <a href="view-srpm--{{view_conf.id}}--{{pkg.source_name}}.html">{{pkg.source_name}}</a></td>
+                <!--td> <a href="view-srpm--{{view_conf.id}}--{{pkg.source_name}}.html">{{pkg.source_name}}</a></td-->
+                <td> {{pkg.source_name}}</td>
                 <td> {{ pkg.summary }}</td>
                 <td data-order="{{pkg.installsize}}">{{ query.size(pkg.installsize) }}</td>
             </tr>
