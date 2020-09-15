@@ -100,10 +100,12 @@ def load_settings():
     parser = argparse.ArgumentParser()
     parser.add_argument("configs", help="Directory with YAML configuration files. Only files ending with '.yaml' are accepted.")
     parser.add_argument("output", help="Directory to contain the output.")
+    parser.add_argument("--use-cache", dest="use_cache", action='store_true', help="Use local data instead of pulling Content Resolver. Saves a lot of time! Needs a 'cache_data.json' file at the same location as the script is at.")
     args = parser.parse_args()
 
     settings["configs"] = args.configs
     settings["output"] = args.output
+    settings["use_cache"] = args.use_cache
 
     settings["allowed_arches"] = ["armv7hl","aarch64","ppc64le","s390x","x86_64"]
 
@@ -4227,35 +4229,27 @@ def generate_historic_data(query):
 ### Main ######################################################################
 ###############################################################################
 
-def run_create_cache():
-    settings = load_settings()
-    configs = get_configs(settings)
-    data = analyze_things(configs, settings)
-
-    dump_data("cache_settings.json", settings)
-    dump_data("cache_configs.json", configs)
-    dump_data("cache_data.json", data)
-
-    query = Query(data, configs, settings)
-
-    return query
-
-def run_from_cache():
-    settings = load_data("cache_settings.json")
-    configs = load_data("cache_configs.json")
-    data = load_data("cache_data.json")
-
-    query = Query(data, configs, settings)
-
-    return query
-
-
 def main():
 
     time_started = datetime.datetime.now().strftime("%m/%d/%Y, %H:%M:%S")
 
-    query = run_create_cache()
-    #query = run_from_cache()
+
+    settings = load_settings()
+
+    if settings["use_cache"]:
+        configs = load_data("cache_configs.json")
+        data = load_data("cache_data.json")
+    else:
+        configs = get_configs(settings)
+        data = analyze_things(configs, settings)
+
+        dump_data("cache_settings.json", settings)
+        dump_data("cache_configs.json", configs)
+        dump_data("cache_data.json", data)
+
+    query = Query(data, configs, settings)
+
+
 
     generate_pages(query)
     generate_historic_data(query)
