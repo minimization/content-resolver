@@ -73,6 +73,7 @@ def pkg_placeholder_name_to_id(placeholder_name):
 def id_to_url_slug(any_id):
     return any_id.replace(":", "--")
 
+
 def load_settings():
     settings = {}
 
@@ -103,7 +104,7 @@ def load_settings():
     }
 
     settings["addons"] = ["addon-ha", "addon-nfv", "addon-rt", "addon-rs", "addon-sap", "addon-saphana"]
-    return(settings)
+    return settings
 
 
 
@@ -246,7 +247,7 @@ def get_data(content_resolver_query):
     all_workload_ids = set()
 
     arches = content_resolver_query.settings["allowed_arches"]
-
+    
     for arch in arches:
         data["pkgs"][arch] = content_resolver_query.pkgs_in_view(view_conf_id, arch)
 
@@ -457,9 +458,7 @@ class Query():
                     self.all_pkgs[pkg_name]["required_by"].update(pkg_required_by)
 
                     # 2/ record for all the other ones that they require this package
-                    for other_pkg_id in pkg_required_by:
-                        other_pkg_name = pkg_id_to_name(other_pkg_id)
-
+                    for other_pkg_name in pkg_required_by:
                         if other_pkg_name not in self.all_pkgs:
                             self._init_new_pkg(other_pkg_name)
                         
