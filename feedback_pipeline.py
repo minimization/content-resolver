@@ -101,11 +101,13 @@ def load_settings():
     parser.add_argument("configs", help="Directory with YAML configuration files. Only files ending with '.yaml' are accepted.")
     parser.add_argument("output", help="Directory to contain the output.")
     parser.add_argument("--use-cache", dest="use_cache", action='store_true', help="Use local data instead of pulling Content Resolver. Saves a lot of time! Needs a 'cache_data.json' file at the same location as the script is at.")
+    parser.add_argument("--dnf-cache-dir", dest="dnf_cache_dir_override", help="Override the dnf cache_dir.")
     args = parser.parse_args()
 
     settings["configs"] = args.configs
     settings["output"] = args.output
     settings["use_cache"] = args.use_cache
+    settings["dnf_cache_dir_override"] = args.dnf_cache_dir_override
 
     settings["allowed_arches"] = ["armv7hl","aarch64","ppc64le","s390x","x86_64"]
 
@@ -738,7 +740,37 @@ def get_configs(settings):
 #
 #
 
-def _analyze_pkgs(tmp, repo, arch):
+global_dnf_repo_cache = {}
+def _load_repo_cached(base, repo, arch):
+    repo_id = repo["id"]
+
+    exists = True
+    
+    if repo_id not in global_dnf_repo_cache:
+        exists = False
+        global_dnf_repo_cache[repo_id] = {}
+
+    elif arch not in global_dnf_repo_cache[repo_id]:
+        exists = False
+    
+    if exists:
+        log("  Loading repos from cache...")
+
+        for repo in global_dnf_repo_cache[repo_id][arch]:
+            base.repos.add(repo)
+
+    else:
+        log("  Loading repos using DNF...")
+        base.read_all_repos()
+
+        global_dnf_repo_cache[repo_id][arch] = []
+        for repo in base.repos.iter_enabled():
+            global_dnf_repo_cache[repo_id][arch].append(repo)
+    
+    
+
+
+def _analyze_pkgs(tmp_dnf_cachedir, tmp_installroots, repo, arch):
     log("Analyzing pkgs for {repo_name} ({repo_id}) {arch}".format(
             repo_name=repo["name"],
             repo_id=repo["id"],
@@ -752,14 +784,14 @@ def _analyze_pkgs(tmp, repo, arch):
             repo=repo["id"],
             arch=arch
         )
-        base.conf.cachedir = os.path.join(tmp, cachedir_name)
+        base.conf.cachedir = os.path.join(tmp_dnf_cachedir, cachedir_name)
 
         # Generic installroot
         root_name = "dnf_generic_installroot-{repo}-{arch}".format(
             repo=repo["id"],
             arch=arch
         )
-        base.conf.installroot = os.path.join(tmp, root_name)
+        base.conf.installroot = os.path.join(tmp_installroots, root_name)
 
         # Architecture
         base.conf.arch = arch
@@ -778,6 +810,10 @@ def _analyze_pkgs(tmp, repo, arch):
         # Load repos
         log("  Loading repos...")
         base.read_all_repos()
+        # I can't use the cache here, because the next step would
+        # set all modular repositories as hotfix for all other analyses
+        # which would be very wrong.  
+        #_load_repo_cached(base, repo, arch)
 
         # At this stage, I need to get all packages from the repo listed.
         # That also includes modular packages. Modular packages in non-enabled
@@ -843,7 +879,7 @@ def _analyze_pkgs(tmp, repo, arch):
     return pkgs
 
 
-def _analyze_env(tmp, env_conf, repo, arch):
+def _analyze_env(tmp_dnf_cachedir, tmp_installroots, env_conf, repo, arch):
     env = {}
     
     env["env_conf_id"] = env_conf["id"]
@@ -863,7 +899,7 @@ def _analyze_env(tmp, env_conf, repo, arch):
             repo=repo["id"],
             arch=arch
         )
-        base.conf.cachedir = os.path.join(tmp, cachedir_name)
+        base.conf.cachedir = os.path.join(tmp_dnf_cachedir, cachedir_name)
 
         # Environment installroot
         root_name = "dnf_env_installroot-{env_conf}-{repo}-{arch}".format(
@@ -871,7 +907,7 @@ def _analyze_env(tmp, env_conf, repo, arch):
             repo=repo["id"],
             arch=arch
         )
-        base.conf.installroot = os.path.join(tmp, root_name)
+        base.conf.installroot = os.path.join(tmp_installroots, root_name)
 
         # Architecture
         base.conf.arch = arch
@@ -897,8 +933,10 @@ def _analyze_env(tmp, env_conf, repo, arch):
             base.conf.tsflags.append('nodocs')
 
         # Load repos
-        log("  Loading repos...")
-        base.read_all_repos()
+        #log("  Loading repos...")
+        #base.read_all_repos()
+        _load_repo_cached(base, repo, arch)
+
         # This sometimes fails, so let's try at least N times
         # before totally giving up!
         MAX_TRIES = 10
@@ -993,7 +1031,7 @@ def _analyze_env(tmp, env_conf, repo, arch):
     return env
 
 
-def _analyze_envs(tmp, configs):
+def _analyze_envs(tmp_dnf_cachedir, tmp_installroots, configs):
     envs = {}
 
     # Look at all env configs...
@@ -1021,7 +1059,7 @@ def _analyze_envs(tmp, configs):
                     repo_id=repo_id,
                     arch=arch
                 )
-                envs[env_id] = _analyze_env(tmp, env_conf, repo, arch)
+                envs[env_id] = _analyze_env(tmp_dnf_cachedir, tmp_installroots, env_conf, repo, arch)
                 
     
     return envs
@@ -1117,7 +1155,7 @@ def _return_failed_workload_env_err(workload_conf, env_conf, repo, arch):
     return workload
 
 
-def _analyze_workload(tmp, workload_conf, env_conf, repo, arch):
+def _analyze_workload(tmp_dnf_cachedir, tmp_installroots, workload_conf, env_conf, repo, arch):
     workload = {}
 
     workload["workload_conf_id"] = workload_conf["id"]
@@ -1147,7 +1185,7 @@ def _analyze_workload(tmp, workload_conf, env_conf, repo, arch):
             repo=repo["id"],
             arch=arch
         )
-        base.conf.cachedir = os.path.join(tmp, cachedir_name)
+        base.conf.cachedir = os.path.join(tmp_dnf_cachedir, cachedir_name)
 
         # Environment installroot
         # Since we're not writing anything into the installroot,
@@ -1157,7 +1195,7 @@ def _analyze_workload(tmp, workload_conf, env_conf, repo, arch):
             repo=repo["id"],
             arch=arch
         )
-        base.conf.installroot = os.path.join(tmp, root_name)
+        base.conf.installroot = os.path.join(tmp_installroots, root_name)
 
         # Architecture
         base.conf.arch = arch
@@ -1180,8 +1218,9 @@ def _analyze_workload(tmp, workload_conf, env_conf, repo, arch):
             base.conf.tsflags.append('nodocs')
 
         # Load repos
-        log("  Loading repos...")
-        base.read_all_repos()
+        #log("  Loading repos...")
+        #base.read_all_repos()
+        _load_repo_cached(base, repo, arch)
 
         # Now I need to load the local RPMDB.
         # However, if the environment is empty, it wasn't created, so I need to treat
@@ -1398,7 +1437,7 @@ def _analyze_workload(tmp, workload_conf, env_conf, repo, arch):
     return workload
 
 
-def _analyze_workloads(tmp, configs, data):
+def _analyze_workloads(tmp_dnf_cachedir, tmp_installroots, configs, data):
     workloads = {}
 
     # Here, I need to mix and match workloads & envs based on labels
@@ -1487,9 +1526,9 @@ def _analyze_workloads(tmp, configs, data):
                         # So, this workaround runs it in a subprocess that should have its resources
                         # freed when done!
                         with concurrent.futures.ProcessPoolExecutor(max_workers=1) as executor:
-                            workloads[workload_id] = executor.submit(_analyze_workload,tmp, workload_conf, env_conf, repo, arch).result()
+                            workloads[workload_id] = executor.submit(_analyze_workload, tmp_dnf_cachedir, tmp_installroots, workload_conf, env_conf, repo, arch).result()
 
-                        #workloads[workload_id] = _analyze_workload(tmp, workload_conf, env_conf, repo, arch)
+                        #workloads[workload_id] = _analyze_workload(tmp_dnf_cachedir, tmp_installroots, workload_conf, env_conf, repo, arch)
                     
                     else:
                         workloads[workload_id] = _return_failed_workload_env_err(workload_conf, env_conf, repo, arch)
@@ -1515,8 +1554,11 @@ def analyze_things(configs, settings):
 
     with tempfile.TemporaryDirectory() as tmp:
 
-        # FIXME temporary override
-        #tmp = "/tmp/fixed-tmp"
+        if settings["dnf_cache_dir_override"]:
+            tmp_dnf_cachedir = settings["dnf_cache_dir_override"]
+        else:
+            tmp_dnf_cachedir = os.path.join(tmp, "dnf_cachedir")
+        tmp_installroots = os.path.join(tmp, "installroots")
 
         # List of supported arches
         all_arches = settings["allowed_arches"]
@@ -1529,19 +1571,19 @@ def analyze_things(configs, settings):
             repo_id = repo["id"]
             data["pkgs"][repo_id] = {}
             for arch in repo["source"]["architectures"]:
-                data["pkgs"][repo_id][arch] = _analyze_pkgs(tmp, repo, arch)
+                data["pkgs"][repo_id][arch] = _analyze_pkgs(tmp_dnf_cachedir, tmp_installroots, repo, arch)
 
         # Environments
         log("")
         log("=====  Analyzing Environments =====")
         log("")
-        data["envs"] = _analyze_envs(tmp, configs)
+        data["envs"] = _analyze_envs(tmp_dnf_cachedir, tmp_installroots, configs)
 
         # Workloads
         log("")
         log("=====  Analyzing Workloads =====")
         log("")
-        data["workloads"] = _analyze_workloads(tmp, configs, data)
+        data["workloads"] = _analyze_workloads(tmp_dnf_cachedir, tmp_installroots, configs, data)
 
 
     return data
