@@ -761,6 +761,15 @@ def _load_repo_cached(base, repo, arch):
 
     else:
         log("  Loading repos using DNF...")
+
+        # Additional repository (if configured)
+        if repo["source"]["additional_repository"]:
+            additional_repo = dnf.repo.Repo(name="additional-repository",parent_conf=base.conf)
+            additional_repo.baseurl = [repo["source"]["additional_repository"]]
+            additional_repo.priority = 1
+            base.repos.add(additional_repo)
+
+        # All other system repos
         base.read_all_repos()
 
         global_dnf_repo_cache[repo_id][arch] = []
@@ -797,7 +806,7 @@ def _analyze_pkgs(tmp_dnf_cachedir, tmp_installroots, repo, arch):
         base.conf.arch = arch
         base.conf.ignorearch = True
 
-        # Repository
+        # Releasever
         base.conf.substitutions['releasever'] = repo["source"]["fedora_release"]
 
         # Additional repository (if configured)
@@ -810,10 +819,7 @@ def _analyze_pkgs(tmp_dnf_cachedir, tmp_installroots, repo, arch):
         # Load repos
         log("  Loading repos...")
         base.read_all_repos()
-        # I can't use the cache here, because the next step would
-        # set all modular repositories as hotfix for all other analyses
-        # which would be very wrong.  
-        #_load_repo_cached(base, repo, arch)
+
 
         # At this stage, I need to get all packages from the repo listed.
         # That also includes modular packages. Modular packages in non-enabled
@@ -913,15 +919,8 @@ def _analyze_env(tmp_dnf_cachedir, tmp_installroots, env_conf, repo, arch):
         base.conf.arch = arch
         base.conf.ignorearch = True
 
-        # Repository
+        # Releasever
         base.conf.substitutions['releasever'] = repo["source"]["fedora_release"]
-
-        # Additional repository (if configured)
-        if repo["source"]["additional_repository"]:
-            additional_repo = dnf.repo.Repo(name="additional-repository",parent_conf=base.conf)
-            additional_repo.baseurl = [repo["source"]["additional_repository"]]
-            additional_repo.priority = 1
-            base.repos.add(additional_repo)
 
         # Additional DNF Settings
         base.conf.tsflags.append('justdb')
@@ -1201,15 +1200,8 @@ def _analyze_workload(tmp_dnf_cachedir, tmp_installroots, workload_conf, env_con
         base.conf.arch = arch
         base.conf.ignorearch = True
 
-        # Repository
+        # Releasever
         base.conf.substitutions['releasever'] = repo["source"]["fedora_release"]
-
-        # Additional repository (if configured)
-        if repo["source"]["additional_repository"]:
-            additional_repo = dnf.repo.Repo(name="additional-repository",parent_conf=base.conf)
-            additional_repo.baseurl = [repo["source"]["additional_repository"]]
-            additional_repo.priority = 1
-            base.repos.add(additional_repo)
 
         # Environment config
         if "include-weak-deps" not in workload_conf["options"]:
