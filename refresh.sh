@@ -2,6 +2,8 @@
 
 # This script runs the feedback_pipeline.py with the right configs and pushes out the results
 
+
+
 WORK_DIR=$(mktemp -d -t feedback-pipeline-XXXXXXXXXX)
 
 if [[ ! "$WORK_DIR" || ! -d "$WORK_DIR" ]]; then
@@ -30,8 +32,13 @@ mkdir -p $WORK_DIR/feedback-pipeline/out/history || exit 1
 aws s3 sync s3://tiny.distro.builders/history $WORK_DIR/feedback-pipeline/out/history --exclude "*" --include="historic_data*" || exit 1
 
 # Build the site
+build_started=$(date +"%Y-%m-%d-%H%M")
+echo ""
+echo "Building..."
+echo "$build_started"
+echo "(Logging into ~/logs/$build_started.log)"
 CMD="./feedback_pipeline.py feedback-pipeline-config/configs out" || exit 1
-podman run --rm -it -v $WORK_DIR/feedback-pipeline:/workspace:z asamalik/feedback-pipeline-env $CMD || exit 1
+podman run --rm -it -v $WORK_DIR/feedback-pipeline:/workspace:z asamalik/feedback-pipeline-env $CMD > ~/logs/$build_started.log || exit 1
 
 # Publish the site
 aws s3 sync $WORK_DIR/feedback-pipeline/out s3://tiny.distro.builders || exit 1
