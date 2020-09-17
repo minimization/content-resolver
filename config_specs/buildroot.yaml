@@ -24,6 +24,12 @@ data:
     x86_64:
       - binary-pkg1
       - binary-pkg2
+  
+  # Additional packages requested for any reaason.
+  additional_packages:
+    x86_64:
+      - binary-pkg1
+      - binary-pkg2
 
   # Buildroot data
   source_packages:
