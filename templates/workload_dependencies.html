@@ -3,23 +3,23 @@
 {% block content %}
 
 
+
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="./workloads.html">Workloads</a></li>
+        <li class="breadcrumb-item">
+            <a
+            href="{{'./workload-overview--{workload_conf_id}--{repo_id}.html'.format(workload_conf_id=workload_conf.id, repo_id=repo.id)}}">
+            {{workload_conf.name}}
+        </a>
+    </li>
+    <li class="breadcrumb-item active" aria-current="page">
+        {{workload_conf.name}} in {{env_conf.name}} from {{repo.name}} {{workload.arch}}
+    </li>
+</ol>
+</nav>
+
 <div class="container-fluid">
-
-    <nav aria-label="breadcrumb">
-        <ol class="breadcrumb">
-            <li class="breadcrumb-item"><a href="./workloads.html">Workloads</a></li>
-            <li class="breadcrumb-item">
-                <a
-                    href="{{'./workload-overview--{workload_conf_id}--{repo_id}.html'.format(workload_conf_id=workload_conf.id, repo_id=repo.id)}}">
-                    {{workload_conf.name}}
-                </a>
-            </li>
-            <li class="breadcrumb-item active" aria-current="page">
-                {{workload_conf.name}} in {{env_conf.name}} from {{repo.name}} {{workload.arch}}
-            </li>
-        </ol>
-    </nav>
-
 
     <h1>
         {{workload_conf.name}} <small class="text-muted"> workload</small>

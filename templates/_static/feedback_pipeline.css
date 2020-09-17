@@ -64,8 +64,10 @@ h1 {
 
 /* Navigation */
 
-ol.breadcrumb {
-  margin-top: 20px;
+.breadcrumb {
+  border-radius: 0;
+  padding: .5rem 2rem;
+  border-bottom: 1px solid #212529;
 }
 
 h3.nav-header {
@@ -77,11 +79,32 @@ div.main-menu {
   background-color: #eee;
   padding-top: 30px;
   padding-bottom: 60px;
+  border-right: 1px solid #212529;
+}
+
+.navbar-dark {
+  background-color: #212529!important;
 }
 
 
 
 /*  General table */
+
+.dataTables_wrapper {
+  margin-bottom: 2rem;
+}
+
+.dataTables_filter {
+  border-bottom: 1px solid #ccc;
+}
+
+tr.sort_control_row:first-child th {
+  border-top: 0!important;
+  
+}
+tr.sort_control_row th {
+  border-bottom: 1px solid #ccc!important;
+}
 
 table.dataTable thead td,
 table.dataTable thead th {
@@ -196,6 +219,10 @@ table.table-packages tbody th {
 .dataTables_filter {
   padding: 12px 12px 0;
   background-color: #e9ecef;
+}
+
+#table_packages_filter {
+  border-bottom: 0;
 }
 
 #table_packages_filter input,

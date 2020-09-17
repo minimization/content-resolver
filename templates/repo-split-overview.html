@@ -3,15 +3,15 @@
 {% block content %}
 
 {% if include_content_resolver_breadcrumb %}
-<div style="background-color:#eee; padding: 30px">
-
-    <a href="./views.html">Views</a>
-    <span class="text-muted">/</span>
-    <a href="./view--view-eln.html">ELN Package Set</a>
-    <span class="text-muted">/</span>
-    <span class="text-muted">Repo Split</span>
-
-</div>
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="./views.html">Views</a></li>
+        <li class="breadcrumb-item"><a href="./view--view-eln.html">ELN Package Set</a></li>
+        <li class="breadcrumb-item active" aria-current="page">
+            Repo Split
+        </li>
+    </ol>
+</nav>
 {% endif %}
 
 {% macro menu_item(macro_repo_name) -%}
@@ -35,38 +35,41 @@
 <div class="container-fluid">
     <h1>ELN Package Set <small class="text-muted">Repo Split</small></h1>
     <br>
-</div>
-<div style="background:#eee; height: 2px"></div>
-<div class="container-fluid">
+
     <div class="row">
-        <div class="col-sm-4 col-md-3 col-lg-2 main-menu">
-            <br>
-            <nav class="nav nav-pills flex-column">
-                <a class="nav-link active" href="./repo-split--{{view_id}}.html">Overview & Log</a>
-            </nav>
-            <br>
-            <nav class="nav nav-pills flex-column">
-                {{ menu_item("baseos") }}
-                {{ menu_item("appstream") }}
-            </nav>
-            <br>
-            <nav class="nav nav-pills flex-column">
-                {% for addon in ["addon-ha", "addon-nfv", "addon-rt", "addon-rs", "addon-sap", "addon-saphana"] %}
-                {{ menu_item(addon) }}
-                {% endfor %}
-            </nav>
+        <div class="col-sm-4 col-md-3 col-lg-2 ">
+            <div class="card">
+                <div class="card-body">
 
 
-            <!--br>
+                    <nav class="nav nav-pills flex-column">
+                        <a class="nav-link active" href="./repo-split--{{view_id}}.html">Overview & Log</a>
+                    </nav>
+                    <br>
+                    <nav class="nav nav-pills flex-column">
+                        {{ menu_item("baseos") }}
+                        {{ menu_item("appstream") }}
+                    </nav>
+                    <br>
+                    <nav class="nav nav-pills flex-column">
+                        {% for addon in ["addon-ha", "addon-nfv", "addon-rt", "addon-rs", "addon-sap", "addon-saphana"] %}
+                        {{ menu_item(addon) }}
+                        {% endfor %}
+                    </nav>
+
+
+                    <!--br>
             <nav class="nav nav-pills flex-column">
                 {{ menu_item("crb") }}
                 {{ menu_item("buildroot-only") }}
             </nav-->
+                </div>
+            </div>
+            <br>
         </div>
         <div class="col-sm-8 col-md-9 col-lg-10">
 
 
-            <br>
             <div class="card">
                 <h5 class="card-header">Error Log</h5>
                 <div class="card-body">
@@ -75,7 +78,7 @@
                     </pre>
                 </div>
             </div>
-           
+
 
         </div>
     </div>

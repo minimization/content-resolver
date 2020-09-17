@@ -3,17 +3,18 @@
 {% block content %}
 
 
+
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="./maintainers.html">Maintainers</a></li>
+        <li class="breadcrumb-item active" aria-current="page">
+            {{maintainer}}
+        </li>
+    </ol>
+</nav>
+
 <div class="container">
-
-    <nav aria-label="breadcrumb">
-        <ol class="breadcrumb">
-            <li class="breadcrumb-item"><a href="./maintainers.html">Maintainers</a></li>
-            <li class="breadcrumb-item active" aria-current="page">
-                {{maintainer}}
-            </li>
-        </ol>
-    </nav>
-
+    
     <h1>
         {{maintainer}} <small class="text-muted">'s status page</small>
 

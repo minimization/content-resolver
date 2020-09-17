@@ -3,23 +3,23 @@
 {% block content %}
 
 
+
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="./envs.html">Environments</a></li>
+        <li class="breadcrumb-item">
+            <a
+            href="{{'./env-overview--{env_conf_id}--{repo_id}.html'.format(env_conf_id=env_conf.id, repo_id=repo_id)}}">
+            {{env_conf.name}}
+        </a>
+    </li>
+    <li class="breadcrumb-item active" aria-current="page">
+        {{env_conf.name}} in {{env_conf.name}} from {{repo.name}}
+    </li>
+</ol>
+</nav>
+
 <div class="container-fluid">
-
-    <nav aria-label="breadcrumb">
-        <ol class="breadcrumb">
-            <li class="breadcrumb-item"><a href="./envs.html">Environments</a></li>
-            <li class="breadcrumb-item">
-                <a
-                    href="{{'./env-overview--{env_conf_id}--{repo_id}.html'.format(env_conf_id=env_conf.id, repo_id=repo_id)}}">
-                    {{env_conf.name}}
-                </a>
-            </li>
-            <li class="breadcrumb-item active" aria-current="page">
-                {{env_conf.name}} in {{env_conf.name}} from {{repo.name}}
-            </li>
-        </ol>
-    </nav>
-
 
     <h1>
         {{env_conf.name}} <small class="text-muted"> Environment</small>

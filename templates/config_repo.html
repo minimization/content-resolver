@@ -2,15 +2,15 @@
 
 {% block content %}
 
+
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="./configs_repos.html">Repository configs</a></li>
+        <li class="breadcrumb-item active" aria-current="page">{{repo_conf.name}}</li>
+    </ol>
+</nav>
+
 <div class="container">
-
-    <nav aria-label="breadcrumb">
-        <ol class="breadcrumb">
-            <li class="breadcrumb-item"><a href="./configs_repos.html">Repository configs</a></li>
-            <li class="breadcrumb-item active" aria-current="page">{{repo_conf.name}}</li>
-        </ol>
-    </nav>
-
     <h1>
         {{repo_conf.name}}
         <small class="text-muted">repository configuration</small>

@@ -3,15 +3,16 @@
 {% block content %}
 
 
-<div class="container-fluid">
 
-    <nav aria-label="breadcrumb">
-        <ol class="breadcrumb">
-            <li class="breadcrumb-item"><a href="./views.html">Views</a></li>
-            <li class="breadcrumb-item"><a href="./view--{{view_conf.id}}.html">{{view_conf.name}}</a></li>
-            <li class="breadcrumb-item active" aria-current="page">{{arch}}</li>
-        </ol>
-    </nav>
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="./views.html">Views</a></li>
+        <li class="breadcrumb-item"><a href="./view--{{view_conf.id}}.html">{{view_conf.name}}</a></li>
+        <li class="breadcrumb-item active" aria-current="page">{{arch}}</li>
+    </ol>
+</nav>
+
+<div class="container-fluid">
 
     <h1>
         {{view_conf.name}}
@@ -104,7 +105,8 @@
     {% endif %}
 
     <div class="alert alert-info" role="alert">
-        <strong>Data supplied by an external service.</strong> Please note this list might lag up to several hours behind other lists.
+        <strong>Data supplied by an external service.</strong> Please note this list might lag up to several hours
+        behind other lists.
     </div>
 
 
@@ -167,7 +169,9 @@
                 <td>{{pkg_name}}</td>
                 <td>
                     {% if pkg_data.required_by %}
-                    Required to build {{ pkg_data.required_by | count }} SRPM(s). <span class="text-muted">(More info coming soon.)</span>
+                    Required to build {{ pkg_data.required_by | count }} SRPM(s). <span class="text-muted">(More info
+                        coming
+                        soon.)</span>
                     {% endif %}
 
                     {% if pkg_data.base_buildroot %}
@@ -181,10 +185,13 @@
     </table>
     {% else %}
     Buildroot not available.
+    <br>
+    <br>
     {% endif %}
 
 
 
+</div>
 
 
 <script>

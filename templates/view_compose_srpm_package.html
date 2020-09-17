@@ -3,16 +3,17 @@
 {% block content %}
 
 
+
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="./views.html">Views</a></li>
+        <li class="breadcrumb-item"><a href="./view--{{view_conf.id}}.html">{{view_conf.name}}</a></li>
+        <li class="breadcrumb-item active" aria-current="page">{{srpm_name}}</li>
+    </ol>
+</nav>
+
 <div class="container-fluid">
-
-    <nav aria-label="breadcrumb">
-        <ol class="breadcrumb">
-            <li class="breadcrumb-item"><a href="./views.html">Views</a></li>
-            <li class="breadcrumb-item"><a href="./view--{{view_conf.id}}.html">{{view_conf.name}}</a></li>
-            <li class="breadcrumb-item active" aria-current="page">{{srpm_name}}</li>
-        </ol>
-    </nav>
-
+    
     <br>
 
     <div class="alert alert-info" role="alert">

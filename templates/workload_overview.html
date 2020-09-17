@@ -2,15 +2,17 @@
 
 {% block content %}
 
-<div class="container-fluid">
 
-    <nav aria-label="breadcrumb">
-        <ol class="breadcrumb">
-            <li class="breadcrumb-item"><a href="./workloads.html">Workloads</a></li>
-            <li class="breadcrumb-item active" aria-current="page">{{query.configs.workloads[workload_conf_id].name}}
-            </li>
-        </ol>
-    </nav>
+
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="./workloads.html">Workloads</a></li>
+        <li class="breadcrumb-item active" aria-current="page">{{query.configs.workloads[workload_conf_id].name}}
+        </li>
+    </ol>
+</nav>
+
+<div class="container-fluid">
 
     <h1>
         {{query.configs.workloads[workload_conf_id].name}} <small class="text-muted">workload</small>

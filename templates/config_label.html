@@ -2,16 +2,16 @@
 
 {% block content %}
 
+
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="./">Home</a></li>
+        <li class="breadcrumb-item"><a href="./configs_repos.html">Configuration Files</a></li>
+        <li class="breadcrumb-item active" aria-current="page">Repository: {{label_conf.name}}</li>
+    </ol>
+</nav>
+
 <div class="container">
-
-    <nav aria-label="breadcrumb">
-        <ol class="breadcrumb">
-            <li class="breadcrumb-item"><a href="./">Home</a></li>
-            <li class="breadcrumb-item"><a href="./configs_repos.html">Configuration Files</a></li>
-            <li class="breadcrumb-item active" aria-current="page">Repository: {{label_conf.name}}</li>
-        </ol>
-    </nav>
-
     <h1>
         {{label_conf.name}}
         <small class="text-muted">label configuration</small>

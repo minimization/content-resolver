@@ -2,15 +2,15 @@
 
 {% block content %}
 
+
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="./configs_unwanteds.html">Exclusion list configs</a></li>
+        <li class="breadcrumb-item active" aria-current="page">{{unwanted_conf.name}}</li>
+    </ol>
+</nav>
+
 <div class="container">
-
-    <nav aria-label="breadcrumb">
-        <ol class="breadcrumb">
-            <li class="breadcrumb-item"><a href="./configs_unwanteds.html">Exclusion list configs</a></li>
-            <li class="breadcrumb-item active" aria-current="page">{{unwanted_conf.name}}</li>
-        </ol>
-    </nav>
-
     <h1>
         {{unwanted_conf.name}}
         <small class="text-muted">exclusion list</small>
