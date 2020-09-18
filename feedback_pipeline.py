@@ -94,6 +94,9 @@ def pkg_placeholder_name_to_id(placeholder_name):
     placeholder_id = "{name}-000-placeholder.placeholder".format(name=placeholder_name)
     return placeholder_id
 
+def datetime_now_string():
+    return datetime.datetime.now().strftime("%m/%d/%Y, %H:%M:%S")
+
 def load_settings():
     settings = {}
 
@@ -4265,7 +4268,8 @@ def generate_historic_data(query):
 
 def main():
 
-    time_started = datetime.datetime.now().strftime("%m/%d/%Y, %H:%M:%S")
+    # measuring time of execution
+    time_started = datetime_now_string()
 
 
     settings = load_settings()
@@ -4283,7 +4287,8 @@ def main():
 
     query = Query(data, configs, settings)
 
-
+    # measuring time of execution
+    time_analysis_time = datetime_now_string()
 
     generate_pages(query)
     generate_historic_data(query)
@@ -4302,15 +4307,17 @@ def main():
     log("Done!")
     log("")
 
-    time_ended = datetime.datetime.now().strftime("%m/%d/%Y, %H:%M:%S")
+    # measuring time of execution
+    time_ended = datetime_now_string()
 
     log("")
     log("=============================")
     log("Feedback Pipeline build done!")
     log("=============================")
     log("")
-    log("  Started:  {}".format(time_started))
-    log("  Finished: {}".format(time_ended))
+    log("  Started:       {}".format(time_started))
+    log("  Analysis done: {}".format(time_analysis_time))
+    log("  Finished:      {}".format(time_ended))
     log("")
 
 
