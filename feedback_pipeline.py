@@ -3173,7 +3173,114 @@ def _generate_view_pages(query):
                         maintainer=maintainer
                     )
                     _generate_html_page("view_compose_workloads", template_data, page_name, query.settings)
-#            
+            
+            # third, generate one page per RPM name
+
+            pkg_names = set()
+            
+            all_arches = query.arches_in_view(view_conf_id)
+
+            for arch in all_arches:
+                pkg_names.update(query.pkgs_in_view(view_conf_id, arch, output_change="binary_names"))
+
+            for pkg_name in pkg_names:
+
+                pkg_ids = {}
+                workload_conf_ids_required = {}
+                workload_conf_ids_dependency = {}
+
+                #pkgs_required_by["this_pkg_id"]["required_by_name"] = set() of required_by_ids
+                pkgs_required_by = {}
+
+                exclusion_list_ids = {}
+                unwanted_in_view = False
+
+
+                for arch in all_arches:
+
+                    for pkg in query.pkgs_in_view(view_conf_id, arch):
+                        pkg_nevra = "{name}-{evr}.{arch}".format(
+                            name=pkg["name"],
+                            evr=pkg["evr"],
+                            arch=pkg["arch"]
+                        )
+                        if pkg["name"] == pkg_name:
+
+                            if pkg_nevra not in pkg_ids:
+                                pkg_ids[pkg_nevra] = set()
+                            pkg_ids[pkg_nevra].add(arch)
+                        
+                            for workload_id in pkg["q_required_in"]:
+                                workload = query.data["workloads"][workload_id]
+                                workload_conf_id = workload["workload_conf_id"]
+
+                                if workload_conf_id not in workload_conf_ids_required: 
+                                    workload_conf_ids_required[workload_conf_id] = set()
+                                
+                                workload_conf_ids_required[workload_conf_id].add(arch)
+                            
+                            for workload_id in pkg["q_dep_in"]:
+                                workload = query.data["workloads"][workload_id]
+                                workload_conf_id = workload["workload_conf_id"]
+
+                                if workload_conf_id not in workload_conf_ids_dependency: 
+                                    workload_conf_ids_dependency[workload_conf_id] = set()
+                                
+                                workload_conf_ids_dependency[workload_conf_id].add(arch)
+
+                    for pkg_unwanted_name, pkg_unwanted_data in query.view_unwanted_pkgs(view_conf_id, arch).items():
+                        if pkg_name == pkg_unwanted_name:
+                            if pkg_unwanted_data["unwanted_in_view"]:
+                                unwanted_in_view = True
+                            
+                            for exclusion_list_id in pkg_unwanted_data["unwanted_list_ids"]:
+                                if exclusion_list_id not in exclusion_list_ids:
+                                    exclusion_list_ids[exclusion_list_id] = set()
+                                
+                                exclusion_list_ids[exclusion_list_id].add(arch)
+
+
+                for arch in all_arches:
+                    for workload_id in query.workloads_in_view(view_conf_id, arch):
+                        workload = query.data["workloads"][workload_id]
+                        workload_pkgs = query.workload_pkgs_id(workload_id)
+                        workload_pkg_relations = workload["pkg_relations"]
+
+                        for this_pkg_id in pkg_ids:
+
+                            if this_pkg_id not in workload_pkg_relations:
+                                continue
+
+                            if this_pkg_id not in pkgs_required_by:
+                                pkgs_required_by[this_pkg_id] = {}
+
+                            for required_by_id in workload_pkg_relations[this_pkg_id]["required_by"]:
+                                required_by_name = pkg_id_to_name(required_by_id)
+
+                                if required_by_name not in pkgs_required_by[this_pkg_id]:
+                                    pkgs_required_by[this_pkg_id][required_by_name] = set()
+                                
+                                pkgs_required_by[this_pkg_id][required_by_name].add(required_by_id)
+
+
+                template_data = {
+                    "query": query,
+                    "view_conf": view_conf,
+                    "pkg_name": pkg_name,
+                    "pkg_ids": pkg_ids,
+                    "workload_conf_ids_required": workload_conf_ids_required,
+                    "workload_conf_ids_dependency": workload_conf_ids_dependency,
+                    "exclusion_list_ids": exclusion_list_ids,
+                    "unwanted_in_view": unwanted_in_view,
+                    "pkgs_required_by": pkgs_required_by
+                }
+                page_name = "view-rpm--{view_conf_id}--{pkg_name}".format(
+                    view_conf_id=view_conf_id,
+                    pkg_name=pkg_name
+                )
+                _generate_html_page("view_compose_rpm", template_data, page_name, query.settings)
+
+
 #            # third, generate one page per SRPM
 #            all_arches = query.arches_in_view(view_conf_id)
 #            all_pkgs = {}

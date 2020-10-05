@@ -13,7 +13,7 @@
 </nav>
 
 <div class="container-fluid">
-    
+
     <h1>
         {{view_conf.name}}
         <small class="text-muted"> packages for </small>
@@ -93,7 +93,7 @@
             <tr>
                 <td>
                     <a href="workload--{{query.url_slug_id(workload_id)}}.html">
-                        {{ query.configs.workloads[query.data.workloads[workload_id].workload_conf_id].name }}
+                        <b>{{ query.configs.workloads[query.data.workloads[workload_id].workload_conf_id].name }}</b>
                         in
                         {{ query.configs.envs[query.data.workloads[workload_id].env_conf_id].name}}
                     </a>

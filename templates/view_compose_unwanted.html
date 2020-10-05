@@ -201,7 +201,7 @@
                 <td data-order="{{pkg_why_data_order(pkg)}}" style="padding-top: 16px; padding-bottom: 16px">
                     {{pkg_why(pkg)}}</td>
                 <td>
-                    {{pkg.name}}
+                    <a href="view-rpm--{{view_conf.id}}--{{pkg.name}}.html">{{pkg.name}}</a>
                     <span class="text-danger">(unwanted)</span>
                 </td>
                 <td>{{pkg.evr}}</td>

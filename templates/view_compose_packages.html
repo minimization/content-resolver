@@ -213,7 +213,7 @@
             <tr class="{{pkg_row_css_class(pkg)}}">
                 <td data-order="{{pkg_why_data_order(pkg)}}">{{pkg_why(pkg)}}</td>
                 <td>
-                    {{pkg.name}}
+                    <a href="view-rpm--{{view_conf.id}}--{{pkg.name}}.html">{{pkg.name}}</a>
                     {% if pkg.name in query.view_unwanted_pkgs(view_conf.id, arch) %}
                     <span class="text-danger">(unwanted)</span>
                     {% endif %}

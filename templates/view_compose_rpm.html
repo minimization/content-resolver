@@ -1,0 +1,168 @@
+{% extends "layout.html" %}
+
+{% block content %}
+
+
+
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="./views.html">Views</a></li>
+        <li class="breadcrumb-item"><a href="./view--{{view_conf.id}}.html">{{view_conf.name}}</a></li>
+        <li class="breadcrumb-item active" aria-current="page">{{pkg_name}} RPM</li>
+    </ol>
+</nav>
+
+<div class="container-fluid">
+
+    <h1>
+        {{pkg_name}}
+        <small class="text-muted"> in </small>
+        <small>{{view_conf.name}}</small>
+
+        <small>
+        {% if exclusion_list_ids or unwanted_in_view %}
+        <span class="badge badge-danger">Unwanted</span>
+        {% endif %}
+        {% if workload_conf_ids_required %}
+        <span class="badge badge-success">Required</span>
+        {% endif %}
+        {% if workload_conf_ids_dependency %}
+        <span class="badge badge-secondary">Dependency</span>
+        {% endif %}
+        </small>
+    </h1>
+
+    <br>
+
+    <div class="row">
+        <div class="col-sm-8">
+            <div class="card">
+                <h5 class="card-header">Specific RPMs</h5>
+                <ul class="list-group list-group-flush">
+                    {% for pkg_id, pkg_arches in pkg_ids.items() | sort(attribute='0') %}
+                    <li class="list-group-item">
+                        {{pkg_id}}
+                        <br>
+                        <small class="text-muted"> {{pkg_arches | sort | join(', ')}}</small>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+            <br>
+            <div class="card">
+                <h5 class="card-header">RPM Dependencies</h5>
+                <ul class="list-group list-group-flush">
+                {% for this_pkg_id, this_pkg_data in pkgs_required_by.items() | sort(attribute='0') %}
+                <li class="list-group-item">
+                    <h5 class="card-title">{{this_pkg_id}} <span class="text-muted">required by</span> </h5>
+                    <table id="table_packages" class="table-packages">
+                        <tbody>
+                            {% for required_by_name, required_by_ids in this_pkg_data.items() | sort(attribute='0') %}
+                            <tr>
+                                <td><a href="view-rpm--{{view_conf.id}}--{{required_by_name}}.html">{{required_by_name}}</a></td>
+                                <td>
+                                    {% for required_by_id in required_by_ids %}
+                                    {{required_by_id}}<br>
+                                    {% endfor %}
+                                </td>
+                            </tr>
+                            
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </li>
+                {% endfor %}
+                </ul>
+            </div>
+            <br>
+        </div>
+        <div class="col-sm-4">
+            {% if exclusion_list_ids or unwanted_in_view %}
+            <div class="card border-danger">
+                <h5 class="card-header">Unwanted in <span class="text-muted">(exclusion lists)</span></h5>
+                <ul class="list-group list-group-flush">
+                    {% for exclusion_list_conf_id, exclusion_list_arches in exclusion_list_ids.items() | sort(attribute='0') %}
+                    <li class="list-group-item">
+                        <a href="config-unwanted--{{exclusion_list_conf_id}}.html">
+                            {{query.configs.unwanteds[exclusion_list_conf_id].name}}
+                        </a>
+                        <span class="text-muted">
+                            ({{query.configs.views[view_conf.id].maintainer}})
+                        </span>
+                        <br>
+                        <small class="text-muted"> {{exclusion_list_arches | sort | join(', ')}}</small>
+                    </li>
+                    {% endfor %}
+                    {% if unwanted_in_view %}
+                    <li class="list-group-item">
+                        <a href="config-view--{{view_conf.id}}.html">This view's config</a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </div>
+            <br>
+            {% endif %}
+            {% if workload_conf_ids_required %}
+            <div class="card border-success">
+                <h5 class="card-header">Required in <span class="text-muted">(workloads)</span></h5>
+                <ul class="list-group list-group-flush">
+                    {% for workload_conf_id, workload_arches in workload_conf_ids_required.items() | sort(attribute='0') %}
+                    <li class="list-group-item">
+                        <a href="workload-overview--{{workload_conf_id}}--{{view_conf.repository}}.html">
+                            {{query.configs.workloads[workload_conf_id].name}}
+                        </a>
+                        <span class="text-muted">
+                            ({{query.configs.views[view_conf.id].maintainer}})
+                        </span>
+                        <br>
+                        <small class="text-muted"> {{workload_arches | sort | join(', ')}}</small>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% else %}
+            <div class="card">
+                <h5 class="card-header">Required in <span class="text-muted">(workloads)</span></h5>
+                <div class="card-body">
+                    <div class="text-muted">Not explicitly required</div>
+                </div>
+            </div>
+            {% endif %}
+            <br>
+            {% if workload_conf_ids_dependency %}
+            <div class="card">
+                <h5 class="card-header">Dependency in <span class="text-muted">(workloads)</span></h5>
+                <ul class="list-group list-group-flush">
+                    {% for workload_conf_id, workload_arches in workload_conf_ids_dependency.items() | sort(attribute='0') %}
+                    <li class="list-group-item">
+                        <a href="workload-overview--{{workload_conf_id}}--{{view_conf.repository}}.html">
+                            {{query.configs.workloads[workload_conf_id].name}}
+                        </a>
+                        <span class="text-muted">
+                            ({{query.configs.views[view_conf.id].maintainer}})
+                        </span>
+                        <br>
+                        <small class="text-muted"> {{workload_arches | sort | join(', ')}}</small>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% else %}
+            <div class="card">
+                <h5 class="card-header">Dependency in <span class="text-muted">(workloads)</span></h5>
+                <div class="card-body">
+                    <div class="text-muted">Not a dependency</div>
+                </div>
+            </div>
+            {% endif %}
+            <br>
+        </div>
+    </div>
+
+
+
+    <br>
+</div>
+
+
+{% endblock %}
