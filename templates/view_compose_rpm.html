@@ -87,7 +87,7 @@
                             {{query.configs.unwanteds[exclusion_list_conf_id].name}}
                         </a>
                         <span class="text-muted">
-                            ({{query.configs.views[view_conf.id].maintainer}})
+                            ({{query.configs.unwanteds[exclusion_list_conf_id].maintainer}})
                         </span>
                         <br>
                         <small class="text-muted"> {{exclusion_list_arches | sort | join(', ')}}</small>
@@ -112,7 +112,7 @@
                             {{query.configs.workloads[workload_conf_id].name}}
                         </a>
                         <span class="text-muted">
-                            ({{query.configs.views[view_conf.id].maintainer}})
+                            ({{query.configs.workloads[workload_conf_id].maintainer}})
                         </span>
                         <br>
                         <small class="text-muted"> {{workload_arches | sort | join(', ')}}</small>
@@ -139,7 +139,7 @@
                             {{query.configs.workloads[workload_conf_id].name}}
                         </a>
                         <span class="text-muted">
-                            ({{query.configs.views[view_conf.id].maintainer}})
+                            ({{query.configs.workloads[workload_conf_id].maintainer}})
                         </span>
                         <br>
                         <small class="text-muted"> {{workload_arches | sort | join(', ')}}</small>
