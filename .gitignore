@@ -7,3 +7,5 @@ __pycache__
 output
 cache*
 tmp
+data.json
+pkg_entries.json
