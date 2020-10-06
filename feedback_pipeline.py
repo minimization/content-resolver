@@ -2211,14 +2211,15 @@ class Query():
         # q_maintainers - set of workload maintainers 
 
         # Other outputs:
-        #   - "ids"         — a list ids
+        #   - "ids"         — a list of ids (NEVRA)
+        #   - "nevrs"         — a list of NEVR
         #   - "binary_names"  — a list of RPM names
         #   - "source_nvr"  — a list of SRPM NVRs
         #   - "source_names"  — a list of SRPM names
         if output_change:
             list_all = True
-            if output_change not in ["ids", "binary_names", "source_nvr", "source_names"]:
-                raise ValueError('output_change must be one of: "ids", "binary_names", "source_nvr", "source_names"')
+            if output_change not in ["ids", "nevrs", "binary_names", "source_nvr", "source_names"]:
+                raise ValueError('output_change must be one of: "ids", "nevrs", "binary_names", "source_nvr", "source_names"')
 
         workload_ids = self.workloads_in_view(view_conf_id, arch)
         repo_id = self.configs["views"][view_conf_id]["repository"]
@@ -2348,6 +2349,11 @@ class Query():
             for pkg_id, pkg in pkgs.items():
                 if output_change == "ids":
                     pkg_names.add(pkg["id"])
+                elif output_change == "nevrs":
+                    pkg_names.add("{name}-{evr}".format(
+                        name=pkg["name"],
+                        evr=pkg["evr"]
+                    ))
                 elif output_change == "binary_names":
                     pkg_names.add(pkg["name"])
                 elif output_change == "source_nvr":
