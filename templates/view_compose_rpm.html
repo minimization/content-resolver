@@ -29,6 +29,9 @@
         {% if workload_conf_ids_dependency %}
         <span class="badge badge-secondary">Dependency</span>
         {% endif %}
+        {% if build_dependency %}
+        <span class="badge badge-secondary" style="background-color: #999">Build Dependency</span>
+        {% endif %}
         </small>
     </h1>
 
@@ -49,6 +52,14 @@
                 </ul>
             </div>
             <br>
+            {% if required_to_build_srpms %}
+            <div class="card">
+                <div class="card-body">
+                    Required to build {{ required_to_build_srpms | count }} SRPMs. <span class="text-muted">(See list at the bottom of the page)</span>
+                </div>
+            </div>
+            <br>
+            {% endif %}
             <div class="card">
                 <h5 class="card-header">RPM Dependencies</h5>
                 <ul class="list-group list-group-flush">
@@ -73,6 +84,29 @@
                 </li>
                 {% endfor %}
                 </ul>
+            </div>
+            <br>
+            <div class="card">
+                <h5 class="card-header">Required to build <span class="text-muted">(SRPMs)</span></h5>
+                {% if required_to_build_srpms %}
+                <ul class="list-group list-group-flush">
+                    <table id="table_packages" class="table-packages">
+                        <tbody>
+                            
+                            {% for pkg_name in required_to_build_srpms | sort %}
+                            <tr>
+                                <td> {{pkg_name}} </td>
+                            </tr>
+                            {% endfor %}
+                            
+                        </tbody>
+                    </table>
+                </ul>
+                {% else %}
+                <div class="card-body">
+                    <div class="text-muted">Not needed to build any SRPMs</div>
+                </div>
+                {% endif %}
             </div>
             <br>
         </div>

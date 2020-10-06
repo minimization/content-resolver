@@ -606,6 +606,32 @@ def _load_config_buildroot(document_id, document, settings):
     return config
 
 
+def _load_json_data_buildroot_pkg_relations(document_id, document, settings):
+    config = {}
+    config["id"] = document_id
+
+    try:
+        # View ID
+        config["view_id"] = document["data"]["view_id"]
+
+        # Arch
+        arch = document["data"]["arch"]
+        if arch not in settings["allowed_arches"]:
+            raise ConfigError("Error: {file}.json lists an invalid architecture: {arch}. Ignoring this file.".format(
+                file=document_id,
+                arch=arch
+            ))
+        config["arch"] = arch
+
+        #pkg_relations
+        config["pkg_relations"] = document["data"]["pkgs"]
+        
+    except KeyError:
+        raise ConfigError("Error: {file} is invalid.".format(file=yml_file))
+    
+    return config
+
+
 def get_configs(settings):
     log("")
     log("###############################################################################")
@@ -632,6 +658,7 @@ def get_configs(settings):
     configs["views"] = {}
     configs["unwanteds"] = {}
     configs["buildroots"] = {}
+    configs["buildroot_pkg_relations"] = {}
 
     # Step 1: Load all configs
     log("Loading config files...")
@@ -689,6 +716,41 @@ def get_configs(settings):
             err_log("Config load error: {err}. Ignoring.".format(err=err))
             continue
     
+    # Step 1.5: Load all external data sources
+    log("Loading external data files...")
+    for json_file in os.listdir(directory):
+        # Only accept yaml files
+        if not json_file.endswith(".json"):
+            continue
+        
+        document_id = json_file.split(".json")[0]
+
+        try:
+            try:
+                json_data = load_data(os.path.join(directory, json_file))
+            except:
+                raise ConfigError("Error loading a JSON data file '{filename}': {err}".format(
+                                filename=json_file,
+                                err=err))
+            
+            # Only accept json files stating their purpose!
+            if not ("document_type" in json_data and "version" in json_data):
+                raise ConfigError("Error: {file} is invalid.".format(file=json_file))
+
+
+            # === Case: Buildroot pkg relations data ===
+            if json_data["document_type"] == "buildroot-binary-relations":
+                configs["buildroot_pkg_relations"][document_id] = _load_json_data_buildroot_pkg_relations(document_id, json_data, settings)
+
+
+        except ConfigError as err:
+            err_log("JSON data load error: {err}. Ignoring.".format(err=err))
+            continue
+
+        
+
+
+    
     log("  Done!")
     log("")
 
@@ -711,6 +773,10 @@ def get_configs(settings):
     log("  - {} exclusion lists".format(len(configs["unwanteds"])))
     log("  - {} buildroots".format(len(configs["buildroots"])))
     log("")
+    log("And the following data JSONs:")
+    log("  - {} buildroot pkg relations".format(len(configs["buildroot_pkg_relations"])))
+    log("")
+    
 
 
     return configs
@@ -3048,20 +3114,26 @@ def _generate_view_pages(query):
 
             # That page needs the number of binary and source packages for each architecture
             arch_pkg_counts = {}
+            all_arches_nevrs = set()
+            all_arches_unwanteds = set()
+            all_arches_source_nvrs = set()
             for arch in query.settings["allowed_arches"]:
                 arch_pkg_counts[arch] = {}
 
                 workload_ids = query.workloads_in_view(view_conf_id, arch=arch)
 
                 pkg_ids = query.pkgs_in_view(view_conf_id, arch, output_change="ids")
+                pkg_nevrs = query.pkgs_in_view(view_conf_id, arch, output_change="nevrs")
                 pkg_binary_names = query.pkgs_in_view(view_conf_id, arch, output_change="binary_names")
                 pkg_source_nvr = query.pkgs_in_view(view_conf_id, arch, output_change="source_nvr")
                 pkg_source_names = query.pkgs_in_view(view_conf_id, arch, output_change="source_names")
+                unwanted_pkgs = query.view_unwanted_pkgs(view_conf_id, arch)
 
                 unwanted_packages_count = 0
-                for pkg_name in query.view_unwanted_pkgs(view_conf_id, arch):
+                for pkg_name in unwanted_pkgs:
                     if pkg_name in pkg_binary_names:
                         unwanted_packages_count += 1
+                        all_arches_unwanteds.add(pkg_name)
                 
                 arch_pkg_counts[arch]["pkg_ids"] = len(pkg_ids)
                 arch_pkg_counts[arch]["pkg_binary_names"] = len(pkg_binary_names)
@@ -3069,10 +3141,16 @@ def _generate_view_pages(query):
                 arch_pkg_counts[arch]["source_pkg_names"] = len(pkg_source_names)
                 arch_pkg_counts[arch]["unwanted_packages"] = unwanted_packages_count
 
+                all_arches_nevrs.update(pkg_nevrs) 
+                all_arches_source_nvrs.update(pkg_source_nvr) 
+
             template_data = {
                 "query": query,
                 "view_conf": view_conf,
-                "arch_pkg_counts": arch_pkg_counts
+                "arch_pkg_counts": arch_pkg_counts,
+                "all_pkg_count": len(all_arches_nevrs),
+                "all_unwanted_count": len(all_arches_unwanteds),
+                "all_source_nvr_count": len(all_arches_source_nvrs)
             }
             page_name = "view--{view_conf_id}".format(
                 view_conf_id=view_conf_id
@@ -3183,17 +3261,32 @@ def _generate_view_pages(query):
             # third, generate one page per RPM name
 
             pkg_names = set()
+            buildroot_pkg_names = set()
+            all_pkg_names = set()
+
+            
             
             all_arches = query.arches_in_view(view_conf_id)
 
             for arch in all_arches:
                 pkg_names.update(query.pkgs_in_view(view_conf_id, arch, output_change="binary_names"))
 
-            for pkg_name in pkg_names:
+            buildroot_pkg_srpm_requires = query.view_buildroot_pkgs(view_conf_id, arch)
+
+            for arch in all_arches:
+                for buildroot_pkg_name in buildroot_pkg_srpm_requires:
+                    buildroot_pkg_names.add(buildroot_pkg_name)
+            
+            all_pkg_names.update(pkg_names)
+            all_pkg_names.update(buildroot_pkg_names)
+
+            for pkg_name in all_pkg_names:
 
                 pkg_ids = {}
                 workload_conf_ids_required = {}
                 workload_conf_ids_dependency = {}
+
+                required_to_build_srpms = set()
 
                 #pkgs_required_by["this_pkg_id"]["required_by_name"] = set() of required_by_ids
                 pkgs_required_by = {}
@@ -3201,72 +3294,113 @@ def _generate_view_pages(query):
                 exclusion_list_ids = {}
                 unwanted_in_view = False
 
+                build_dependency = False
 
-                for arch in all_arches:
+                # 1: Runtime package stuff
+                if pkg_name in pkg_names:
 
-                    for pkg in query.pkgs_in_view(view_conf_id, arch):
-                        pkg_nevra = "{name}-{evr}.{arch}".format(
-                            name=pkg["name"],
-                            evr=pkg["evr"],
-                            arch=pkg["arch"]
-                        )
-                        if pkg["name"] == pkg_name:
+                    for arch in all_arches:
 
-                            if pkg_nevra not in pkg_ids:
-                                pkg_ids[pkg_nevra] = set()
-                            pkg_ids[pkg_nevra].add(arch)
-                        
-                            for workload_id in pkg["q_required_in"]:
-                                workload = query.data["workloads"][workload_id]
-                                workload_conf_id = workload["workload_conf_id"]
+                        for pkg in query.pkgs_in_view(view_conf_id, arch):
+                            pkg_nevra = "{name}-{evr}.{arch}".format(
+                                name=pkg["name"],
+                                evr=pkg["evr"],
+                                arch=pkg["arch"]
+                            )
+                            if pkg["name"] == pkg_name:
 
-                                if workload_conf_id not in workload_conf_ids_required: 
-                                    workload_conf_ids_required[workload_conf_id] = set()
-                                
-                                workload_conf_ids_required[workload_conf_id].add(arch)
+                                if pkg_nevra not in pkg_ids:
+                                    pkg_ids[pkg_nevra] = set()
+                                pkg_ids[pkg_nevra].add(arch)
                             
-                            for workload_id in pkg["q_dep_in"]:
-                                workload = query.data["workloads"][workload_id]
-                                workload_conf_id = workload["workload_conf_id"]
+                                for workload_id in pkg["q_required_in"]:
+                                    workload = query.data["workloads"][workload_id]
+                                    workload_conf_id = workload["workload_conf_id"]
 
-                                if workload_conf_id not in workload_conf_ids_dependency: 
-                                    workload_conf_ids_dependency[workload_conf_id] = set()
+                                    if workload_conf_id not in workload_conf_ids_required: 
+                                        workload_conf_ids_required[workload_conf_id] = set()
+                                    
+                                    workload_conf_ids_required[workload_conf_id].add(arch)
                                 
-                                workload_conf_ids_dependency[workload_conf_id].add(arch)
+                                for workload_id in pkg["q_dep_in"]:
+                                    workload = query.data["workloads"][workload_id]
+                                    workload_conf_id = workload["workload_conf_id"]
 
-                    for pkg_unwanted_name, pkg_unwanted_data in query.view_unwanted_pkgs(view_conf_id, arch).items():
-                        if pkg_name == pkg_unwanted_name:
-                            if pkg_unwanted_data["unwanted_in_view"]:
-                                unwanted_in_view = True
+                                    if workload_conf_id not in workload_conf_ids_dependency: 
+                                        workload_conf_ids_dependency[workload_conf_id] = set()
+                                    
+                                    workload_conf_ids_dependency[workload_conf_id].add(arch)
+
+                        for pkg_unwanted_name, pkg_unwanted_data in query.view_unwanted_pkgs(view_conf_id, arch).items():
+                            if pkg_name == pkg_unwanted_name:
+                                if pkg_unwanted_data["unwanted_in_view"]:
+                                    unwanted_in_view = True
+                                
+                                for exclusion_list_id in pkg_unwanted_data["unwanted_list_ids"]:
+                                    if exclusion_list_id not in exclusion_list_ids:
+                                        exclusion_list_ids[exclusion_list_id] = set()
+                                    
+                                    exclusion_list_ids[exclusion_list_id].add(arch)
+
+
+                    for arch in all_arches:
+                        for workload_id in query.workloads_in_view(view_conf_id, arch):
+                            workload = query.data["workloads"][workload_id]
+                            workload_pkgs = query.workload_pkgs_id(workload_id)
+                            workload_pkg_relations = workload["pkg_relations"]
+
+                            for this_pkg_id in pkg_ids:
+
+                                if this_pkg_id not in workload_pkg_relations:
+                                    continue
+
+                                if this_pkg_id not in pkgs_required_by:
+                                    pkgs_required_by[this_pkg_id] = {}
+
+                                for required_by_id in workload_pkg_relations[this_pkg_id]["required_by"]:
+                                    required_by_name = pkg_id_to_name(required_by_id)
+
+                                    if required_by_name not in pkgs_required_by[this_pkg_id]:
+                                        pkgs_required_by[this_pkg_id][required_by_name] = set()
+                                    
+                                    pkgs_required_by[this_pkg_id][required_by_name].add(required_by_id)
+
+                # 2: Buildroot package stuff
+                if pkg_name in buildroot_pkg_names:
+                    build_dependency = True
+
+                    for buildroot_pkg_relations_conf_id, buildroot_pkg_relations_conf in query.configs["buildroot_pkg_relations"].items():
+                        if view_conf_id == buildroot_pkg_relations_conf["view_id"]:
+                            arch = buildroot_pkg_relations_conf["arch"]
+                            buildroot_pkg_relations = buildroot_pkg_relations_conf["pkg_relations"]
+
+                            for this_pkg_id in buildroot_pkg_relations:
+                                this_pkg_name = pkg_id_to_name(this_pkg_id)
+
+                                if this_pkg_name == pkg_name:
+
+                                    if this_pkg_id not in pkg_ids:
+                                        pkg_ids[this_pkg_id] = set()
+                                    pkg_ids[this_pkg_id].add(arch)
                             
-                            for exclusion_list_id in pkg_unwanted_data["unwanted_list_ids"]:
-                                if exclusion_list_id not in exclusion_list_ids:
-                                    exclusion_list_ids[exclusion_list_id] = set()
+                            for this_pkg_id in pkg_ids:
+                                if this_pkg_id not in buildroot_pkg_relations:
+                                    continue
+
+                                if this_pkg_id not in pkgs_required_by:
+                                    pkgs_required_by[this_pkg_id] = {}
                                 
-                                exclusion_list_ids[exclusion_list_id].add(arch)
+                                for required_by_id in buildroot_pkg_relations[this_pkg_id]["required_by"]:
+                                    required_by_name = pkg_id_to_name(required_by_id)
 
+                                    if required_by_name not in pkgs_required_by[this_pkg_id]:
+                                        pkgs_required_by[this_pkg_id][required_by_name] = set()
+                                    
+                                    pkgs_required_by[this_pkg_id][required_by_name].add(required_by_id + " (buildroot only)")
 
-                for arch in all_arches:
-                    for workload_id in query.workloads_in_view(view_conf_id, arch):
-                        workload = query.data["workloads"][workload_id]
-                        workload_pkgs = query.workload_pkgs_id(workload_id)
-                        workload_pkg_relations = workload["pkg_relations"]
-
-                        for this_pkg_id in pkg_ids:
-
-                            if this_pkg_id not in workload_pkg_relations:
-                                continue
-
-                            if this_pkg_id not in pkgs_required_by:
-                                pkgs_required_by[this_pkg_id] = {}
-
-                            for required_by_id in workload_pkg_relations[this_pkg_id]["required_by"]:
-                                required_by_name = pkg_id_to_name(required_by_id)
-
-                                if required_by_name not in pkgs_required_by[this_pkg_id]:
-                                    pkgs_required_by[this_pkg_id][required_by_name] = set()
-                                
-                                pkgs_required_by[this_pkg_id][required_by_name].add(required_by_id)
+                    # required to build XX SRPMs
+                    if pkg_name in buildroot_pkg_srpm_requires:
+                        required_to_build_srpms = set(buildroot_pkg_srpm_requires[pkg_name]["required_by"])
 
 
                 template_data = {
@@ -3278,13 +3412,18 @@ def _generate_view_pages(query):
                     "workload_conf_ids_dependency": workload_conf_ids_dependency,
                     "exclusion_list_ids": exclusion_list_ids,
                     "unwanted_in_view": unwanted_in_view,
-                    "pkgs_required_by": pkgs_required_by
+                    "pkgs_required_by": pkgs_required_by,
+                    "build_dependency": build_dependency,
+                    "required_to_build_srpms": required_to_build_srpms
                 }
                 page_name = "view-rpm--{view_conf_id}--{pkg_name}".format(
                     view_conf_id=view_conf_id,
                     pkg_name=pkg_name
                 )
                 _generate_html_page("view_compose_rpm", template_data, page_name, query.settings)
+            
+            
+
 
 
 #            # third, generate one page per SRPM

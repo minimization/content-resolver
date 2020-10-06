@@ -25,6 +25,68 @@
     <div class="row">
 
         <div class="col-sm-9">
+
+            <!--div class="row">
+                <div class="col-sm-3">
+                    <div class="card text-center">
+                        <div class="card-body">
+                            <span style="font-size:2rem;font-weight:300;">{{all_pkg_count}}</span>
+                            <a href="">
+                                <br>
+                                <strong>Binary Packages</strong>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="card text-center">
+                        <div class="card-body">
+                            <span style="font-size:2rem;font-weight:300;">{{ all_source_nvr_count}}</span>
+                            <a href="">
+                                <br>
+                                <strong>Source Packages</strong>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="card text-center">
+                        <div class="card-body">
+                            <span style="font-size:2rem;font-weight:300;">
+                                {{ all_unwanted_count }}
+                                <span class="text-muted">
+                                    of {{ query.view_unwanted_pkgs(view_conf.id, None) | count }}
+                                </span>
+                            </span>
+                            <a href="">
+                                <br>
+                                <strong>Unwanted Packages</strong>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="card text-center">
+                        <div class="card-body">
+                            <span style="font-size:2rem;font-weight:300;">
+                                {% if query.view_succeeded(view_conf.id, None) %}
+                                <span class="text-success">All Succeeded</span>
+                                {% else %}
+                                <span class="text-warning">Some Errors</span>
+                                {% endif %}
+                            </span>
+                            <a href="">
+                                <br>
+                                <strong>Workload Status</strong>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <br>
+
+            <h2> Architecture-specific pages </h2-->
             <table class="table table-striped" id="table_packages">
                 <thead>
                     <tr class="sort_control_row">
