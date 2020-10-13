@@ -20,8 +20,10 @@
         <small>{{view_conf.name}}</small>
 
         <small>
-        {% if exclusion_list_ids or unwanted_in_view %}
-        <span class="badge badge-danger">Unwanted</span>
+        {% if unwanted_in_view %}
+        <span class="badge badge-danger">Unwanted CONFIRMED</span>
+        {% elif exclusion_list_ids or unwanted_in_view %}
+        <span class="badge badge-danger">Unwanted proposal</span>
         {% endif %}
         {% if workload_conf_ids_required %}
         <span class="badge badge-success">Required</span>

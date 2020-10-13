@@ -444,13 +444,13 @@ def _load_config_compose_view(document_id, document, settings):
         for repo in document["data"]["architectures"]:
             config["architectures"].append(str(repo))
     
-    # Limit this view only to the following pkgs
+    # Packages to be flagged as unwanted
     config["unwanted_packages"] = []
     if "unwanted_packages" in document["data"]:
         for pkg in document["data"]["unwanted_packages"]:
             config["unwanted_packages"].append(str(pkg))
 
-    # Architecture-specific packages.
+    # Packages to be flagged as unwanted  on specific architectures
     config["unwanted_arch_packages"] = {}
     for arch in settings["allowed_arches"]:
         config["unwanted_arch_packages"][arch] = []
@@ -465,6 +465,12 @@ def _load_config_compose_view(document_id, document, settings):
             for pkg_raw in pkgs:
                 pkg = str(pkg_raw)
                 config["unwanted_arch_packages"][arch].append(pkg)
+    
+    # SRPMs (components) to be flagged as unwanted
+    config["unwanted_source_packages"] = []
+    if "unwanted_source_packages" in document["data"]:
+        for pkg in document["data"]["unwanted_source_packages"]:
+            config["unwanted_source_packages"].append(str(pkg))
 
     return config
 
@@ -497,13 +503,13 @@ def _load_config_unwanted(document_id, document, settings):
     
     # Step 2: Optional fields
 
-    # Limit this view only to the following pkgs
+    # Packages to be flagged as unwanted
     config["unwanted_packages"] = []
     if "unwanted_packages" in document["data"]:
         for pkg in document["data"]["unwanted_packages"]:
             config["unwanted_packages"].append(str(pkg))
 
-    # Architecture-specific packages.
+    # Packages to be flagged as unwanted  on specific architectures
     config["unwanted_arch_packages"] = {}
     for arch in settings["allowed_arches"]:
         config["unwanted_arch_packages"][arch] = []
@@ -519,13 +525,13 @@ def _load_config_unwanted(document_id, document, settings):
                 pkg = str(pkg_raw)
                 config["unwanted_arch_packages"][arch].append(pkg)
     
-    # Limit this view only to the following pkgs
+    # SRPMs (components) to be flagged as unwanted
     config["unwanted_source_packages"] = []
     if "unwanted_source_packages" in document["data"]:
         for pkg in document["data"]["unwanted_source_packages"]:
             config["unwanted_source_packages"].append(str(pkg))
 
-    # Architecture-specific packages.
+    # SRPMs (components) to be flagged as unwanted on specific architectures
     config["unwanted_arch_source_packages"] = {}
     for arch in settings["allowed_arches"]:
         config["unwanted_arch_source_packages"][arch] = []
@@ -2537,9 +2543,36 @@ class Query():
                 return False
         return True
     
+
+    def _srpm_name_to_rpm_names(self, srpm_name, repo_id):
+        all_pkgs_by_arch = self.data["pkgs"][repo_id]
+
+        pkg_names = set()
+
+        for arch, pkgs in all_pkgs_by_arch.items():
+            for pkg_id, pkg in pkgs.items():
+                if pkg["source_name"] == srpm_name:
+                    pkg_names.add(pkg["name"])
+
+        return pkg_names
+
+    
     @lru_cache(maxsize = None)
-    def view_unwanted_pkgs(self, view_conf_id, arch, maintainer=None):
+    def view_unwanted_pkgs(self, view_conf_id, arch, output_change=None, maintainer=None):
+
+        # Other outputs:
+        #   - "unwanted_proposals"  — a list of SRPM names
+        #   - "unwanted_confirmed"  — a list of SRPM names
+        output_lists = ["unwanted_proposals", "unwanted_confirmed"]
+        if output_change:
+            if output_change not in output_lists:
+                raise ValueError('output_change must be one of: "source_names"')
+        
+            output_lists = output_change
+
+
         view_conf = self.configs["views"][view_conf_id]
+        repo_id = view_conf["repository"]
 
         # Find exclusion lists mathing this view's label(s)
         unwanted_ids = set()
@@ -2560,21 +2593,10 @@ class Query():
         if arch:
             arches = [arch]
 
-        ### Step 1: Get packages from this view's config 
-        if not maintainer:
-            for pkg_name in view_conf["unwanted_packages"]:
-                pkg = {}
-                pkg["name"] = pkg_name
-                pkg["unwanted_in_view"] = True
-                pkg["unwanted_list_ids"] = []
-
-                unwanted_pkg_names[pkg_name] = pkg
-
-            for arch in arches:
-                for pkg_name in view_conf["unwanted_arch_packages"][arch]:
-                    if pkg_name in unwanted_pkg_names:
-                        continue
-                    
+        ### Step 1: Get packages from this view's config (unwanted confirmed)
+        if "unwanted_confirmed" in output_lists:
+            if not maintainer:
+                for pkg_name in view_conf["unwanted_packages"]:
                     pkg = {}
                     pkg["name"] = pkg_name
                     pkg["unwanted_in_view"] = True
@@ -2582,35 +2604,75 @@ class Query():
 
                     unwanted_pkg_names[pkg_name] = pkg
 
+                for arch in arches:
+                    for pkg_name in view_conf["unwanted_arch_packages"][arch]:
+                        if pkg_name in unwanted_pkg_names:
+                            continue
+                        
+                        pkg = {}
+                        pkg["name"] = pkg_name
+                        pkg["unwanted_in_view"] = True
+                        pkg["unwanted_list_ids"] = []
 
-        ### Step 2: Get packages from the various exclusion lists    
-        for unwanted_id in unwanted_ids:
-            unwanted_conf = self.configs["unwanteds"][unwanted_id]
-
-            for pkg_name in unwanted_conf["unwanted_packages"]:
-                if pkg_name in unwanted_pkg_names:
-                    unwanted_pkg_names[pkg_name]["unwanted_list_ids"].append(unwanted_id)
-                    continue
+                        unwanted_pkg_names[pkg_name] = pkg
                 
-                pkg = {}
-                pkg["name"] = pkg_name
-                pkg["unwanted_in_view"] = False
-                pkg["unwanted_list_ids"] = [unwanted_id]
+                for pkg_source_name in view_conf["unwanted_source_packages"]:
+                    for pkg_name in self._srpm_name_to_rpm_names(pkg_source_name, repo_id):
+                        
+                        if pkg_name in unwanted_pkg_names:
+                            continue
 
-                unwanted_pkg_names[pkg_name] = pkg
-        
-            for arch in arches:
-                for pkg_name in unwanted_conf["unwanted_arch_packages"][arch]:
+                        pkg = {}
+                        pkg["name"] = pkg_name
+                        pkg["unwanted_in_view"] = True
+                        pkg["unwanted_list_ids"] = []
+
+                        unwanted_pkg_names[pkg_name] = pkg
+
+
+        ### Step 2: Get packages from the various exclusion lists (unwanted proposal)
+        if "unwanted_proposals" in output_lists:
+            for unwanted_id in unwanted_ids:
+                unwanted_conf = self.configs["unwanteds"][unwanted_id]
+
+                for pkg_name in unwanted_conf["unwanted_packages"]:
                     if pkg_name in unwanted_pkg_names:
                         unwanted_pkg_names[pkg_name]["unwanted_list_ids"].append(unwanted_id)
                         continue
                     
                     pkg = {}
                     pkg["name"] = pkg_name
-                    pkg["unwanted_in_view"] = True
-                    pkg["unwanted_list_ids"] = []
+                    pkg["unwanted_in_view"] = False
+                    pkg["unwanted_list_ids"] = [unwanted_id]
 
                     unwanted_pkg_names[pkg_name] = pkg
+            
+                for arch in arches:
+                    for pkg_name in unwanted_conf["unwanted_arch_packages"][arch]:
+                        if pkg_name in unwanted_pkg_names:
+                            unwanted_pkg_names[pkg_name]["unwanted_list_ids"].append(unwanted_id)
+                            continue
+                        
+                        pkg = {}
+                        pkg["name"] = pkg_name
+                        pkg["unwanted_in_view"] = True
+                        pkg["unwanted_list_ids"] = []
+
+                        unwanted_pkg_names[pkg_name] = pkg
+                
+                for pkg_source_name in unwanted_conf["unwanted_source_packages"]:
+                    for pkg_name in self._srpm_name_to_rpm_names(pkg_source_name, repo_id):
+
+                        if pkg_name in unwanted_pkg_names:
+                            unwanted_pkg_names[pkg_name]["unwanted_list_ids"].append(unwanted_id)
+                            continue
+                        
+                        pkg = {}
+                        pkg["name"] = pkg_name
+                        pkg["unwanted_in_view"] = False
+                        pkg["unwanted_list_ids"] = [unwanted_id]
+
+                        unwanted_pkg_names[pkg_name] = pkg
 
         #self.cache["view_unwanted_pkgs"][view_conf_id][arch] = unwanted_pkg_names
 

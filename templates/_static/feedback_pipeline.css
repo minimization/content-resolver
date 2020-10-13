@@ -193,10 +193,12 @@ table.table-packages tr.dependency {
   background-color: white!important;
 }
 
+
 table.table-packages tr.unwanted,
 table.table-packages td.unwanted {
   background-color: #f1c8c8!important;
 }
+
 
 table.table-packages td.group-first-col,
 table.table-packages th.group-first-col {

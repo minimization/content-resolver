@@ -45,7 +45,7 @@ data:
   - pkg-name
   - pkg-other-name
 
-  # Arch-specific packages to be flagged as unwanted
+  # Packages to be flagged as unwanted  on specific architectures
   #
   # (optional field)
   unwanted_arch_packages:
@@ -53,3 +53,11 @@ data:
     - arch-specific-package
     aarch64:
     - another-one
+
+  # SRPMs (components) to be flagged as unwanted
+  #
+  # (optional field)
+  unwanted_source_packages:
+  - pkg-name
+  - pkg-other-name
+

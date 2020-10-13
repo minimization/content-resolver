@@ -143,7 +143,7 @@
     {%- endmacro %}
 
     {% macro pkg_row_css_class(pkg) -%}
-    {% if pkg.name in query.view_unwanted_pkgs(view_conf.id, arch) %}
+    {% if pkg.name in query.view_unwanted_pkgs(view_conf.id, arch, output_change="unwanted_confirmed") %}
     unwanted
     {% elif pkg.q_required_in and pkg.q_env_in %}
     required
@@ -202,13 +202,57 @@
                     {{pkg_why(pkg)}}</td>
                 <td>
                     <a href="view-rpm--{{view_conf.id}}--{{pkg.name}}.html">{{pkg.name}}</a>
-                    <span class="text-danger">(unwanted)</span>
+                    {% if pkg.name in query.view_unwanted_pkgs(view_conf.id, arch, output_change="unwanted_confirmed") %}
+                    <strong class="text-danger">(unwanted confirmed)</strong>
+                    {% elif pkg.name in query.view_unwanted_pkgs(view_conf.id, arch, output_change="unwanted_proposals") %}
+                    <span class="text-danger">(unwanted proposal)</span>
+                    {% endif %}
                 </td>
                 <td>{{pkg.evr}}</td>
                 <td>{{pkg.arch}}</td>
                 <td data-order="{{pkg.installsize}}">{{ query.size(pkg.installsize) }}</td>
                 <td> {{ relations(pkg, query.view_unwanted_pkgs(view_conf.id, arch)) }}</td>
                 <td>{{pkg.source_name}}</td>
+            </tr>
+            {% endif %}
+            {% endfor %}
+
+            {% for pkg_name, pkg_entry in query.view_unwanted_pkgs(view_conf.id, arch).items() %}
+            {% if pkg_name not in query.pkgs_in_view(view_conf.id, arch, output_change="binary_names", maintainer=maintainer) %}
+            <tr>
+                <td data-order="99" class="text-muted">(not present)</td>
+                <td class="text-muted">
+                    {{pkg_name}}
+                    {% if pkg_name in query.view_unwanted_pkgs(view_conf.id, arch, output_change="unwanted_confirmed") %}
+                    <strong class="text-danger">(unwanted confirmed)</strong>
+                    {% elif pkg_name in query.view_unwanted_pkgs(view_conf.id, arch, output_change="unwanted_proposals") %}
+                    <span class="text-danger">(unwanted proposal)</span>
+                    {% endif %}
+                </td>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td class="text-muted">
+                    {% if pkg_name in query.view_unwanted_pkgs(view_conf.id, arch) %}
+                    Not present, but listed here as it's in:
+                    <ul>
+                        {% if query.view_unwanted_pkgs(view_conf.id, arch)[pkg_name]["unwanted_in_view"] %}
+                        <li>
+                            <a href="config-view--{{view_conf.id}}.html">This view's config</a>
+                        </li>
+                        {% endif %}
+                        {% for unwanted_id in query.view_unwanted_pkgs(view_conf.id, arch)[pkg_name]["unwanted_list_ids"] %}
+                        <li>
+                            <a
+                                href="config-unwanted--{{unwanted_id}}.html">{{ query.configs.unwanteds[unwanted_id].name }}</a>
+                            exclusion list
+                            (maintainer: {{ query.configs.unwanteds[unwanted_id].maintainer }})
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    {% endif %}
+                </td>
+                <td></td>
             </tr>
             {% endif %}
             {% endfor %}
