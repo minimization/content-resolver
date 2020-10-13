@@ -46,3 +46,10 @@ data:
   - grep
   - i-dont-exist
   - httpd
+
+  # SRPMs (components) to be flagged as unwanted
+  #
+  # (optional field)
+  unwanted_source_packages:
+  - i-also-dont-exist-uahahaha
+  - avahi
