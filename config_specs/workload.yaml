@@ -106,6 +106,7 @@ data:
       limit_arches:
       - x86_64
       - aarch64
+      srpm: foo-bar-srpm # Not providing "srpm" will not associate this pacakge with any srpm
     another-package:
       description: Another one, this time without dependencies.
       requires: []

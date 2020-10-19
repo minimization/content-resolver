@@ -42,6 +42,15 @@
     <div class="row">
         <div class="col-sm-8">
             <div class="card">
+                <h5 class="card-header">SRPM</h5>
+                <ul class="list-group list-group-flush">
+                    <li class="list-group-item">
+                        <a href="view-srpm--{{view_conf.id}}--{{srpm_name}}.html">{{srpm_name}}</a>
+                    </li>
+                </ul>
+            </div>
+            <br>
+            <div class="card">
                 <h5 class="card-header">Specific RPMs</h5>
                 <ul class="list-group list-group-flush">
                     {% for pkg_id, pkg_arches in pkg_ids.items() | sort(attribute='0') %}
@@ -97,7 +106,7 @@
                             
                             {% for pkg_name in required_to_build_srpms | sort %}
                             <tr>
-                                <td> {{pkg_name}} </td>
+                                <td><a href="view-srpm--{{view_conf.id}}--{{pkg_name}}.html">{{pkg_name}}</a></td>
                             </tr>
                             {% endfor %}
                             

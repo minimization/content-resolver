@@ -370,6 +370,7 @@ def _load_config_workload(document_id, document, settings):
             pkg_requires = pkg_data.get("requires", [])
             pkg_buildrequires = pkg_data.get("buildrequires", [])
             limit_arches = pkg_data.get("limit_arches", None)
+            srpm = pkg_data.get("srpm", "")
 
             config["package_placeholders"][pkg_name] = {}
             config["package_placeholders"][pkg_name]["name"] = pkg_name
@@ -377,6 +378,7 @@ def _load_config_workload(document_id, document, settings):
             config["package_placeholders"][pkg_name]["requires"] = pkg_requires
             config["package_placeholders"][pkg_name]["buildrequires"] = pkg_buildrequires
             config["package_placeholders"][pkg_name]["limit_arches"] = limit_arches
+            config["package_placeholders"][pkg_name]["srpm"] = srpm
 
     return config
 
@@ -1966,7 +1968,7 @@ class Query():
                     pkgs[workload_repo_id][workload_arch][placeholder_id]["installsize"] = 0
                     pkgs[workload_repo_id][workload_arch][placeholder_id]["description"] = placeholder["description"]
                     pkgs[workload_repo_id][workload_arch][placeholder_id]["summary"] = placeholder["description"]
-                    pkgs[workload_repo_id][workload_arch][placeholder_id]["source_name"] = ""
+                    pkgs[workload_repo_id][workload_arch][placeholder_id]["source_name"] = placeholder["srpm"]
                     pkgs[workload_repo_id][workload_arch][placeholder_id]["q_arch"] = workload_arch
                     pkgs[workload_repo_id][workload_arch][placeholder_id]["q_in"] = set()
                     pkgs[workload_repo_id][workload_arch][placeholder_id]["q_required_in"] = set()
@@ -2386,8 +2388,8 @@ class Query():
                     pkgs[placeholder_id]["installsize"] = 0
                     pkgs[placeholder_id]["description"] = placeholder["description"]
                     pkgs[placeholder_id]["summary"] = placeholder["description"]
-                    pkgs[placeholder_id]["source_name"] = ""
-                    pkgs[placeholder_id]["sourcerpm"] = ""
+                    pkgs[placeholder_id]["source_name"] = placeholder["srpm"]
+                    pkgs[placeholder_id]["sourcerpm"] = "{}-000-placeholder".format(placeholder["srpm"])
                     pkgs[placeholder_id]["q_arch"] = arch
                     pkgs[placeholder_id]["q_in"] = set()
                     pkgs[placeholder_id]["q_required_in"] = set()
@@ -3378,6 +3380,8 @@ def _generate_view_pages(query):
                                 if pkg_nevra not in pkg_ids:
                                     pkg_ids[pkg_nevra] = set()
                                 pkg_ids[pkg_nevra].add(arch)
+
+                                pkg_srpm_name = pkg["source_name"]
                             
                                 for workload_id in pkg["q_required_in"]:
                                     workload = query.data["workloads"][workload_id]
@@ -3473,6 +3477,7 @@ def _generate_view_pages(query):
                     "query": query,
                     "view_conf": view_conf,
                     "pkg_name": pkg_name,
+                    "srpm_name": pkg_srpm_name,
                     "pkg_ids": pkg_ids,
                     "workload_conf_ids_required": workload_conf_ids_required,
                     "workload_conf_ids_dependency": workload_conf_ids_dependency,
