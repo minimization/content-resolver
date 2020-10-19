@@ -191,7 +191,7 @@
                 <td>{{pkg.arch}}</td>
                 <td data-order="{{pkg.installsize}}">{{ query.size(pkg.installsize) }}</td>
                 <td> {{ relations(pkg) }}</td>
-                <td>{{pkg.source_name}}</td>
+                <td><a href="view-srpm--{{view_conf.id}}--{{pkg.source_name}}.html">{{pkg.source_name}}</a></td>
             </tr>
             {% endfor %}
         </tbody>

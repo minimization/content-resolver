@@ -1,0 +1,73 @@
+{% extends "layout.html" %}
+
+{% block content %}
+
+
+
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="./views.html">Views</a></li>
+        <li class="breadcrumb-item"><a href="./view--{{view_conf.id}}.html">{{view_conf.name}}</a></li>
+        <li class="breadcrumb-item active" aria-current="page">{{srpm_name}} SRPM (Component)</li>
+    </ol>
+</nav>
+
+<div class="container-fluid">
+
+    <h1>
+        {{srpm_name}} SRPM (Component)
+        <small class="text-muted"> in </small>
+        <small>{{view_conf.name}}</small>
+    </h1>
+
+    <br>
+
+    <div class="row">
+        <div class="col-sm-8">
+            <div class="card">
+                <h5 class="card-header">Included RPMs</h5>
+                <ul class="list-group list-group-flush">
+                    {% for pkg_name in pkg_names | sort %}
+                    <li class="list-group-item">
+                        <a href="view-rpm--{{view_conf.id}}--{{pkg_name}}.html">{{pkg_name}}</a>
+                        <small>
+                        {% if pkg_name_data[pkg_name].unwanted_in_view %}
+                        <span class="badge badge-danger">Unwanted CONFIRMED</span>
+                        {% elif pkg_name_data[pkg_name].exclusion_list_ids or pkg_name_data[pkg_name].unwanted_in_view %}
+                        <span class="badge badge-danger">Unwanted proposal</span>
+                        {% endif %}
+                        {% if pkg_name_data[pkg_name].workload_conf_ids_required %}
+                        <span class="badge badge-success">Required</span>
+                        {% endif %}
+                        {% if pkg_name_data[pkg_name].workload_conf_ids_dependency %}
+                        <span class="badge badge-secondary">Dependency</span>
+                        {% endif %}
+                        {% if pkg_name_data[pkg_name].build_dependency %}
+                        <span class="badge badge-secondary" style="background-color: #999">Build Dependency</span>
+                        {% endif %}
+                        </small>
+                        <br>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+            <br>
+        </div>
+        <div class="col-sm-4">
+            <div class="card">
+                <h5 class="card-header">Maintainer Recommendation</h5>
+                <div class="card-body">
+                    TBD
+                </div>
+            </div>
+            <br>
+        </div>
+    </div>
+
+
+
+    <br>
+</div>
+
+
+{% endblock %}

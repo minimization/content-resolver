@@ -3320,11 +3320,15 @@ def _generate_view_pages(query):
                     )
                     _generate_html_page("view_compose_workloads", template_data, page_name, query.settings)
             
+
             # third, generate one page per RPM name
 
             pkg_names = set()
             buildroot_pkg_names = set()
             all_pkg_names = set()
+
+            #save some useful data for the SRPM pages below
+            pkg_name_data = {}
 
             
             
@@ -3478,6 +3482,7 @@ def _generate_view_pages(query):
                     "build_dependency": build_dependency,
                     "required_to_build_srpms": required_to_build_srpms
                 }
+                pkg_name_data[pkg_name] = template_data
                 page_name = "view-rpm--{view_conf_id}--{pkg_name}".format(
                     view_conf_id=view_conf_id,
                     pkg_name=pkg_name
@@ -3485,6 +3490,41 @@ def _generate_view_pages(query):
                 _generate_html_page("view_compose_rpm", template_data, page_name, query.settings)
             
             
+            # fourth, generate one page per SRPM name
+
+            srpm_names = set()
+            buildroot_srpm_names = set()
+            all_srpm_names = set()
+
+            for arch in all_arches:
+                srpm_names.update(query.pkgs_in_view(view_conf_id, arch, output_change="source_names"))
+
+            buildroot_srpm_names = query.view_buildroot_pkgs(view_conf_id, arch, output_change="source_names")
+
+            all_srpm_names.update(srpm_names)
+            all_srpm_names.update(buildroot_srpm_names)
+
+            for srpm_name in all_srpm_names:
+
+                srpm_pkg_names = set()
+
+                for arch in all_arches:
+                    for pkg in query.pkgs_in_view(view_conf_id, arch):
+                        if pkg["source_name"] == srpm_name:
+                            srpm_pkg_names.add(pkg["name"])
+
+                template_data = {
+                    "query": query,
+                    "view_conf": view_conf,
+                    "srpm_name": srpm_name,
+                    "pkg_names": srpm_pkg_names,
+                    "pkg_name_data": pkg_name_data
+                }
+                page_name = "view-srpm--{view_conf_id}--{srpm_name}".format(
+                    view_conf_id=view_conf_id,
+                    srpm_name=srpm_name
+                )
+                _generate_html_page("view_compose_srpm", template_data, page_name, query.settings)
 
 
 

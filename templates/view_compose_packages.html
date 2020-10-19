@@ -55,10 +55,10 @@
         <li class="nav-item">
             <a class="nav-link active" href="view--{{view_conf.id}}--{{arch}}{{maintainer_url_part}}.html">Packages</a>
         </li>
-        <li class="nav-item">
+        <!--li class="nav-item">
             <a class="nav-link" href="view-reasons--{{view_conf.id}}--{{arch}}{{maintainer_url_part}}.html">Packages +
                 Reasons of Presence</a>
-        </li>
+        </li-->
         <li class="nav-item">
             <a class="nav-link " href="view-modules--{{view_conf.id}}--{{arch}}{{maintainer_url_part}}.html">Modules</a>
         </li>
@@ -204,8 +204,8 @@
                 <th>Epoch:Version-Release</th>
                 <th>Arch</th>
                 <th>Source Name</th>
-                <th>Summary</th>
                 <th>Size</th>
+                <th>Summary</th>
             </tr>
         </thead>
         <tbody>
@@ -223,9 +223,9 @@
                 <td>{{pkg.evr}}</td>
                 <td>{{pkg.arch}}</td>
                 <!--td> <a href="view-srpm--{{view_conf.id}}--{{pkg.source_name}}.html">{{pkg.source_name}}</a></td-->
-                <td> {{pkg.source_name}}</td>
-                <td> {{ pkg.summary }}</td>
+                <td><a href="view-srpm--{{view_conf.id}}--{{pkg.source_name}}.html">{{pkg.source_name}}</a></td>
                 <td data-order="{{pkg.installsize}}">{{ query.size(pkg.installsize) }}</td>
+                <td> {{ pkg.summary }}</td>
             </tr>
             {% endfor %}
         </tbody>

@@ -51,9 +51,9 @@
         <li class="nav-item">
             <a class="nav-link" href="view--{{view_conf.id}}--{{arch}}{{maintainer_url_part}}.html">Packages</a>
         </li>
-        <li class="nav-item">
+        <!--li class="nav-item">
             <a class="nav-link" href="view-reasons--{{view_conf.id}}--{{arch}}{{maintainer_url_part}}.html">Packages + Reasons of Presence</a>
-        </li>
+        </li-->
         <li class="nav-item">
             <a class="nav-link " href="view-modules--{{view_conf.id}}--{{arch}}{{maintainer_url_part}}.html">Modules</a>
         </li>
@@ -187,9 +187,9 @@
                 <th>Name</th>
                 <th>Epoch:Version-Release</th>
                 <th>Arch</th>
+                <th>Source Name</th>
                 <th>Size</th>
                 <th>Reasons of Presence</th>
-                <th>Source Name</th>
             </tr>
         </thead>
         <tbody>
@@ -210,9 +210,9 @@
                 </td>
                 <td>{{pkg.evr}}</td>
                 <td>{{pkg.arch}}</td>
+                <td><a href="view-srpm--{{view_conf.id}}--{{pkg.source_name}}.html">{{pkg.source_name}}</a></td>
                 <td data-order="{{pkg.installsize}}">{{ query.size(pkg.installsize) }}</td>
                 <td> {{ relations(pkg, query.view_unwanted_pkgs(view_conf.id, arch)) }}</td>
-                <td>{{pkg.source_name}}</td>
             </tr>
             {% endif %}
             {% endfor %}
@@ -232,6 +232,7 @@
                 <td></td>
                 <td></td>
                 <td></td>
+                <td></td>
                 <td class="text-muted">
                     {% if pkg_name in query.view_unwanted_pkgs(view_conf.id, arch) %}
                     Not present, but listed here as it's in:
@@ -252,7 +253,6 @@
                     </ul>
                     {% endif %}
                 </td>
-                <td></td>
             </tr>
             {% endif %}
             {% endfor %}
@@ -265,6 +265,7 @@
                 <td></td>
                 <td></td>
                 <td></td>
+                <td></td>
                 <td class="text-muted">
                     {% if pkg_name in query.view_unwanted_pkgs(view_conf.id, arch) %}
                     Not present, but listed here as it's in:
@@ -285,7 +286,6 @@
                     </ul>
                     {% endif %}
                 </td>
-                <td></td>
             </tr>
             {% endif %}
             {% endfor %}
