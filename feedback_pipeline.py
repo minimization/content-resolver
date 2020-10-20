@@ -3518,9 +3518,14 @@ def _generate_view_pages(query):
                         if pkg["source_name"] == srpm_name:
                             srpm_pkg_names.add(pkg["name"])
 
+                ownership_recommendations = None
+                if srpm_name in query.data["views"][view_conf_id]["ownership_recommendations"]:
+                    ownership_recommendations = query.data["views"][view_conf_id]["ownership_recommendations"][srpm_name]
+
                 template_data = {
                     "query": query,
                     "view_conf": view_conf,
+                    "ownership_recommendations": ownership_recommendations,
                     "srpm_name": srpm_name,
                     "pkg_names": srpm_pkg_names,
                     "pkg_name_data": pkg_name_data
@@ -4621,6 +4626,168 @@ def generate_historic_data(query):
     
 
 
+def _generate_ownership_recommendations(view_conf_id, query):
+
+    MAX_LEVEL = 10
+    
+    log("Doing things...")
+
+    pkg_entries = {}
+
+    workload_ids = query.workloads_in_view(view_conf_id, None)
+
+    for workload_id in workload_ids:
+        workload = query.data["workloads"][workload_id]
+        workload_conf_id = workload["workload_conf_id"]
+        workload_conf = query.configs["workloads"][workload_conf_id]
+        workload_maintainer = workload_conf["maintainer"]
+        
+        pkgs = query.workload_pkgs_id(workload_id)
+        pkg_relations = workload["pkg_relations"]
+
+        # Packages on level 1 == required
+        level1_pkg_ids = set()
+
+        # This will initially hold all packages.
+        # When figuring out levels, I'll process each package just once.
+        # And for that I'll be removing them from this set as I go.
+        remaining_pkg_ids = set()
+        
+        for pkg in pkgs:
+            pkg_id = pkg["id"]
+
+            remaining_pkg_ids.add(pkg_id)
+
+            if pkg_id not in pkg_entries:
+                pkg_entry = {}
+                pkg_entry["id"] = pkg_id
+                pkg_entry["source_name"] = pkg["source_name"]
+                for level in range(0, MAX_LEVEL + 1):
+                    level_name = "level{num}".format(num=str(level))
+                    pkg_entry[level_name] = {}
+                    pkg_entry[level_name]["workload_conf_ids"] = set()
+                    pkg_entry[level_name]["maintainers"] = set()
+
+                pkg_entries[pkg_id] = pkg_entry
+    
+            # Is this package level 1?
+            if workload_id in pkg["q_required_in"]:
+                pkg_entries[pkg_id]["level0"]["workload_conf_ids"].add(workload_conf_id)
+                pkg_entries[pkg_id]["level0"]["maintainers"].add(workload_maintainer)
+                level1_pkg_ids.add(pkg_id)
+                remaining_pkg_ids.remove(pkg_id)
+        
+
+        # Initialize sets for all levels
+        pkg_ids_level = []
+        #0
+        pkg_ids_level.append(level1_pkg_ids)
+
+        #print("All:   : {}".format(len(pkgs)))
+        #print("Level 1: {}".format(len(level1_pkg_ids)))
+        #print("Remains: {}".format(len(remaining_pkg_ids)))
+        #print("")
+
+        # Starting at level 2, because level 1 is already done (that's required packages)
+        for current_level in range(1, MAX_LEVEL + 1):
+
+            #1..
+            pkg_ids_level.append(set())
+
+            for pkg_id in remaining_pkg_ids.copy():
+                pkg = pkg_entries[pkg_id]
+
+                # is pkg required by higher_pkg_id (which is level 1)?
+                # (== is higher_pkg_id in a list of packages that pkg is required by?)
+                # then pkg is level 2
+                for higher_pkg_id in pkg_ids_level[current_level - 1]:
+                    if higher_pkg_id in pkg_relations[pkg_id]["required_by"]:
+                        pkg_ids_level[current_level].add(pkg_id)
+                        try:
+                            remaining_pkg_ids.remove(pkg_id)
+                        except KeyError:
+                            pass
+            
+            #print("Level {}: {}".format(current_level, len(pkg_ids_level[current_level])))
+            #print("Remains: {}".format(len(remaining_pkg_ids)))
+            #print("")
+        
+        # Some might remain for weird reasons
+        for pkg_id in remaining_pkg_ids:
+            pkg_ids_level[MAX_LEVEL].add(pkg_id)
+
+
+        for current_level in range(0, MAX_LEVEL + 1):
+            #print("Level {level}: {count}".format(
+            #    level=current_level,
+            #    count=len(pkg_ids_level[current_level])
+            #))
+            
+            
+            level_name = "level{num}".format(num=str(current_level))
+
+
+            for pkg_id in pkg_entries:
+                pkg = pkg_entries[pkg_id]
+
+                if pkg_id in pkg_ids_level[current_level]:
+
+                    pkg_entries[pkg_id][level_name]["workload_conf_ids"].add(workload_conf_id)
+                    pkg_entries[pkg_id][level_name]["maintainers"].add(workload_maintainer)
+
+    log("   Sorting pkgs per SRPM...")
+
+    ownership_recommendations = {}
+
+    for pkg_id, pkg in pkg_entries.items():
+        source_name = pkg["source_name"]
+
+        if source_name not in ownership_recommendations:
+            ownership_recommendations[source_name] = {}
+            ownership_recommendations[source_name]["rpms"] = {}
+            ownership_recommendations[source_name]["ownership"] = {}
+        
+        ownership_recommendations[source_name]["rpms"][pkg_id] = pkg
+
+        for current_level in range(0, MAX_LEVEL + 1):
+            level_name = "level{num}".format(num=str(current_level))
+
+            if level_name not in ownership_recommendations[source_name]["ownership"]:
+                ownership_recommendations[source_name]["ownership"][level_name] = {}
+            
+            for workload_conf_id in pkg[level_name]["workload_conf_ids"]:
+                maintainer = query.configs["workloads"][workload_conf_id]["maintainer"]
+                if maintainer not in ownership_recommendations[source_name]["ownership"][level_name]:
+                    ownership_recommendations[source_name]["ownership"][level_name][maintainer] = {}
+                    ownership_recommendations[source_name]["ownership"][level_name][maintainer]["workloads"] = {}
+                    ownership_recommendations[source_name]["ownership"][level_name][maintainer]["pkg_count"] = 0
+                
+                ownership_recommendations[source_name]["ownership"][level_name][maintainer]["pkg_count"] += 1
+                ownership_recommendations[source_name]["ownership"][level_name][maintainer]["workloads"][workload_conf_id] = pkg_id
+
+
+
+
+    log("Done!")
+    log("")
+
+    return ownership_recommendations
+
+
+def perform_additional_analyses(query):
+
+    for view_conf_id in query.configs["views"]:
+        ownership_recommendations = _generate_ownership_recommendations(view_conf_id, query)
+        
+        if "views" not in query.data:
+            query.data["views"] = {}
+
+        if not view_conf_id in query.data["views"]:
+            query.data["views"][view_conf_id] = {}
+        
+        query.data["views"][view_conf_id]["ownership_recommendations"] = ownership_recommendations
+
+
 ###############################################################################
 ### Main ######################################################################
 ###############################################################################
@@ -4645,6 +4812,8 @@ def main():
         dump_data("cache_data.json", data)
 
     query = Query(data, configs, settings)
+
+    perform_additional_analyses(query)
 
     # measuring time of execution
     time_analysis_time = datetime_now_string()

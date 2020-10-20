@@ -56,7 +56,38 @@
             <div class="card">
                 <h5 class="card-header">Maintainer Recommendation</h5>
                 <div class="card-body">
-                    TBD
+                    {% if ownership_recommendations %}
+                    {% for level_name, level_data in ownership_recommendations["ownership"].items() %}
+                    <h5>
+                        {% if level_name == "level0" %}
+                        Required by:
+                        {% elif level_name == "level1" %}
+                        Direct ({{level_name}}) dependency:
+                        {% else %}
+                        {{level_name}} dependency:
+                        {% endif %}
+                    </h5>
+                    {% for maintainer, maintainer_data in level_data.items() %}
+                    <span>{{maintainer}}</span>
+                    <br>
+                    <small>{{maintainer_data.pkg_count}} RPM(s) <span class="text-muted">total in:</span></small>
+                    <br>
+                    {% for workload_conf_id, pkg_ids in maintainer_data.workloads.items() %}
+                    <small class="text-muted">
+                        <a href="workload-overview--{{workload_conf_id}}--{{view_conf.repository}}.html">{{query.configs.workloads[workload_conf_id].name}}</a>
+                    </small>
+                    <br>
+                    {% endfor %}
+                    <br>
+                    {% else %}
+                    <span class="text-muted">No one.</span>
+                    <br>
+                    <br>
+                    {% endfor %}
+                    {% endfor %}
+                    {% else %}
+                    Not available for buildroot-only packages yet.
+                    {% endif %}
                 </div>
             </div>
             <br>
