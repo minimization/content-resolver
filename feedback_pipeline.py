@@ -3364,6 +3364,8 @@ def _generate_view_pages(query):
 
                 build_dependency = False
 
+                pkg_srpm_name = None
+
                 # 1: Runtime package stuff
                 if pkg_name in pkg_names:
 

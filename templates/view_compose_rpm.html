@@ -45,7 +45,11 @@
                 <h5 class="card-header">SRPM</h5>
                 <ul class="list-group list-group-flush">
                     <li class="list-group-item">
+                        {% if srpm_name %}
                         <a href="view-srpm--{{view_conf.id}}--{{srpm_name}}.html">{{srpm_name}}</a>
+                        {% else %}
+                        <span class="text-muted">Not available</span>
+                        {% endif %}
                     </li>
                 </ul>
             </div>
