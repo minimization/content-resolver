@@ -1429,15 +1429,14 @@ def _analyze_workload(tmp_dnf_cachedir, tmp_installroots, workload_conf, env_con
                 workload["errors"]["non_existing_pkgs"].append(grp_spec)
                 continue
             base.group_install(group.id, ['mandatory', 'default'])
-        
-        
-            # TODO: Mark group packages as required... the following code doesn't work
-            #for pkg in group.packages_iter():
-            #    print(pkg.name)
-            #    workload_conf["packages"].append(pkg.name)
-               
-                
-        
+
+            # Mark group packages as required
+            pkgs_from_groups = []
+            for pkg in group.packages_iter():
+                if pkg.name not in workload_conf["packages"]:
+                    pkgs_from_groups.append(pkg.name)
+            workload_conf["packages"].extend(pkgs_from_groups)
+
         # Filter out the relevant package placeholders for this arch
         package_placeholders = {}
         for placeholder_name,placeholder_data in workload_conf["package_placeholders"].items():
