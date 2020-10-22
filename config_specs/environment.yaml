@@ -57,6 +57,10 @@ data:
 
   ### OPTIONAL FIELDS ###
 
+  # Add packages from a group to the environment
+  groups:
+  - Core
+
   # Architecture-specific packages.
   #
   # (optional field)
