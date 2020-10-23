@@ -961,6 +961,67 @@ def _analyze_pkgs(tmp_dnf_cachedir, tmp_installroots, repo, arch):
 
     return pkgs
 
+def _analyze_package_relations(dnf_query, package_placeholders = None):
+    relations = {}
+
+    for pkg in dnf_query:
+        pkg_id = "{name}-{evr}.{arch}".format(
+            name=pkg.name,
+            evr=pkg.evr,
+            arch=pkg.arch
+        )
+        
+        required_by = set()
+        recommended_by = set()
+        suggested_by = set()
+
+        for dep_pkg in dnf_query.filter(requires=pkg.provides):
+            dep_pkg_id = "{name}-{evr}.{arch}".format(
+                name=dep_pkg.name,
+                evr=dep_pkg.evr,
+                arch=dep_pkg.arch
+            )
+            required_by.add(dep_pkg_id)
+
+        for dep_pkg in dnf_query.filter(recommends=pkg.provides):
+            dep_pkg_id = "{name}-{evr}.{arch}".format(
+                name=dep_pkg.name,
+                evr=dep_pkg.evr,
+                arch=dep_pkg.arch
+            )
+            recommended_by.add(dep_pkg_id)
+        
+        for dep_pkg in dnf_query.filter(suggests=pkg.provides):
+            dep_pkg_id = "{name}-{evr}.{arch}".format(
+                name=dep_pkg.name,
+                evr=dep_pkg.evr,
+                arch=dep_pkg.arch
+            )
+            suggested_by.add(dep_pkg_id)
+        
+        relations[pkg_id] = {}
+        relations[pkg_id]["required_by"] = sorted(list(required_by))
+        relations[pkg_id]["recommended_by"] = sorted(list(recommended_by))
+        relations[pkg_id]["suggested_by"] = sorted(list(suggested_by))
+    
+    if package_placeholders:
+        for placeholder_name,placeholder_data in package_placeholders.items():
+            placeholder_id = pkg_placeholder_name_to_id(placeholder_name)
+
+            relations[placeholder_id] = {}
+            relations[placeholder_id]["required_by"] = []
+            relations[placeholder_id]["recommended_by"] = []
+            relations[placeholder_id]["suggested_by"] = []
+        
+        for placeholder_name,placeholder_data in package_placeholders.items():
+            placeholder_id = pkg_placeholder_name_to_id(placeholder_name)
+            for placeholder_dependency_name in placeholder_data["requires"]:
+                for pkg_id in relations:
+                    pkg_name = pkg_id_to_name(pkg_id)
+                    if pkg_name == placeholder_dependency_name:
+                        relations[pkg_id]["required_by"].append(placeholder_id)
+    
+    return relations
 
 def _analyze_env(tmp_dnf_cachedir, tmp_installroots, env_conf, repo, arch):
     env = {}
@@ -969,6 +1030,8 @@ def _analyze_env(tmp_dnf_cachedir, tmp_installroots, env_conf, repo, arch):
     env["pkg_ids"] = []
     env["repo_id"] = repo["id"]
     env["arch"] = arch
+
+    env["pkg_relations"] = []
 
     env["errors"] = {}
     env["errors"]["non_existing_pkgs"] = []
@@ -1099,6 +1162,8 @@ def _analyze_env(tmp_dnf_cachedir, tmp_installroots, env_conf, repo, arch):
             )
             env["pkg_ids"].append(pkg_id)
         
+        env["pkg_relations"] = _analyze_package_relations(query)
+
         log("  Done!  ({pkg_count} packages in total)".format(
             pkg_count=len(env["pkg_ids"])
         ))
@@ -1139,68 +1204,6 @@ def _analyze_envs(tmp_dnf_cachedir, tmp_installroots, configs):
                 
     
     return envs
-
-def _analyze_package_relations(dnf_query, package_placeholders = None):
-    relations = {}
-
-    for pkg in dnf_query:
-        pkg_id = "{name}-{evr}.{arch}".format(
-            name=pkg.name,
-            evr=pkg.evr,
-            arch=pkg.arch
-        )
-        
-        required_by = set()
-        recommended_by = set()
-        suggested_by = set()
-
-        for dep_pkg in dnf_query.filter(requires=pkg.provides):
-            dep_pkg_id = "{name}-{evr}.{arch}".format(
-                name=dep_pkg.name,
-                evr=dep_pkg.evr,
-                arch=dep_pkg.arch
-            )
-            required_by.add(dep_pkg_id)
-
-        for dep_pkg in dnf_query.filter(recommends=pkg.provides):
-            dep_pkg_id = "{name}-{evr}.{arch}".format(
-                name=dep_pkg.name,
-                evr=dep_pkg.evr,
-                arch=dep_pkg.arch
-            )
-            recommended_by.add(dep_pkg_id)
-        
-        for dep_pkg in dnf_query.filter(suggests=pkg.provides):
-            dep_pkg_id = "{name}-{evr}.{arch}".format(
-                name=dep_pkg.name,
-                evr=dep_pkg.evr,
-                arch=dep_pkg.arch
-            )
-            suggested_by.add(dep_pkg_id)
-        
-        relations[pkg_id] = {}
-        relations[pkg_id]["required_by"] = sorted(list(required_by))
-        relations[pkg_id]["recommended_by"] = sorted(list(recommended_by))
-        relations[pkg_id]["suggested_by"] = sorted(list(suggested_by))
-    
-    if package_placeholders:
-        for placeholder_name,placeholder_data in package_placeholders.items():
-            placeholder_id = pkg_placeholder_name_to_id(placeholder_name)
-
-            relations[placeholder_id] = {}
-            relations[placeholder_id]["required_by"] = []
-            relations[placeholder_id]["recommended_by"] = []
-            relations[placeholder_id]["suggested_by"] = []
-        
-        for placeholder_name,placeholder_data in package_placeholders.items():
-            placeholder_id = pkg_placeholder_name_to_id(placeholder_name)
-            for placeholder_dependency_name in placeholder_data["requires"]:
-                for pkg_id in relations:
-                    pkg_name = pkg_id_to_name(pkg_id)
-                    if pkg_name == placeholder_dependency_name:
-                        relations[pkg_id]["required_by"].append(placeholder_id)
-    
-    return relations
 
 
 def _return_failed_workload_env_err(workload_conf, env_conf, repo, arch):
@@ -2998,8 +3001,12 @@ def _generate_env_pages(query):
         page_name = "env--{env_id}".format(
             env_id=env_id
         )
-
         _generate_html_page("env", template_data, page_name, query.settings)
+
+        page_name = "env-dependencies--{env_id}".format(
+            env_id=env_id
+        )
+        _generate_html_page("env_dependencies", template_data, page_name, query.settings)
     
     # env compare arches pages
     for env_conf_id in query.envs(None,None,None,output_change="env_conf_ids"):
