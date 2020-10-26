@@ -2765,6 +2765,60 @@ class Query():
                 maintainers[maintainer]["all_succeeded"] = False
 
         return maintainers
+    
+
+    @lru_cache(maxsize = None)
+    def recommend_view_maintainers(self, view_conf_id):
+
+        ownership_recommendations = self.data["views"][view_conf_id]["ownership_recommendations"]
+
+        #skipped_maintainers = self.configs["views"][view_conf_id]["maintainer_recommendation"]["skipped_maintainers"]
+        skipped_maintainers = ["bakery", "jwboyer"]
+
+        components = {}
+
+        clear_components = set()
+        unclear_components = set()
+
+        for component_name, owner_data in ownership_recommendations.items():
+
+            found = False
+            maintainers = {}
+            top_maintainer = None
+
+            for level_name, level_data in owner_data["ownership"].items():
+                if found:
+                    break
+
+                if not level_data:
+                    continue
+
+                for maintainer, maintainer_data in level_data.items():
+
+                    if maintainer in skipped_maintainers:
+                        continue
+
+                    found = True
+                    
+                    maintainers[maintainer] = maintainer_data["pkg_count"]
+            
+            # Find a maintainer with the highest score
+            maintainer_scores = {}
+            for maintainer, score in maintainers.items():
+                if score not in maintainer_scores:
+                    maintainer_scores[score] = set()
+                maintainer_scores[score].add(maintainer)
+            for score in sorted(maintainer_scores, reverse=True):
+                if len(maintainer_scores[score]) == 1:
+                    for chosen_maintainer in maintainer_scores[score]:
+                        top_maintainer = chosen_maintainer
+                    
+            
+            components[component_name] = {}
+            components[component_name]["all"] = maintainers
+            components[component_name]["top"] = top_maintainer
+
+        return components
 
 
 
@@ -3515,10 +3569,20 @@ def _generate_view_pages(query):
 
             buildroot_srpm_names = query.view_buildroot_pkgs(view_conf_id, arch, output_change="source_names")
 
+            srpm_maintainers = query.recommend_view_maintainers(view_conf_id)
+
             all_srpm_names.update(srpm_names)
             all_srpm_names.update(buildroot_srpm_names)
 
             for srpm_name in all_srpm_names:
+
+                # Since it doesn't include buildroot, yet, I'll need to recreate those manually for now
+                if srpm_name in srpm_maintainers:
+                    recommended_maintainers = srpm_maintainers[srpm_name]
+                else:
+                    recommended_maintainers = {}
+                    recommended_maintainers["top"] = None
+                    recommended_maintainers["all"] = {}
 
                 srpm_pkg_names = set()
 
@@ -3535,6 +3599,7 @@ def _generate_view_pages(query):
                     "query": query,
                     "view_conf": view_conf,
                     "ownership_recommendations": ownership_recommendations,
+                    "recommended_maintainers": recommended_maintainers,
                     "srpm_name": srpm_name,
                     "pkg_names": srpm_pkg_names,
                     "pkg_name_data": pkg_name_data

@@ -54,7 +54,33 @@
         </div>
         <div class="col-sm-4">
             <div class="card">
-                <h5 class="card-header">Maintainer Recommendation</h5>
+                <h5 class="card-header">Recommended Maintainer</h5>
+                <div class="card-body">
+                    {% if recommended_maintainers["top"] %}
+                    
+                    <strong>{{recommended_maintainers["top"]}}</strong>
+
+                    {% else %}
+
+                    <strong class="text-muted">UNCLEAR</strong>
+                    <br>
+                    <br>
+
+                    {% if recommended_maintainers["all"] %}
+                    Multiple options:
+                    <ul>
+                    {% for maintainer, score in recommended_maintainers["all"].items() %}
+                    <li>{{maintainer}}  ({{score}} RPMs)</li>
+                    {% endfor %}
+                    </ul>
+                    
+                    {% endif %}
+                    {% endif %}
+                </div>
+            </div>
+            <br>
+            <div class="card">
+                <h5 class="card-header">Maintainer Data</h5>
                 <div class="card-body">
                     {% if ownership_recommendations %}
                     {% for level_name, level_data in ownership_recommendations["ownership"].items() %}
