@@ -114,9 +114,9 @@
                         </td>
                         <td>
                             {% if pkg.target_repo and pkg.addon_repos%}
-                            Needed in {{pkg.addon_repos | join(", ")}} but couldn't be pulled out. <a href="./repo-split--{{view_id}}.html">See the overview for details.</a>
                             {% for repo, repo_split_conf_ids in pkg.musts.items() %}
                             {% if repo_split_conf_ids and repo != "baseos" %}
+                            Needed in {{repo}} but couldn't be pulled out. <a href="./repo-split--{{view_id}}.html">See the overview for details.</a>
                             <ul>
                             {% for repo_split_conf_id in repo_split_conf_ids %}
                             <li>
