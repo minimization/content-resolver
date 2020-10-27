@@ -2812,6 +2812,7 @@ class Query():
                 if len(maintainer_scores[score]) == 1:
                     for chosen_maintainer in maintainer_scores[score]:
                         top_maintainer = chosen_maintainer
+                    break
                     
             
             components[component_name] = {}
@@ -3569,7 +3570,7 @@ def _generate_view_pages(query):
 
             buildroot_srpm_names = query.view_buildroot_pkgs(view_conf_id, arch, output_change="source_names")
 
-            srpm_maintainers = query.recommend_view_maintainers(view_conf_id)
+            srpm_maintainers = query.data["views"][view_conf_id]["srpm_maintainers"]
 
             all_srpm_names.update(srpm_names)
             all_srpm_names.update(buildroot_srpm_names)
@@ -4860,6 +4861,9 @@ def perform_additional_analyses(query):
             query.data["views"][view_conf_id] = {}
         
         query.data["views"][view_conf_id]["ownership_recommendations"] = ownership_recommendations
+
+        query.data["views"][view_conf_id]["srpm_maintainers"] = query.recommend_view_maintainers(view_conf_id)
+
 
 
 ###############################################################################
