@@ -1,0 +1,31 @@
+---
+document: feedback-pipeline-repository
+version: 2
+data:
+  name: Fedora ELN
+  description: Fedora ELN
+  maintainer: asamalik
+
+  source:
+
+    repos:
+
+      rawhide-everything:
+        baseurl: https://kojipkgs.fedoraproject.org/compose/rawhide/latest-Fedora-Rawhide/compose/Everything/$basearch/os/
+      
+      eln-everything:
+        baseurl: https://odcs.fedoraproject.org/composes/production/latest-Fedora-ELN/compose/Everything/$basearch/os/
+        priority: 1
+      
+      eln-appstream:
+        baseurl: https://odcs.fedoraproject.org/composes/production/latest-Fedora-ELN/compose/AppStream/$basearch/os/
+        priority: 2
+
+    releasever: "rawhide"
+
+    architectures:
+    #- armv7hl
+    - aarch64
+    #- ppc64le
+    #- s390x
+    - x86_64

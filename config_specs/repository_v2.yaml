@@ -6,19 +6,19 @@
 # Right now, they represent Fedora releases, but can be extended in the future.
 
 document: feedback-pipeline-repository
-version: 1
+version: 2
 data:
   # id is the filename — that automatically prevents collisions for free!
   
   # Name is an identifier for humans
   #
   # (mandatory field)
-  name: Fedora 31
+  name: Fedora ELN
   
   # A short description, perhaps hinting the purpose
   #
   # (mandatory field)
-  description: Official Fedora 31 release
+  description: Fedora ELN
 
   # Who maintains it? This is just a freeform string
   # for humans to read. In Fedora, a FAS nick is recommended.
@@ -32,11 +32,25 @@ data:
   # 
   # (mandatory field)
   source:
-    # Only Fedora repos supported at this time.
-    # Fedora release.
+
+    repos: 
+
+      repo-one:
+        name: Fedora ELN #(optional)
+        baseurl: https://whatever.wherever #(mandatory)
+        priority: 42 #(optional, default 100)
+
+      some-other-repo: 
+        name: Fedora Rawhide #(optional)
+        baseurl: https://whatever.wherever #(mandatory)
+        priority: 41 #(optional, default 100)
+
+    # This is the "releasever" parameter of DNF
     # 
     # (mandatory field)
-    fedora_release: "31"
+    releasever: "33"
+
+
     # List of architectures
     # 
     # (mandatory field)
@@ -47,12 +61,3 @@ data:
     - ppc64le
     - s390x
     - x86_64
-
-    # An additional repository to be added to the mix.
-    # This repository will get a higher priority then the primary
-    # one defined by fedora_release.
-    # Practiaclly, this has been added for Fedora ELN that's used
-    # on top of Rawhide.
-    # 
-    # (Optional field)
-    additional_repository: URL

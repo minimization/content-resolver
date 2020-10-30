@@ -146,6 +146,9 @@ def load_settings():
 # - view          views         view_id
 
 def _load_config_repo(document_id, document, settings):
+    raise NotImplementedError("Repo v1 is not supported. Please migrate to repo v2.")
+
+def _load_config_repo_v2(document_id, document, settings):
     config = {}
     config["id"] = document_id
 
@@ -165,10 +168,13 @@ def _load_config_repo(document_id, document, settings):
         # Right now, only Fedora repositories are supported,
         # defined by their releasever.
         config["source"] = {}
+        config["source"]["repos"] = {}
+        if "repos" not in config["source"]:
+            raise KeyError
 
         # Only Fedora repos supported at this time.
         # Fedora release.
-        config["source"]["fedora_release"] = str(document["data"]["source"]["fedora_release"])
+        config["source"]["releasever"] = str(document["data"]["source"]["releasever"])
 
         # List of architectures
         config["source"]["architectures"] = []
@@ -181,19 +187,24 @@ def _load_config_repo(document_id, document, settings):
                 continue
             config["source"]["architectures"].append(str(arch))
     except KeyError:
-        raise ConfigError("Error: {file} is invalid.".format(file=yml_file))
+        raise ConfigError("Error: {file} is invalid.".format(file=document_id))
     
     # Step 2: Optional fields
 
-    # An additional repository to be added to the mix.
-    # This repository will get a higher priority then the primary
-    # one defined by fedora_release.
-    # Practiaclly, this has been added for Fedora ELN that's used
-    # on top of Rawhide.
-    config["source"]["additional_repository"] = None
-    if "additional_repository" in document["data"]["source"]:
-        config["source"]["additional_repository"] = str(document["data"]["source"]["additional_repository"])
+    for id, repo_data in document["data"]["source"]["repos"].items():
+        name = repo_data.get("name", id)
+        priority = repo_data.get("priority", 100)
 
+        config["source"]["repos"][id] = {}
+        config["source"]["repos"][id]["id"] = id
+        config["source"]["repos"][id]["name"] = name
+        try:
+            config["source"]["repos"][id]["baseurl"] = repo_data["baseurl"]
+        except KeyError:
+            raise ConfigError("Error: {file} is invalid. Repo {id} doesn't list baseurl".format(
+                file=yml_file,
+                id=id))
+        config["source"]["repos"][id]["priority"] = priority
 
     return config
 
@@ -694,7 +705,11 @@ def get_configs(settings):
 
                 # === Case: Repository config ===
                 if document["document"] == "feedback-pipeline-repository":
-                    configs["repos"][document_id] = _load_config_repo(document_id, document, settings)
+                    if document["version"] == 1:
+                        configs["repos"][document_id] = _load_config_repo(document_id, document, settings)
+                    
+                    elif document["version"] == 2:
+                        configs["repos"][document_id] = _load_config_repo_v2(document_id, document, settings)
 
                 # === Case: Environment config ===
                 if document["document"] == "feedback-pipeline-environment":
@@ -839,15 +854,24 @@ def _load_repo_cached(base, repo, arch):
     else:
         log("  Loading repos using DNF...")
 
-        # Additional repository (if configured)
-        if repo["source"]["additional_repository"]:
-            additional_repo = dnf.repo.Repo(name="additional-repository",parent_conf=base.conf)
-            additional_repo.baseurl = [repo["source"]["additional_repository"]]
-            additional_repo.priority = 1
+        for repo_name, repo_data in repo["source"]["repos"].items():
+            additional_repo = dnf.repo.Repo(
+                name=repo_name,
+                parent_conf=base.conf
+            )
+            additional_repo.baseurl = repo_data["baseurl"]
+            additional_repo.priority = repo_data["priority"]
             base.repos.add(additional_repo)
 
+        # Additional repository (if configured)
+        #if repo["source"]["additional_repository"]:
+        #    additional_repo = dnf.repo.Repo(name="additional-repository",parent_conf=base.conf)
+        #    additional_repo.baseurl = [repo["source"]["additional_repository"]]
+        #    additional_repo.priority = 1
+        #    base.repos.add(additional_repo)
+
         # All other system repos
-        base.read_all_repos()
+        #base.read_all_repos()
 
         global_dnf_repo_cache[repo_id][arch] = []
         for repo in base.repos.iter_enabled():
@@ -884,18 +908,27 @@ def _analyze_pkgs(tmp_dnf_cachedir, tmp_installroots, repo, arch):
         base.conf.ignorearch = True
 
         # Releasever
-        base.conf.substitutions['releasever'] = repo["source"]["fedora_release"]
+        base.conf.substitutions['releasever'] = repo["source"]["releasever"]
+
+        for repo_name, repo_data in repo["source"]["repos"].items():
+            additional_repo = dnf.repo.Repo(
+                name=repo_name,
+                parent_conf=base.conf
+            )
+            additional_repo.baseurl = repo_data["baseurl"]
+            additional_repo.priority = repo_data["priority"]
+            base.repos.add(additional_repo)
 
         # Additional repository (if configured)
-        if repo["source"]["additional_repository"]:
-            additional_repo = dnf.repo.Repo(name="additional-repository",parent_conf=base.conf)
-            additional_repo.baseurl = [repo["source"]["additional_repository"]]
-            additional_repo.priority = 1
-            base.repos.add(additional_repo)
+        #if repo["source"]["additional_repository"]:
+        #    additional_repo = dnf.repo.Repo(name="additional-repository",parent_conf=base.conf)
+        #    additional_repo.baseurl = [repo["source"]["additional_repository"]]
+        #    additional_repo.priority = 1
+        #    base.repos.add(additional_repo)
 
         # Load repos
         log("  Loading repos...")
-        base.read_all_repos()
+        #base.read_all_repos()
 
 
         # At this stage, I need to get all packages from the repo listed.
@@ -1003,6 +1036,7 @@ def _analyze_package_relations(dnf_query, package_placeholders = None):
         relations[pkg_id]["required_by"] = sorted(list(required_by))
         relations[pkg_id]["recommended_by"] = sorted(list(recommended_by))
         relations[pkg_id]["suggested_by"] = sorted(list(suggested_by))
+        relations[pkg_id]["reponame"] = pkg.reponame
     
     if package_placeholders:
         for placeholder_name,placeholder_data in package_placeholders.items():
@@ -1012,6 +1046,7 @@ def _analyze_package_relations(dnf_query, package_placeholders = None):
             relations[placeholder_id]["required_by"] = []
             relations[placeholder_id]["recommended_by"] = []
             relations[placeholder_id]["suggested_by"] = []
+            relations[placeholder_id]["reponame"] = None
         
         for placeholder_name,placeholder_data in package_placeholders.items():
             placeholder_id = pkg_placeholder_name_to_id(placeholder_name)
@@ -1060,7 +1095,7 @@ def _analyze_env(tmp_dnf_cachedir, tmp_installroots, env_conf, repo, arch):
         base.conf.ignorearch = True
 
         # Releasever
-        base.conf.substitutions['releasever'] = repo["source"]["fedora_release"]
+        base.conf.substitutions['releasever'] = repo["source"]["releasever"]
 
         # Additional DNF Settings
         base.conf.tsflags.append('justdb')
@@ -1281,7 +1316,7 @@ def _analyze_workload(tmp_dnf_cachedir, tmp_installroots, workload_conf, env_con
         base.conf.ignorearch = True
 
         # Releasever
-        base.conf.substitutions['releasever'] = repo["source"]["fedora_release"]
+        base.conf.substitutions['releasever'] = repo["source"]["releasever"]
 
         # Environment config
         if "include-weak-deps" not in workload_conf["options"]:
