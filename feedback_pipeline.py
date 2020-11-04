@@ -1036,6 +1036,7 @@ def _analyze_package_relations(dnf_query, package_placeholders = None):
         relations[pkg_id]["required_by"] = sorted(list(required_by))
         relations[pkg_id]["recommended_by"] = sorted(list(recommended_by))
         relations[pkg_id]["suggested_by"] = sorted(list(suggested_by))
+        relations[pkg_id]["source_name"] = pkg.source_name
         relations[pkg_id]["reponame"] = pkg.reponame
     
     if package_placeholders:
