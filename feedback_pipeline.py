@@ -2507,7 +2507,7 @@ class Query():
         if not buildroot_conf_id:
             if output_change == "source_names":
                 return []
-            return None
+            return {}
 
         # Populate pkgs
 
@@ -2856,6 +2856,16 @@ class Query():
             components[component_name]["top"] = top_maintainer
 
         return components
+    
+
+    @lru_cache(maxsize = None)
+    def view_pkg_name_details(self, pkg_name, view_conf_id):
+        raise NotImplementedError
+
+    
+    @lru_cache(maxsize = None)
+    def view_srpm_name_details(self, srpm_name, view_conf_id):
+        raise NotImplementedError
 
 
 
@@ -3451,6 +3461,7 @@ def _generate_view_pages(query):
                 pkg_ids = {}
                 workload_conf_ids_required = {}
                 workload_conf_ids_dependency = {}
+                workload_conf_ids_env = {}
 
                 required_to_build_srpms = set()
 
@@ -3500,6 +3511,15 @@ def _generate_view_pages(query):
                                         workload_conf_ids_dependency[workload_conf_id] = set()
                                     
                                     workload_conf_ids_dependency[workload_conf_id].add(arch)
+                                
+                                for workload_id in pkg["q_env_in"]:
+                                    workload = query.data["workloads"][workload_id]
+                                    workload_conf_id = workload["workload_conf_id"]
+
+                                    if workload_conf_id not in workload_conf_ids_env: 
+                                        workload_conf_ids_env[workload_conf_id] = set()
+                                    
+                                    workload_conf_ids_env[workload_conf_id].add(arch)
 
                         for pkg_unwanted_name, pkg_unwanted_data in query.view_unwanted_pkgs(view_conf_id, arch).items():
                             if pkg_name == pkg_unwanted_name:
@@ -3534,7 +3554,7 @@ def _generate_view_pages(query):
                                         pkgs_required_by[this_pkg_id][required_by_name] = set()
                                     
                                     pkgs_required_by[this_pkg_id][required_by_name].add(required_by_id)
-
+                                
                 # 2: Buildroot package stuff
                 if pkg_name in buildroot_pkg_names:
                     build_dependency = True
@@ -3552,6 +3572,9 @@ def _generate_view_pages(query):
                                     if this_pkg_id not in pkg_ids:
                                         pkg_ids[this_pkg_id] = set()
                                     pkg_ids[this_pkg_id].add(arch)
+
+                                    if this_pkg_id in buildroot_pkg_relations and not pkg_srpm_name:
+                                        pkg_srpm_name = buildroot_pkg_relations[this_pkg_id]["source_name"]
                             
                             for this_pkg_id in pkg_ids:
                                 if this_pkg_id not in buildroot_pkg_relations:
@@ -3581,6 +3604,7 @@ def _generate_view_pages(query):
                     "pkg_ids": pkg_ids,
                     "workload_conf_ids_required": workload_conf_ids_required,
                     "workload_conf_ids_dependency": workload_conf_ids_dependency,
+                    "workload_conf_ids_env": workload_conf_ids_env,
                     "exclusion_list_ids": exclusion_list_ids,
                     "unwanted_in_view": unwanted_in_view,
                     "pkgs_required_by": pkgs_required_by,
@@ -3627,6 +3651,16 @@ def _generate_view_pages(query):
                     for pkg in query.pkgs_in_view(view_conf_id, arch):
                         if pkg["source_name"] == srpm_name:
                             srpm_pkg_names.add(pkg["name"])
+                
+                for buildroot_pkg_relations_conf_id, buildroot_pkg_relations_conf in query.configs["buildroot_pkg_relations"].items():
+                    if view_conf_id == buildroot_pkg_relations_conf["view_id"]:
+
+                        buildroot_pkg_relations = buildroot_pkg_relations_conf["pkg_relations"]
+
+                        for buildroot_pkg_id, buildroot_pkg in buildroot_pkg_relations.items():
+                            if srpm_name == buildroot_pkg["source_name"]:
+                                buildroot_pkg_name = pkg_id_to_name(buildroot_pkg_id)
+                                srpm_pkg_names.add(buildroot_pkg_name)
 
                 ownership_recommendations = None
                 if srpm_name in query.data["views"][view_conf_id]["ownership_recommendations"]:
@@ -4935,16 +4969,16 @@ def main():
     generate_pages(query)
     generate_historic_data(query)
 
-    log("")
-    log("Repo split time!")
-
-    query.settings["allowed_arches"] = ["aarch64","ppc64le","s390x","x86_64"]
-    reposplit_configs = reposplit.get_configs(query.settings)
-    reposplit_data = reposplit.get_data(query)
-    reposplit_query = reposplit.Query(reposplit_data, reposplit_configs, query.settings)
-    reposplit_query.sort_out_pkgs()
-    reposplit.generate_pages(reposplit_query, include_content_resolver_breadcrumb=True)
-    reposplit.print_summary(reposplit_query)
+    #log("")
+    #log("Repo split time!")
+#
+    #query.settings["allowed_arches"] = ["aarch64","ppc64le","s390x","x86_64"]
+    #reposplit_configs = reposplit.get_configs(query.settings)
+    #reposplit_data = reposplit.get_data(query)
+    #reposplit_query = reposplit.Query(reposplit_data, reposplit_configs, query.settings)
+    #reposplit_query.sort_out_pkgs()
+    #reposplit.generate_pages(reposplit_query, include_content_resolver_breadcrumb=True)
+    #reposplit.print_summary(reposplit_query)
 
     log("Done!")
     log("")

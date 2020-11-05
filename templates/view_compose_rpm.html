@@ -28,6 +28,9 @@
         {% if workload_conf_ids_required %}
         <span class="badge badge-success">Required</span>
         {% endif %}
+        {% if workload_conf_ids_env %}
+        <span class="badge badge-success">Environment</span>
+        {% endif %}
         {% if workload_conf_ids_dependency %}
         <span class="badge badge-secondary">Dependency</span>
         {% endif %}
@@ -76,7 +79,7 @@
             <br>
             {% endif %}
             <div class="card">
-                <h5 class="card-header">RPM Dependencies</h5>
+                <h5 class="card-header">RPM Relations</h5>
                 <ul class="list-group list-group-flush">
                 {% for this_pkg_id, this_pkg_data in pkgs_required_by.items() | sort(attribute='0') %}
                 <li class="list-group-item">
