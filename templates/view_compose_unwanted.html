@@ -98,7 +98,7 @@
     <ul>
         {% if unwanted_pkgs[pkg.name]["unwanted_in_view"] %}
         <li>
-            <a href="config-view--{{view_conf.id}}.html">This view's config</a>
+            The <a href="config-view--{{view_conf.id}}.html">unwanted confirmed</a> list
         </li>
         {% endif %}
         {% for unwanted_id in unwanted_pkgs[pkg.name]["unwanted_list_ids"] %}
@@ -120,6 +120,7 @@
                 href="workload-overview--{{query.data.workloads[workload_id].workload_conf_id}}--{{view_conf.repository}}.html">
                 {{ query.configs.workloads[query.data.workloads[workload_id].workload_conf_id].name }}
             </a>
+            (maintainer: {{ query.configs.workloads[query.data.workloads[workload_id].workload_conf_id].maintainer }})
         </li>
         {% endfor %}
     </ul>
@@ -239,7 +240,7 @@
                     <ul>
                         {% if query.view_unwanted_pkgs(view_conf.id, arch)[pkg_name]["unwanted_in_view"] %}
                         <li>
-                            <a href="config-view--{{view_conf.id}}.html">This view's config</a>
+                            The <a href="config-view--{{view_conf.id}}.html">unwanted confirmed</a> list
                         </li>
                         {% endif %}
                         {% for unwanted_id in query.view_unwanted_pkgs(view_conf.id, arch)[pkg_name]["unwanted_list_ids"] %}
@@ -272,7 +273,7 @@
                     <ul>
                         {% if query.view_unwanted_pkgs(view_conf.id, arch)[pkg_name]["unwanted_in_view"] %}
                         <li>
-                            <a href="config-view--{{view_conf.id}}.html">This view's config</a>
+                            The <a href="config-view--{{view_conf.id}}.html">unwanted confirmed</a> list
                         </li>
                         {% endif %}
                         {% for unwanted_id in query.view_unwanted_pkgs(view_conf.id, arch)[pkg_name]["unwanted_list_ids"] %}
