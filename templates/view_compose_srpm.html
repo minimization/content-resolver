@@ -59,7 +59,7 @@
         </div>
         <div class="col-sm-4">
             <div class="card">
-                <h5 class="card-header">Recommended Maintainer</h5>
+                <h5 class="card-header">Maintainer Recommendation</h5>
                 <div class="card-body">
                     {% if recommended_maintainers["top"] %}
                     
@@ -85,17 +85,34 @@
             </div>
             <br>
             <div class="card">
-                <h5 class="card-header">Maintainer Data</h5>
+                <h5 class="card-header">Recommendation Details</h5>
                 <div class="card-body">
                     {% if ownership_recommendations %}
                     {% for level_name, level_data in ownership_recommendations["ownership"].items() %}
+                    {% if level_name == "level0" %}
+                    <h4>Directly required:</h4>
+                    {% elif level_name == "level1" %}
+                    <br>
+                    <h4>Runtime dependency group:</h4>
+                    {% elif level_name == "level10" %}
+                    <br>
+                    <h4>Direct build dependency group:</h4>
+                    {% elif level_name in ["level20","level30","level40","level50","level60","level70","level80","level90"] %}
+                    <br>
+                    <h4>Build dependency of a build dependency group:</h4>
+                    {% else %}
+                    {% endif %}
                     <h5>
                         {% if level_name == "level0" %}
-                        Required by:
+
                         {% elif level_name == "level1" %}
-                        Direct ({{level_name}}) dependency:
+                        {{level_name}} <small class="text-muted">(direct runtime dep)</small>
+
+                        {% elif level_name in ["level10","level20","level30","level40","level50","level60","level70","level80","level90"] %}
+                        {{level_name}} <small class="text-muted">(build dep of previous group)</small>
+
                         {% else %}
-                        {{level_name}} dependency:
+                        {{level_name}} <small class="text-muted">(runtime dep of previous level)</small>
                         {% endif %}
                     </h5>
                     {% for maintainer, maintainer_data in level_data.items() %}

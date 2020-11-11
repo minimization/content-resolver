@@ -23,11 +23,6 @@ def get_query(data_file):
     return query
 
 class OwnershipEngine:
-    def __init__(self, query):
-        self.query = query
-        self.MAX_LEVEL = 9
-        self.MAX_LAYER = 9
-    
     # Levels:
     #
     #  
@@ -52,15 +47,136 @@ class OwnershipEngine:
     #
     # etc. up to level99
 
+
+    def __init__(self, query):
+        self.query = query
+        self.MAX_LEVEL = 9
+        self.MAX_LAYER = 9
+        self.skipped_maintainers = ["bakery", "jwboyer", "asamalik"]
+
     
     def process_view(self, view_conf_id):
         self._initiate_view(view_conf_id)
 
+        # Layer 0
         self._process_layer_zero_entries()
+        self._process_layer_component_maintainers()
+
+        # Layers 1-9
+        previous_layer_srpms = self.runtime_srpm_names
+        self._process_layer_pkg_entries(1, previous_layer_srpms)
+        self._process_layer_srpm_entries(1)
+        self._process_layer_component_maintainers()
         
 
 
         return self.component_maintainers
+    
+    
+    def _process_layer_pkg_entries(self, layer, build_srpm_names):
+
+        if layer not in range(1,10):
+            raise ValueError
+
+        
+        for build_srpm_name in build_srpm_names:
+
+            # Packages on level 0 == required
+            level = 0
+            level_name = "level{}{}".format(layer, level)
+            level0_pkg_names = set()
+
+            for pkg_name, pkg in self.buildroot_pkgs.items():
+                if build_srpm_name in pkg["required_by_srpms"]:
+
+                    if "source_name" not in self.pkg_entries[pkg_name]:
+                        self.pkg_entries[pkg_name]["source_name"] = pkg["source_name"]
+
+                    self.pkg_entries[pkg_name][level_name]["build_source_names"].add(build_srpm_name)
+                    level0_pkg_names.add(pkg_name)
+
+
+            pkg_names_level = []
+            pkg_names_level.append(level0_pkg_names)
+
+
+    def _process_layer_srpm_entries(self, layer):
+
+        if layer not in range(1,10):
+            raise ValueError
+
+        log("   Sorting pkgs per SRPM...")
+
+        for pkg_name, pkg in self.pkg_entries.items():
+            if "source_name" not in pkg:
+                continue
+
+            source_name = pkg["source_name"]
+
+            for level in range(0, self.MAX_LEVEL + 1):
+                level_name = "level{}{}".format(layer, level)
+
+                for build_srpm_name in pkg[level_name]["build_source_names"]:
+                    maintainer = self.component_maintainers[build_srpm_name]["top"]
+
+                    if not maintainer:
+                        continue
+
+                    if maintainer not in self.srpm_entries[source_name]["ownership"][level_name]:
+                        self.srpm_entries[source_name]["ownership"][level_name][maintainer] = {}
+                        self.srpm_entries[source_name]["ownership"][level_name][maintainer]["build_source_names"] = {}
+                        self.srpm_entries[source_name]["ownership"][level_name][maintainer]["pkg_count"] = 0
+                    
+                    self.srpm_entries[source_name]["ownership"][level_name][maintainer]["pkg_count"] += 1
+                    self.srpm_entries[source_name]["ownership"][level_name][maintainer]["build_source_names"][build_srpm_name] = pkg_name
+
+
+    def _process_layer_component_maintainers(self):
+
+        clear_components = set()
+        unclear_components = set()
+
+        for component_name, owner_data in self.srpm_entries.items():
+
+            if self.component_maintainers[component_name]["top"]:
+                continue
+
+            found = False
+            maintainers = {}
+            top_maintainer = None
+
+            for level_name, level_data in owner_data["ownership"].items():
+                if found:
+                    break
+
+                if not level_data:
+                    continue
+
+                for maintainer, maintainer_data in level_data.items():
+
+                    if maintainer in self.skipped_maintainers:
+                        continue
+
+                    found = True
+                    
+                    maintainers[maintainer] = maintainer_data["pkg_count"]
+            
+            # Find a maintainer with the highest score
+            maintainer_scores = {}
+            for maintainer, score in maintainers.items():
+                if score not in maintainer_scores:
+                    maintainer_scores[score] = set()
+                maintainer_scores[score].add(maintainer)
+            for score in sorted(maintainer_scores, reverse=True):
+                if len(maintainer_scores[score]) == 1:
+                    for chosen_maintainer in maintainer_scores[score]:
+                        top_maintainer = chosen_maintainer
+                    break
+                    
+            self.component_maintainers[component_name]["all"] = maintainers
+            self.component_maintainers[component_name]["top"] = top_maintainer
+
+
 
     
     def _initiate_view(self, view_conf_id):
@@ -341,8 +457,7 @@ class OwnershipEngine:
         # Part 3: one owner
         # 
 
-        #skipped_maintainers = self.configs["views"][view_conf_id]["maintainer_recommendation"]["skipped_maintainers"]
-        skipped_maintainers = ["bakery", "jwboyer", "asamalik"]
+        return
 
         clear_components = set()
         unclear_components = set()
@@ -362,7 +477,7 @@ class OwnershipEngine:
 
                 for maintainer, maintainer_data in level_data.items():
 
-                    if maintainer in skipped_maintainers:
+                    if maintainer in self.skipped_maintainers:
                         continue
 
                     found = True
@@ -382,7 +497,6 @@ class OwnershipEngine:
                     break
                     
             
-            self.component_maintainers[component_name] = {}
             self.component_maintainers[component_name]["all"] = maintainers
             self.component_maintainers[component_name]["top"] = top_maintainer
 
