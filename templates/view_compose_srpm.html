@@ -115,26 +115,37 @@
                         {{level_name}} <small class="text-muted">(runtime dep of previous level)</small>
                         {% endif %}
                     </h5>
-                    {% for maintainer, maintainer_data in level_data.items() %}
-                    <span>{{maintainer}}</span>
-                    <br>
-                    <small>{{maintainer_data.pkg_count}} RPM(s) <span class="text-muted">total in:</span></small>
-                    <br>
-                    {% for workload_conf_id, pkg_ids in maintainer_data.workloads.items() %}
-                    <small class="text-muted">
-                        <a href="workload-overview--{{workload_conf_id}}--{{view_conf.repository}}.html">{{query.configs.workloads[workload_conf_id].name}}</a>
-                    </small>
-                    <br>
+                        {% for maintainer, maintainer_data in level_data.items() %}
+                            <span>{{maintainer}}</span>
+                            <br>
+                            {% if "workloads" in maintainer_data %}
+                            <small>{{maintainer_data.pkg_count}} RPM(s) <span class="text-muted">total in:</span></small>
+                            <br>
+                            {% for workload_conf_id, pkg_ids in maintainer_data.workloads.items() %}
+                                <small class="text-muted">
+                                    <a href="workload-overview--{{workload_conf_id}}--{{view_conf.repository}}.html">{{query.configs.workloads[workload_conf_id].name}}</a>
+                                </small>
+                                <br>
+                            {% endfor %}
+                            {% elif "build_source_names" in maintainer_data %}
+                            <small>{{maintainer_data.pkg_count}} RPM(s) <span class="text-muted">total needed to build:</span></small>
+                            <br>
+                            {% for build_srpm_name, pkg_ids in maintainer_data.workloads.items() %}
+                            <small class="text-muted">
+                                <a href="view-srpm--{{view_conf.id}}--{{build_srpm_name}}.html">SRPM: build_srpm_name</a>
+                            </small>
+                            <br>
+                            {% endfor %}
+                            {% endif %}
+                            <br>
+                        {% else %}
+                            <span class="text-muted">No one.</span>
+                            <br>
+                            <br>
+                        {% endfor %}
                     {% endfor %}
-                    <br>
                     {% else %}
-                    <span class="text-muted">No one.</span>
-                    <br>
-                    <br>
-                    {% endfor %}
-                    {% endfor %}
-                    {% else %}
-                    Not available for buildroot-only packages yet.
+                    Not available.
                     {% endif %}
                 </div>
             </div>
@@ -149,3 +160,5 @@
 
 
 {% endblock %}
+
+                    
