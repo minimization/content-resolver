@@ -132,7 +132,7 @@
                             <br>
                             {% for build_srpm_name, pkg_ids in maintainer_data.build_source_names.items() %}
                             <small class="text-muted">
-                                <a href="view-srpm--{{view_conf.id}}--{{build_srpm_name}}.html">SRPM: build_srpm_name</a>
+                                <a href="view-srpm--{{view_conf.id}}--{{build_srpm_name}}.html">SRPM: {{build_srpm_name}}</a>
                             </small>
                             <br>
                             {% endfor %}
