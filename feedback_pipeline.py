@@ -2835,10 +2835,11 @@ def _generate_html_page(template_name, template_data, page_name, settings):
         template_name=template_name
     ))
 
-    if template_data:
-        page = template.render(**template_data)
-    else:
-        page = template.render()
+    if not template_data:
+        template_data = {}
+    template_data["global_refresh_time_started"] = settings["time_started"]
+
+    page = template.render(**template_data)
 
     filename = ("{page_name}.html".format(
         page_name=page_name.replace(":", "--")
@@ -5226,6 +5227,8 @@ def main():
         dump_data("cache_settings.json", settings)
         dump_data("cache_configs.json", configs)
         dump_data("cache_data.json", data)
+
+    settings["time_started"] = time_started
 
     query = Query(data, configs, settings)
 
