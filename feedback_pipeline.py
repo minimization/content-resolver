@@ -4793,7 +4793,7 @@ class OwnershipEngine:
             # This will initially hold all packages.
             # When figuring out levels, I'll process each package just once.
             # And for that I'll be removing them from this set as I go.
-            remaining_pkg_names = self.buildroot_only_rpm_names
+            remaining_pkg_names = self.buildroot_only_rpm_names.copy()
 
             #for pkg_name, pkg in self.buildroot_pkgs.items():
             for pkg_name in remaining_pkg_names.copy():
