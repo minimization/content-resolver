@@ -2837,7 +2837,7 @@ def _generate_html_page(template_name, template_data, page_name, settings):
 
     if not template_data:
         template_data = {}
-    template_data["global_refresh_time_started"] = settings["time_started"]
+    template_data["global_refresh_time_started"] = settings["global_refresh_time_started"]
 
     page = template.render(**template_data)
 
@@ -5228,7 +5228,7 @@ def main():
         dump_data("cache_configs.json", configs)
         dump_data("cache_data.json", data)
 
-    settings["time_started"] = time_started
+    settings["global_refresh_time_started"] = datetime.datetime.now().strftime("%-d %B %Y")
 
     query = Query(data, configs, settings)
 
