@@ -4862,8 +4862,11 @@ class OwnershipEngine:
                         self.srpm_entries[source_name]["ownership"][level_name][maintainer]["build_source_names"] = {}
                         self.srpm_entries[source_name]["ownership"][level_name][maintainer]["pkg_count"] = 0
                     
+                    if build_srpm_name not in self.srpm_entries[source_name]["ownership"][level_name][maintainer]["build_source_names"]:
+                        self.srpm_entries[source_name]["ownership"][level_name][maintainer]["build_source_names"][build_srpm_name] = set()
+
                     self.srpm_entries[source_name]["ownership"][level_name][maintainer]["pkg_count"] += 1
-                    self.srpm_entries[source_name]["ownership"][level_name][maintainer]["build_source_names"][build_srpm_name] = pkg_name
+                    self.srpm_entries[source_name]["ownership"][level_name][maintainer]["build_source_names"][build_srpm_name].add(pkg_name)
 
 
     def _process_layer_component_maintainers(self):
@@ -4902,7 +4905,14 @@ class OwnershipEngine:
                 if score not in maintainer_scores:
                     maintainer_scores[score] = set()
                 maintainer_scores[score].add(maintainer)
+
+            # Going through the scores, starting with the highest
             for score in sorted(maintainer_scores, reverse=True):
+                # If there are multiple with the same score, it's unclear
+                if len(maintainer_scores[score]) > 1:
+                    break
+
+                # If there's just one maintainer with this score, it's the owner!
                 if len(maintainer_scores[score]) == 1:
                     for chosen_maintainer in maintainer_scores[score]:
                         top_maintainer = chosen_maintainer
@@ -5022,7 +5032,7 @@ class OwnershipEngine:
                     if layer == 0:
                         level_name = "level{}".format(level)
                         self.pkg_entries[pkg_name][level_name] = {}
-                        self.pkg_entries[pkg_name][level_name]["workload_conf_ids"] = set()
+                        self.pkg_entries[pkg_name][level_name]["workload_requirements"] = {}
                     else:
                         level_name = "level{}{}".format(layer, level)
                         self.pkg_entries[pkg_name][level_name] = {}
@@ -5101,7 +5111,7 @@ class OwnershipEngine:
 
 
             # Packages on level 0 == required
-            level0_pkg_names = set()
+            level0_pkg_names = {}
 
             # This will initially hold all packages.
             # When figuring out levels, I'll process each package just once.
@@ -5118,20 +5128,27 @@ class OwnershipEngine:
         
                 # Is this package level 1?
                 if workload_id in pkg["q_required_in"]:
-                    self.pkg_entries[pkg_name]["level0"]["workload_conf_ids"].add(workload_conf_id)
-                    level0_pkg_names.add(pkg_name)
+                    if workload_conf_id not in self.pkg_entries[pkg_name]["level0"]["workload_requirements"]:
+                        self.pkg_entries[pkg_name]["level0"]["workload_requirements"][workload_conf_id] = set()
+                    #level0_pkg_names.add(pkg_name)
+                    if pkg_name not in level0_pkg_names:
+                        level0_pkg_names[pkg_name] = set()
+                    level0_pkg_names[pkg_name].add((None, pkg_name))
                     remaining_pkg_names.remove(pkg_name)
             
 
             # Initialize sets for all levels
             pkg_names_level = []
             pkg_names_level.append(level0_pkg_names)
+#            pkg_names_level = []
+#            pkg_names_level.append(level0_pkg_names)
 
             # Starting at level 1, because level 0 is already done (that's required packages)
             for current_level in range(1, self.MAX_LEVEL + 1):
 
                 #1..
-                pkg_names_level.append(set())
+                #pkg_names_level.append(set())
+                pkg_names_level.append({})
 
                 for pkg_name in remaining_pkg_names.copy():
                     pkg = self.pkg_entries[pkg_name]
@@ -5141,7 +5158,11 @@ class OwnershipEngine:
                     # then pkg is level 2
                     for higher_pkg_name in pkg_names_level[current_level - 1]:
                         if higher_pkg_name in pkg_relations[pkg_name]["required_by"]:
-                            pkg_names_level[current_level].add(pkg_name)
+                            #pkg_names_level[current_level].add(pkg_name)
+                            if pkg_name not in pkg_names_level[current_level]:
+                                pkg_names_level[current_level][pkg_name] = set()
+                            pkg_names_level[current_level][pkg_name].add((higher_pkg_name, pkg_name))
+
                             try:
                                 remaining_pkg_names.remove(pkg_name)
                             except KeyError:
@@ -5149,7 +5170,9 @@ class OwnershipEngine:
             
             # Some might remain for weird reasons
             for pkg_name in remaining_pkg_names:
-                pkg_names_level[self.MAX_LEVEL].add(pkg_name)
+                #pkg_names_level[self.MAX_LEVEL].add(pkg_name)
+                if pkg_name not in pkg_names_level[self.MAX_LEVEL]:
+                    pkg_names_level[self.MAX_LEVEL][pkg_name] = set()
 
 
             for current_level in range(0, self.MAX_LEVEL + 1):
@@ -5160,7 +5183,10 @@ class OwnershipEngine:
 
                     if pkg_name in pkg_names_level[current_level]:
 
-                        self.pkg_entries[pkg_name][level_name]["workload_conf_ids"].add(workload_conf_id)
+                        if workload_conf_id not in self.pkg_entries[pkg_name][level_name]["workload_requirements"]:
+                            self.pkg_entries[pkg_name][level_name]["workload_requirements"][workload_conf_id] = set()
+                        
+                        self.pkg_entries[pkg_name][level_name]["workload_requirements"][workload_conf_id].update(pkg_names_level[current_level][pkg_name])
 
         # 
         # Part 2: SRPMs
@@ -5175,7 +5201,7 @@ class OwnershipEngine:
             for current_level in range(0, self.MAX_LEVEL + 1):
                 level_name = "level{num}".format(num=str(current_level))
                 
-                for workload_conf_id in pkg[level_name]["workload_conf_ids"]:
+                for workload_conf_id, pkg_names_requiring_this in pkg[level_name]["workload_requirements"].items():
                     maintainer = self.query.configs["workloads"][workload_conf_id]["maintainer"]
                     if maintainer not in self.srpm_entries[source_name]["ownership"][level_name]:
                         self.srpm_entries[source_name]["ownership"][level_name][maintainer] = {}
@@ -5183,9 +5209,13 @@ class OwnershipEngine:
                         self.srpm_entries[source_name]["ownership"][level_name][maintainer]["pkg_names"] = set()
                         self.srpm_entries[source_name]["ownership"][level_name][maintainer]["pkg_count"] = 0
                     
-                    self.srpm_entries[source_name]["ownership"][level_name][maintainer]["pkg_names"].add(pkg_name)
+                    if workload_conf_id not in self.srpm_entries[source_name]["ownership"][level_name][maintainer]["workloads"]:
+                        self.srpm_entries[source_name]["ownership"][level_name][maintainer]["workloads"][workload_conf_id] = set()
+                    
+                    self.srpm_entries[source_name]["ownership"][level_name][maintainer]["pkg_names"].update(pkg_names_requiring_this)
                     self.srpm_entries[source_name]["ownership"][level_name][maintainer]["pkg_count"] = len(self.srpm_entries[source_name]["ownership"][level_name][maintainer]["pkg_names"])
-                    self.srpm_entries[source_name]["ownership"][level_name][maintainer]["workloads"][workload_conf_id] = pkg_name
+                    self.srpm_entries[source_name]["ownership"][level_name][maintainer]["workloads"][workload_conf_id].add(pkg_name)
+
 
 
 def perform_additional_analyses(query):
