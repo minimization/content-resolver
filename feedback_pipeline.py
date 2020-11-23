@@ -5184,7 +5184,7 @@ class OwnershipEngine:
                         self.srpm_entries[source_name]["ownership"][level_name][maintainer]["pkg_count"] = 0
                     
                     self.srpm_entries[source_name]["ownership"][level_name][maintainer]["pkg_names"].add(pkg_name)
-                    self.srpm_entries[source_name]["ownership"][level_name][maintainer]["pkg_count"] = len(self.srpm_entries[source_name]["ownership"][level_name][maintainer]["pkg_count"])
+                    self.srpm_entries[source_name]["ownership"][level_name][maintainer]["pkg_count"] = len(self.srpm_entries[source_name]["ownership"][level_name][maintainer]["pkg_names"])
                     self.srpm_entries[source_name]["ownership"][level_name][maintainer]["workloads"][workload_conf_id] = pkg_name
 
 
