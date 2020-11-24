@@ -3290,8 +3290,6 @@ def _generate_view_pages(query):
                     "query": query,
                     "view_conf": view_conf,
                     "arch": arch,
-                    "maintainer": None,
-                    "maintainer_url_part": ""
 
                 }
                 page_name = "view--{view_conf_id}--{arch}".format(
@@ -3299,12 +3297,6 @@ def _generate_view_pages(query):
                     arch=arch
                 )
                 _generate_html_page("view_compose_packages", template_data, page_name, query.settings)
-
-                page_name = "view-reasons--{view_conf_id}--{arch}".format(
-                    view_conf_id=view_conf_id,
-                    arch=arch
-                )
-                _generate_html_page("view_compose_reasons", template_data, page_name, query.settings)
 
                 page_name = "view-modules--{view_conf_id}--{arch}".format(
                     view_conf_id=view_conf_id,
@@ -3330,52 +3322,7 @@ def _generate_view_pages(query):
                 )
                 _generate_html_page("view_compose_workloads", template_data, page_name, query.settings)
 
-                for maintainer in query.view_maintainers(view_conf_id, arch):
-                    template_data["maintainer"] = maintainer
-                    template_data["maintainer_url_part"] = "--maintainer-{maintainer}".format(maintainer=maintainer)
-
-                    page_name = "view--{view_conf_id}--{arch}--maintainer-{maintainer}".format(
-                        view_conf_id=view_conf_id,
-                        arch=arch,
-                        maintainer=maintainer
-                    )
-                    _generate_html_page("view_compose_packages", template_data, page_name, query.settings)
-
-                    page_name = "view-reasons--{view_conf_id}--{arch}--maintainer-{maintainer}".format(
-                        view_conf_id=view_conf_id,
-                        arch=arch,
-                        maintainer=maintainer
-                    )
-                    _generate_html_page("view_compose_reasons", template_data, page_name, query.settings)
-
-                    page_name = "view-modules--{view_conf_id}--{arch}--maintainer-{maintainer}".format(
-                        view_conf_id=view_conf_id,
-                        arch=arch,
-                        maintainer=maintainer
-                    )
-                    _generate_html_page("view_compose_modules", template_data, page_name, query.settings)
-
-                    page_name = "view-unwanted--{view_conf_id}--{arch}--maintainer-{maintainer}".format(
-                        view_conf_id=view_conf_id,
-                        arch=arch,
-                        maintainer=maintainer
-                    )
-                    _generate_html_page("view_compose_unwanted", template_data, page_name, query.settings)
-
-                    page_name = "view-buildroot--{view_conf_id}--{arch}--maintainer-{maintainer}".format(
-                        view_conf_id=view_conf_id,
-                        arch=arch,
-                        maintainer=maintainer
-                    )
-                    _generate_html_page("view_compose_buildroot", template_data, page_name, query.settings)
-
-                    page_name = "view-workloads--{view_conf_id}--{arch}--maintainer-{maintainer}".format(
-                        view_conf_id=view_conf_id,
-                        arch=arch,
-                        maintainer=maintainer
-                    )
-                    _generate_html_page("view_compose_workloads", template_data, page_name, query.settings)
-            
+                
 
             # third, generate one page per RPM name
 

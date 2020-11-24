@@ -20,30 +20,6 @@
         <small> {{arch}}</small>
     </h1>
 
-    <div class="dropdown show float-right">
-
-        <div class="btn-group">
-            {% if maintainer %}
-            <a href="view--{{view_conf.id}}--{{arch}}.html" class="btn btn-sm  btn-secondary"> clear </a>
-            <a class="btn btn-sm btn-info dropdown-toggle" href="#" role="button" id="dropdownMenuLink"
-                data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-                Filter by maintainer: <b>{{maintainer}}</b>
-            </a>
-            {% else %}
-            <a class="btn btn-sm  btn-secondary dropdown-toggle" href="#" role="button" id="dropdownMenuLink"
-                data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-                Filter by maintainer</b>
-            </a>
-            {% endif %}
-
-            <div class="dropdown-menu dropdown-menu-right" aria-labelledby="dropdownMenuLink">
-                {% for maint in query.view_maintainers(view_conf.id, arch) | sort %}
-                <a class="dropdown-item"
-                    href="view--{{view_conf.id}}--{{arch}}--maintainer-{{maint}}.html">{{maint}}</a>
-                {% endfor %}
-            </div>
-        </div>
-    </div>
 
     <p class="lead"><span class="text-muted">Description: </span>{{view_conf.description}}</p>
 
@@ -53,28 +29,28 @@
 
     <ul class="nav nav-tabs">
         <li class="nav-item">
-            <a class="nav-link active" href="view--{{view_conf.id}}--{{arch}}{{maintainer_url_part}}.html">Packages</a>
+            <a class="nav-link active" href="view--{{view_conf.id}}--{{arch}}.html">Packages</a>
         </li>
         <!--li class="nav-item">
-            <a class="nav-link" href="view-reasons--{{view_conf.id}}--{{arch}}{{maintainer_url_part}}.html">Packages +
+            <a class="nav-link" href="view-reasons--{{view_conf.id}}--{{arch}}.html">Packages +
                 Reasons of Presence</a>
         </li-->
         <li class="nav-item">
-            <a class="nav-link " href="view-modules--{{view_conf.id}}--{{arch}}{{maintainer_url_part}}.html">Modules</a>
+            <a class="nav-link " href="view-modules--{{view_conf.id}}--{{arch}}.html">Modules</a>
         </li>
         <li class="nav-item">
-            <a class="nav-link" href="view-unwanted--{{view_conf.id}}--{{arch}}{{maintainer_url_part}}.html">Unwanted
+            <a class="nav-link" href="view-unwanted--{{view_conf.id}}--{{arch}}.html">Unwanted
                 Packages</a>
         </li>
         <li class="nav-item">
             <a class="nav-link"
-                href="view-buildroot--{{view_conf.id}}--{{arch}}{{maintainer_url_part}}.html">Buildroot</a>
+                href="view-buildroot--{{view_conf.id}}--{{arch}}.html">Buildroot</a>
         </li>
         <li class="nav-item">
-            <a class="nav-link " href="view-workloads--{{view_conf.id}}--{{arch}}{{maintainer_url_part}}.html">
+            <a class="nav-link " href="view-workloads--{{view_conf.id}}--{{arch}}.html">
                 Workloads
                 (
-                {% if query.view_succeeded(view_conf.id, arch, maintainer=maintainer) %}
+                {% if query.view_succeeded(view_conf.id, arch) %}
                 <span class="text-success">All Succeeded</span>
                 {% else %}
                 <span class="text-warning">Some Errors</span>
@@ -103,13 +79,7 @@
             <div class="card w-100">
                 <h5 class="card-header"> Package Count History </h5>
                 <div class="card-body text-center">
-                    {% if maintainer %}
-                    <br>
-                    <span class="text-muted">History graph is not available in combination with filters.</span>
-                    <br>
-                    {% else %}
                     <canvas id="chLine"></canvas>
-                    {% endif %}
                 </div>
             </div>
         </div>
@@ -125,9 +95,6 @@
                     <dl>
                         <dt>Flat list downloads</dt>
                         <dd>
-                            {% if maintainer %}
-                            <span class="text-muted">Not available in combination with filters.</span>
-                            {% else %}
                             <ul>
                                 <li><a href="view-binary-package-list--{{view_conf.id}}--{{arch}}.txt">Binary
                                         packages</a></li>
@@ -145,7 +112,6 @@
                                         package names</a></li>
                                 <li><a href="view-module-list--{{view_conf.id}}--{{arch}}.txt">Modules</a></li>
                             </ul>
-                            {% endif %}
                         </dd>
                     </dl>
                 </div>
@@ -209,7 +175,7 @@
             </tr>
         </thead>
         <tbody>
-            {% for pkg in query.pkgs_in_view(view_conf.id, arch, maintainer=maintainer) %}
+            {% for pkg in query.pkgs_in_view(view_conf.id, arch) %}
             <tr class="{{pkg_row_css_class(pkg)}}">
                 <td data-order="{{pkg_why_data_order(pkg)}}">{{pkg_why(pkg)}}</td>
                 <td>
