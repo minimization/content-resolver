@@ -4760,15 +4760,20 @@ class OwnershipEngine:
         self._process_layer_zero_entries()
         self._process_layer_component_maintainers()
 
+
         # Layers 1-9
+        # This operates on all SRPMs from the previous level.
+        # Resolves all their build dependencies. 
         previous_layer_srpms = self.runtime_srpm_names
         for layer in range(1, self.MAX_LAYER + 1):
             log("  Processing Layer {}...".format(layer))
             log("    {} components".format(len(previous_layer_srpms)))
-            this_level_srpm_packages = self._process_layer_pkg_entries(layer, previous_layer_srpms)
+            # Process all the "pkg_entries" for this layer, and collect this layer srpm packages
+            # which will be used in the next layer.
+            this_layer_srpm_packages = self._process_layer_pkg_entries(layer, previous_layer_srpms)
             self._process_layer_srpm_entries(layer)
             self._process_layer_component_maintainers()
-            previous_layer_srpms = this_level_srpm_packages
+            previous_layer_srpms = this_layer_srpm_packages
         
         log("Done!")
         log("")
@@ -4852,21 +4857,20 @@ class OwnershipEngine:
                 level_name = "level{}{}".format(layer, level)
 
                 for build_srpm_name in pkg[level_name]["build_source_names"]:
-                    maintainer = self.component_maintainers[build_srpm_name]["top"]
+                    top_maintainers = self.component_maintainers[build_srpm_name]["top_multiple"]
 
-                    if not maintainer:
-                        continue
+                    for maintainer in top_maintainers:
 
-                    if maintainer not in self.srpm_entries[source_name]["ownership"][level_name]:
-                        self.srpm_entries[source_name]["ownership"][level_name][maintainer] = {}
-                        self.srpm_entries[source_name]["ownership"][level_name][maintainer]["build_source_names"] = {}
-                        self.srpm_entries[source_name]["ownership"][level_name][maintainer]["pkg_count"] = 0
-                    
-                    if build_srpm_name not in self.srpm_entries[source_name]["ownership"][level_name][maintainer]["build_source_names"]:
-                        self.srpm_entries[source_name]["ownership"][level_name][maintainer]["build_source_names"][build_srpm_name] = set()
+                        if maintainer not in self.srpm_entries[source_name]["ownership"][level_name]:
+                            self.srpm_entries[source_name]["ownership"][level_name][maintainer] = {}
+                            self.srpm_entries[source_name]["ownership"][level_name][maintainer]["build_source_names"] = {}
+                            self.srpm_entries[source_name]["ownership"][level_name][maintainer]["pkg_count"] = 0
+                        
+                        if build_srpm_name not in self.srpm_entries[source_name]["ownership"][level_name][maintainer]["build_source_names"]:
+                            self.srpm_entries[source_name]["ownership"][level_name][maintainer]["build_source_names"][build_srpm_name] = set()
 
-                    self.srpm_entries[source_name]["ownership"][level_name][maintainer]["pkg_count"] += 1
-                    self.srpm_entries[source_name]["ownership"][level_name][maintainer]["build_source_names"][build_srpm_name].add(pkg_name)
+                        self.srpm_entries[source_name]["ownership"][level_name][maintainer]["pkg_count"] += 1
+                        self.srpm_entries[source_name]["ownership"][level_name][maintainer]["build_source_names"][build_srpm_name].add(pkg_name)
 
 
     def _process_layer_component_maintainers(self):
@@ -4882,6 +4886,7 @@ class OwnershipEngine:
             found = False
             maintainers = {}
             top_maintainer = None
+            top_maintainers = set()
 
             for level_name, level_data in owner_data["ownership"].items():
                 if found:
@@ -4899,7 +4904,7 @@ class OwnershipEngine:
                     
                     maintainers[maintainer] = maintainer_data["pkg_count"]
             
-            # Find a maintainer with the highest score
+            # Sort out maintainers based on their score
             maintainer_scores = {}
             for maintainer, score in maintainers.items():
                 if score not in maintainer_scores:
@@ -4910,15 +4915,19 @@ class OwnershipEngine:
             for score in sorted(maintainer_scores, reverse=True):
                 # If there are multiple with the same score, it's unclear
                 if len(maintainer_scores[score]) > 1:
+                    for chosen_maintainer in maintainer_scores[score]:
+                        top_maintainers.add(chosen_maintainer)
                     break
 
                 # If there's just one maintainer with this score, it's the owner!
                 if len(maintainer_scores[score]) == 1:
                     for chosen_maintainer in maintainer_scores[score]:
                         top_maintainer = chosen_maintainer
+                        top_maintainers.add(chosen_maintainer)
                     break
                     
             self.component_maintainers[component_name]["all"] = maintainers
+            self.component_maintainers[component_name]["top_multiple"] = top_maintainers
             self.component_maintainers[component_name]["top"] = top_maintainer
 
 
@@ -5057,6 +5066,7 @@ class OwnershipEngine:
         for srpm_name in self.all_srpm_names:
             self.component_maintainers[srpm_name] = {}
             self.component_maintainers[srpm_name]["all"] = {}
+            self.component_maintainers[srpm_name]["top_multiple"] = set()
             self.component_maintainers[srpm_name]["top"] = None
 
 
@@ -5140,8 +5150,6 @@ class OwnershipEngine:
             # Initialize sets for all levels
             pkg_names_level = []
             pkg_names_level.append(level0_pkg_names)
-#            pkg_names_level = []
-#            pkg_names_level.append(level0_pkg_names)
 
             # Starting at level 1, because level 0 is already done (that's required packages)
             for current_level in range(1, self.MAX_LEVEL + 1):
@@ -5212,9 +5220,11 @@ class OwnershipEngine:
                     if workload_conf_id not in self.srpm_entries[source_name]["ownership"][level_name][maintainer]["workloads"]:
                         self.srpm_entries[source_name]["ownership"][level_name][maintainer]["workloads"][workload_conf_id] = set()
                     
+                    self.srpm_entries[source_name]["ownership"][level_name][maintainer]["workloads"][workload_conf_id].add(pkg_name)
+
                     self.srpm_entries[source_name]["ownership"][level_name][maintainer]["pkg_names"].update(pkg_names_requiring_this)
                     self.srpm_entries[source_name]["ownership"][level_name][maintainer]["pkg_count"] = len(self.srpm_entries[source_name]["ownership"][level_name][maintainer]["pkg_names"])
-                    self.srpm_entries[source_name]["ownership"][level_name][maintainer]["workloads"][workload_conf_id].add(pkg_name)
+
 
 
 
