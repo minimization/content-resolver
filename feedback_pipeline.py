@@ -2721,6 +2721,51 @@ class Query():
 
 
     @lru_cache(maxsize = None)
+    def view_placeholder_srpms(self, view_conf_id, arch):
+        if not arch:
+            raise ValueError("arch must be specified, can't be None")
+
+        workload_ids = self.workloads_in_view(view_conf_id, arch)
+
+        placeholder_srpms = {}
+        # {
+        #    "SRPM_NAME": {
+        #        "build_requires": set() 
+        #    } 
+        # } 
+
+        for workload_id in workload_ids:
+            workload = self.data["workloads"][workload_id]
+            workload_conf_id = workload["workload_conf_id"]
+            workload_conf = self.configs["workloads"][workload_conf_id]
+
+            for pkg_placeholder_name, pkg_placeholder in workload_conf["package_placeholders"].items():
+                # Placeholders can be limited to specific architectures.
+                # If that's the case, check if it's available on this arch, otherwise skip it.
+                if pkg_placeholder["limit_arches"]:
+                    if arch not in pkg_placeholder["limit_arches"]:
+                        continue
+
+                # SRPM is optional. 
+                srpm_name = pkg_placeholder["srpm"]
+                if not srpm_name:
+                    continue
+
+                # Buildrequires is also optional.
+                buildrequires = pkg_placeholder["buildrequires"]
+                if not buildrequires:
+                    continue
+
+                if srpm_name not in placeholder_srpms:
+                    placeholder_srpms[srpm_name] = {}
+                    placeholder_srpms[srpm_name]["build_requires"] = set()
+                
+                placeholder_srpms[srpm_name]["build_requires"].update(buildrequires)
+        
+        return placeholder_srpms
+
+
+    @lru_cache(maxsize = None)
     def view_modules(self, view_conf_id, arch, maintainer=None):
         workload_ids = self.workloads_in_view(view_conf_id, arch, maintainer)
 
@@ -2811,7 +2856,7 @@ class Query():
     @lru_cache(maxsize = None)
     def view_srpm_name_details(self, srpm_name, view_conf_id):
         raise NotImplementedError
-
+    
 
 
 
@@ -3748,6 +3793,15 @@ def _generate_view_lists(query):
                     arch=arch
                 )
                 _generate_a_flat_list_file(modules, file_name, query.settings)
+
+                file_name = "view-placeholder-srpm-details--{view_conf_id}--{arch}.json".format(
+                    view_conf_id=view_conf_id,
+                    arch=arch
+                )
+                file_path = os.path.join(query.settings["output"], file_name)
+                view_placeholder_srpm_details = query.view_placeholder_srpms(view_conf_id, arch)
+                dump_data(file_path, view_placeholder_srpm_details)
+
     
     log("  Done!")
     log("")
