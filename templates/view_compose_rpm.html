@@ -79,7 +79,7 @@
             <br>
             {% endif %}
             <div class="card">
-                <h5 class="card-header">RPM Relations</h5>
+                <h5 class="card-header">Runtime dependency of:</h5>
                 <ul class="list-group list-group-flush">
                 {% for this_pkg_id, this_pkg_data in pkgs_required_by.items() | sort(attribute='0') %}
                 <li class="list-group-item">
@@ -106,6 +106,9 @@
             <br>
             <div class="card">
                 <h5 class="card-header">Required to build <span class="text-muted">(SRPMs)</span></h5>
+                <div class="card-body">
+                    <div class="text-muted">This list also requires indirect build dependencies. This package is required to be in the buildroot of the following SRPMs, but it's not necessarily pulled by them directly. It can be a runtime dependency of other buildroot packages. See the list above for runtime dependencies for additional information.</div>
+                </div>
                 {% if required_to_build_srpms %}
                 <ul class="list-group list-group-flush">
                     <table id="table_packages" class="table-packages">
