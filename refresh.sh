@@ -41,4 +41,4 @@ CMD="./feedback_pipeline.py --dnf-cache-dir /dnf_cachedir feedback-pipeline-conf
 podman run --rm -it --tmpfs /dnf_cachedir -v $WORK_DIR/feedback-pipeline:/workspace:z asamalik/feedback-pipeline-env $CMD > ~/logs/$build_started.log || exit 1
 
 # Publish the site
-aws s3 sync $WORK_DIR/feedback-pipeline/out s3://tiny.distro.builders || exit 1
+aws s3 sync --delete $WORK_DIR/feedback-pipeline/out s3://tiny.distro.builders || exit 1
