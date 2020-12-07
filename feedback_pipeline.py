@@ -2751,10 +2751,7 @@ class Query():
                 if not srpm_name:
                     continue
 
-                # Buildrequires is also optional.
                 buildrequires = pkg_placeholder["buildrequires"]
-                if not buildrequires:
-                    continue
 
                 if srpm_name not in placeholder_srpms:
                     placeholder_srpms[srpm_name] = {}
