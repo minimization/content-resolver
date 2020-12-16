@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 
-import argparse, yaml, tempfile, os, subprocess, json, jinja2, datetime, copy, re, dnf, pprint
+import argparse, yaml, tempfile, os, subprocess, json, jinja2, datetime, copy, re, dnf, pprint, urllib.request
 import concurrent.futures
 import rpm_showme as showme
 from functools import lru_cache
@@ -189,7 +189,6 @@ def _load_config_repo_v2(document_id, document, settings):
     except KeyError:
         raise ConfigError("Error: {file} is invalid.".format(file=document_id))
     
-    # Step 2: Optional fields
 
     for id, repo_data in document["data"]["source"]["repos"].items():
         name = repo_data.get("name", id)
@@ -205,6 +204,10 @@ def _load_config_repo_v2(document_id, document, settings):
                 file=yml_file,
                 id=id))
         config["source"]["repos"][id]["priority"] = priority
+
+    # Step 2: Optional fields
+
+    config["source"]["composeinfo"] = document["data"]["source"].get("composeinfo", None)
 
     return config
 
@@ -1675,11 +1678,37 @@ def analyze_things(configs, settings):
         log("")
         log("=====  Analyzing Repos & Packages =====")
         log("")
+        data["repos"] = {}
         for _,repo in configs["repos"].items():
             repo_id = repo["id"]
             data["pkgs"][repo_id] = {}
+            data["repos"][repo_id] = {}
             for arch in repo["source"]["architectures"]:
                 data["pkgs"][repo_id][arch] = _analyze_pkgs(tmp_dnf_cachedir, tmp_installroots, repo, arch)
+            
+            # Reading the optional composeinfo
+            data["repos"][repo_id]["compose_date"] = None
+            data["repos"][repo_id]["compose_days_ago"] = 0
+            if repo["source"]["composeinfo"]:
+                # At this point, this is all I can do. Hate me or not, it gets us
+                # what we need and won't brake anything in case things go badly. 
+                try:
+                    with urllib.request.urlopen(repo["source"]["composeinfo"]) as response:
+                        composeinfo_raw_response = response.read()
+
+                    composeinfo_data = json.loads(composeinfo_raw_response)
+                    data["repos"][repo_id]["composeinfo"] = composeinfo_data
+
+                    compose_date = datetime.datetime.strptime(composeinfo_data["payload"]["compose"]["date"], "%Y%m%d").date()
+                    data["repos"][repo_id]["compose_date"] = compose_date.strftime("%Y-%m-%d")
+
+                    date_now = datetime.datetime.now().date()
+                    data["repos"][repo_id]["compose_days_ago"] = (date_now - compose_date).days
+
+                except:
+                    pass
+
+                
 
         # Environments
         log("")

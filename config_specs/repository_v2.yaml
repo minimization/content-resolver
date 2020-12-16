@@ -61,3 +61,8 @@ data:
     - ppc64le
     - s390x
     - x86_64
+
+    # Compose data for additional information
+    # 
+    # (optional field)
+    composeinfo:  https://whatever.wherever/compose/metadata/composeinfo.json

@@ -130,6 +130,7 @@
         <thead>
             <tr class="sort_control_row">
                 <th>RPM Name</th>
+                <th>SRPM Name</th>
                 <th>Reasons of presence</th>
             </tr>
         </thead>
@@ -137,6 +138,11 @@
             {% for pkg_name, pkg_data in query.view_buildroot_pkgs(view_conf.id, arch).items() | sort %}
             <tr>
                 <td><a href="view-rpm--{{view_conf.id}}--{{pkg_name}}.html">{{pkg_name}}</a></td>
+                <td>
+                    <a href="view-srpm--{{view_conf.id}}--{{pkg_name}}.html">
+                        
+                    </a>
+                </td>
                 <td>
                     {% if pkg_data.required_by %}
                     Required to build {{ pkg_data.required_by | count }} SRPM(s). 

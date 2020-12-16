@@ -42,6 +42,12 @@
 
     <br>
 
+    {% if query.data.repos[view_conf.repository].compose_days_ago >= 2 %}
+    <div class="alert alert-warning" role="alert">
+        The compose is {{query.data.repos[view_conf.repository].compose_days_ago}} days old, and you are seeing data from that time. 
+    </div>
+    {% endif %}
+
     <div class="row">
         <div class="col-sm-8">
             <div class="card">

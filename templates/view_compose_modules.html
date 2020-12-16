@@ -24,6 +24,12 @@
     <p class="lead"><span class="text-muted">Description: </span>{{view_conf.description}}</p>
     <br>
 
+    {% if query.data.repos[view_conf.repository].compose_days_ago >= 2 %}
+    <div class="alert alert-warning" role="alert">
+        The compose is {{query.data.repos[view_conf.repository].compose_days_ago}} days old, and you are seeing data from that time. 
+    </div>
+    {% endif %}
+
     <ul class="nav nav-tabs">
         <li class="nav-item">
             <a class="nav-link " href="view--{{view_conf.id}}--{{arch}}.html">Packages</a>
