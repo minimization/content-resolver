@@ -139,9 +139,13 @@
             <tr>
                 <td><a href="view-rpm--{{view_conf.id}}--{{pkg_name}}.html">{{pkg_name}}</a></td>
                 <td>
-                    <a href="view-srpm--{{view_conf.id}}--{{pkg_name}}.html">
-                        
+                    {% if pkg_data.srpm_name %}
+                    <a href="view-srpm--{{view_conf.id}}--{{pkg_data.srpm_name}}.html">
+                        {{pkg_data.srpm_name}}
                     </a>
+                    {% else %}
+                    <span class="text-muted">unknown</span>
+                    {% endif %}
                 </td>
                 <td>
                     {% if pkg_data.required_by %}

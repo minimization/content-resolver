@@ -2548,6 +2548,7 @@ class Query():
                 pkgs[pkg_name] = {}
                 pkgs[pkg_name]["required_by"] = set()
                 pkgs[pkg_name]["base_buildroot"] = True
+                pkgs[pkg_name]["srpm_name"] = None
 
         for srpm_name, srpm_data in source_pkgs.items():
             for pkg_name in srpm_data["requires"]:
@@ -2555,7 +2556,26 @@ class Query():
                     pkgs[pkg_name] = {}
                     pkgs[pkg_name]["required_by"] = set()
                     pkgs[pkg_name]["base_buildroot"] = False
+                    pkgs[pkg_name]["srpm_name"] = None
                 pkgs[pkg_name]["required_by"].add(srpm_name)
+
+        for buildroot_pkg_relations_conf_id, buildroot_pkg_relations_conf in self.configs["buildroot_pkg_relations"].items():
+            if view_conf_id != buildroot_pkg_relations_conf["view_id"]:
+                continue
+
+            if arch != buildroot_pkg_relations_conf["arch"]:
+                continue
+        
+            buildroot_pkg_relations = buildroot_pkg_relations_conf["pkg_relations"]
+
+            for this_pkg_id in buildroot_pkg_relations:
+                this_pkg_name = pkg_id_to_name(this_pkg_id)
+
+                if this_pkg_name == pkg_name:
+
+                    if this_pkg_id in buildroot_pkg_relations and not pkgs[pkg_name]["srpm_name"]:
+                        pkgs[pkg_name]["srpm_name"] = buildroot_pkg_relations[this_pkg_id]["source_name"]
+
         
         if output_change == "source_names":
             srpms = set()
