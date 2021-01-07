@@ -2571,12 +2571,12 @@ class Query():
             for this_pkg_id in buildroot_pkg_relations:
                 this_pkg_name = pkg_id_to_name(this_pkg_id)
 
-                if this_pkg_name == pkg_name:
+                if this_pkg_name in pkgs:
 
-                    if this_pkg_id in buildroot_pkg_relations and not pkgs[pkg_name]["srpm_name"]:
-                        pkgs[pkg_name]["srpm_name"] = buildroot_pkg_relations[this_pkg_id]["source_name"]
+                    if this_pkg_id in buildroot_pkg_relations and not pkgs[this_pkg_name]["srpm_name"]:
+                        pkgs[this_pkg_name]["srpm_name"] = buildroot_pkg_relations[this_pkg_id]["source_name"]
 
-        
+
         if output_change == "source_names":
             srpms = set()
 
