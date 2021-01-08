@@ -44,6 +44,8 @@ data:
         name: Fedora Rawhide #(optional)
         baseurl: https://whatever.wherever #(mandatory)
         priority: 41 #(optional, default 100)
+        limit_arches: #(optional)
+        - x86_64
 
     # This is the "releasever" parameter of DNF
     # 

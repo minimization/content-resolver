@@ -193,6 +193,7 @@ def _load_config_repo_v2(document_id, document, settings):
     for id, repo_data in document["data"]["source"]["repos"].items():
         name = repo_data.get("name", id)
         priority = repo_data.get("priority", 100)
+        limit_arches = repo_data.get("limit_arches", None)
 
         config["source"]["repos"][id] = {}
         config["source"]["repos"][id]["id"] = id
@@ -204,6 +205,7 @@ def _load_config_repo_v2(document_id, document, settings):
                 file=yml_file,
                 id=id))
         config["source"]["repos"][id]["priority"] = priority
+        config["source"]["repos"][id]["limit_arches"] = limit_arches
 
     # Step 2: Optional fields
 
@@ -914,6 +916,12 @@ def _analyze_pkgs(tmp_dnf_cachedir, tmp_installroots, repo, arch):
         base.conf.substitutions['releasever'] = repo["source"]["releasever"]
 
         for repo_name, repo_data in repo["source"]["repos"].items():
+            if repo_data["limit_arches"]:
+                if arch not in repo_data["limit_arches"]:
+                    log("  Skipping {} on {}".format(repo_name, arch))
+                    continue
+            log("  Including {}".format(repo_name))
+
             additional_repo = dnf.repo.Repo(
                 name=repo_name,
                 parent_conf=base.conf
