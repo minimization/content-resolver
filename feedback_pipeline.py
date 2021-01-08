@@ -860,6 +860,13 @@ def _load_repo_cached(base, repo, arch):
         log("  Loading repos using DNF...")
 
         for repo_name, repo_data in repo["source"]["repos"].items():
+            for repo_name, repo_data in repo["source"]["repos"].items():
+            if repo_data["limit_arches"]:
+                if arch not in repo_data["limit_arches"]:
+                    log("  Skipping {} on {}".format(repo_name, arch))
+                    continue
+            log("  Including {}".format(repo_name))
+            
             additional_repo = dnf.repo.Repo(
                 name=repo_name,
                 parent_conf=base.conf
