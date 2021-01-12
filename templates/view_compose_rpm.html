@@ -20,10 +20,8 @@
         <small>{{view_conf.name}}</small>
 
         <small>
-        {% if unwanted_in_view %}
-        <span class="badge badge-danger">Unwanted CONFIRMED</span>
-        {% elif exclusion_list_ids or unwanted_in_view %}
-        <span class="badge badge-danger">Unwanted proposal</span>
+        {% if exclusion_list_ids or unwanted_in_view %}
+        <span class="badge badge-danger">Unwanted</span>
         {% endif %}
         {% if workload_conf_ids_required %}
         <span class="badge badge-success">Required</span>
@@ -156,7 +154,7 @@
                     {% endfor %}
                     {% if unwanted_in_view %}
                     <li class="list-group-item">
-                        <a href="config-view--{{view_conf.id}}.html">List of unwanted confirmed packages</a>
+                        <a href="config-view--{{view_conf.id}}.html">Unwanted by this view's maintainers</a>
                     </li>
                     {% endif %}
                 </ul>

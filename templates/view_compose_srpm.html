@@ -38,10 +38,8 @@
                         <a href="view-rpm--{{view_conf.id}}--{{pkg_name}}.html">{{pkg_name}}</a>
                         <small>
                         {% if pkg_name in pkg_name_data %}
-                        {% if pkg_name_data[pkg_name].unwanted_in_view %}
-                        <span class="badge badge-danger">Unwanted CONFIRMED</span>
-                        {% elif pkg_name_data[pkg_name].exclusion_list_ids or pkg_name_data[pkg_name].unwanted_in_view %}
-                        <span class="badge badge-danger">Unwanted proposal</span>
+                        {% if pkg_name_data[pkg_name].exclusion_list_ids or pkg_name_data[pkg_name].unwanted_in_view %}
+                        <span class="badge badge-danger">Unwanted</span>
                         {% endif %}
                         {% if pkg_name_data[pkg_name].workload_conf_ids_required %}
                         <span class="badge badge-success">Required</span>
