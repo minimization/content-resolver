@@ -1117,6 +1117,7 @@ def _analyze_env(tmp_dnf_cachedir, tmp_installroots, env_conf, repo, arch):
 
         # Additional DNF Settings
         base.conf.tsflags.append('justdb')
+        base.conf.tsflags.append('noscripts')
 
         # Environment config
         if "include-weak-deps" not in env_conf["options"]:
