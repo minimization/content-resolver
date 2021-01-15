@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 
-import argparse, yaml, tempfile, os, subprocess, json, jinja2, datetime, copy, re, dnf, pprint, urllib.request
+import argparse, yaml, tempfile, os, subprocess, json, jinja2, datetime, copy, re, dnf, pprint, urllib.request, sys
 import concurrent.futures
 import rpm_showme as showme
 from functools import lru_cache
@@ -58,10 +58,10 @@ class RepoDownloadError(Exception):
 
 
 def log(msg):
-    print(msg)
+    print(msg, file=sys.stderr)
 
 def err_log(msg):
-    print("ERROR LOG:  {}".format(msg))
+    print("ERROR LOG:  {}".format(msg), file=sys.stderr)
 
 class SetEncoder(json.JSONEncoder):
     def default(self, obj):
