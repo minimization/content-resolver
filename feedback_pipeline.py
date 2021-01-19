@@ -3446,10 +3446,12 @@ def _generate_view_pages(query):
             for arch in all_arches:
                 pkg_names.update(query.pkgs_in_view(view_conf_id, arch, output_change="binary_names"))
 
-            buildroot_pkg_srpm_requires = query.view_buildroot_pkgs(view_conf_id, arch)
+            buildroot_pkg_srpm_requires = {}
+            for arch in all_arches:
+                buildroot_pkg_srpm_requires[arch] = query.view_buildroot_pkgs(view_conf_id, arch)
 
             for arch in all_arches:
-                for buildroot_pkg_name in buildroot_pkg_srpm_requires:
+                for buildroot_pkg_name in buildroot_pkg_srpm_requires[arch]:
                     buildroot_pkg_names.add(buildroot_pkg_name)
             
             all_pkg_names.update(pkg_names)
@@ -3591,8 +3593,9 @@ def _generate_view_pages(query):
                                     pkgs_required_by[this_pkg_id][required_by_name].add(required_by_id + " (buildroot only)")
 
                     # required to build XX SRPMs
-                    if pkg_name in buildroot_pkg_srpm_requires:
-                        required_to_build_srpms = set(buildroot_pkg_srpm_requires[pkg_name]["required_by"])
+                    for arch in all_arches:
+                        if pkg_name in buildroot_pkg_srpm_requires[arch]:
+                            required_to_build_srpms.update(set(buildroot_pkg_srpm_requires[arch][pkg_name]["required_by"]))
 
 
                 template_data = {
