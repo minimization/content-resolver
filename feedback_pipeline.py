@@ -5335,7 +5335,7 @@ def main():
         dump_data("cache_configs.json", configs)
         dump_data("cache_data.json", data)
 
-    settings["global_refresh_time_started"] = datetime.datetime.now().strftime("%-d %B %Y")
+    settings["global_refresh_time_started"] = datetime.datetime.now().strftime("%-d %B %Y %H:%M UTC")
 
     query = Query(data, configs, settings)
 
