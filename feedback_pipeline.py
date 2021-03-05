@@ -2596,14 +2596,9 @@ class Query():
         if output_change == "source_names":
             srpms = set()
 
-            repo_id = self.configs["views"][view_conf_id]["repository"]
-
-            if arch in self.data["pkgs"][repo_id]:
-                for pkg_id, pkg in self.data["pkgs"][repo_id][arch].items():
-                    if pkg["name"] in pkgs:
-                        srpms.add(pkg["source_name"])
-            else:
-                return []
+            for pkg_name, pkg in pkgs.items():
+                if pkg["srpm_name"]:
+                    srpms.add(pkg["srpm_name"])
 
             srpm_names_sorted = sorted(list(srpms))
             return srpm_names_sorted
