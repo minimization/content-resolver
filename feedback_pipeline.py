@@ -623,6 +623,7 @@ def _load_config_buildroot(document_id, document, settings):
                         err_log("Warning: {file} has an empty 'requires' field defined which is invalid. Moving on...".format(
                             file=document_id
                         ))
+                        continue
                 
                 config["source_packages"][arch][str(srpm_name)] = {}
                 config["source_packages"][arch][str(srpm_name)]["requires"] = requires
