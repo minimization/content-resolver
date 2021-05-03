@@ -1,13 +1,12 @@
 ---
-# This configuration file defines an "Environment" in Feedback Pipeline.
+# This configuration file defines a "Workload" in Feedback Pipeline.
 # https://tiny.distro.builders
 #
-# Environments influence how a workload looks like when installed.
-# That's achieved by including specific packages — like coreutils-single — that
-# influence the result.
-# Environments can also act as base images when monitoring container sizes.
+# Workload is a set of packages with a purpouse that someone cares about.
+# They might want to monitor it for the install size, dependencies that get
+# pulled in, etc.
 
-document: feedback-pipeline-environment
+document: feedback-pipeline-workload
 version: 1
 data:
   # id is the filename — that automatically prevents collisions for free!
@@ -18,12 +17,12 @@ data:
   # Name is an identifier for humans
   #
   # (mandatory field)
-  name: Empty Environment
+  name: Nginx
   
   # A short description, perhaps hinting the purpose
   #
   # (mandatory field)
-  description: An empty space
+  description: Nginx web server
 
   # Who maintains it? This is just a freeform string
   # for humans to read. In Fedora, a FAS nick is recommended.
@@ -31,19 +30,13 @@ data:
   # (mandatory field)
   maintainer: asamalik
 
-  # Different instances of the environment, one per repository.
-  #
-  # (mandatory field)
-  repositories:
-  - repo-fedora-31
-  - repo-fedora-rawhide
-
-  # Packages defining this environment.
+  # Packages defining this workload.
   # This list includes packages for all
   # architectures — that's the one to use by default.
   #
   # (mandatory field)
-  packages: []
+  packages:
+  - nginx
 
   # Labels connect things together.
   # Workloads get installed in environments with the same label.
@@ -51,9 +44,8 @@ data:
   # 
   # (mandatory field)
   labels:
-  - label-fedora-31-all
-  - label-fedora-rawhide-all
-  - adams-demo-label
+  - eln
+  - fedora
 
 
   ### OPTIONAL FIELDS ###

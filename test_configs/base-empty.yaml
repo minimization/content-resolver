@@ -18,12 +18,12 @@ data:
   # Name is an identifier for humans
   #
   # (mandatory field)
-  name: Minimal Environment
+  name: Empty installroot
   
   # A short description, perhaps hinting the purpose
   #
   # (mandatory field)
-  description: Only glibc-minimal-langpack and coreutils-single
+  description: This environment contains no pre-installed packages. It's like doing 'dnf --installroot=./empty-dir/ ...' or using 'FROM scratch' in a containerfile
 
   # Who maintains it? This is just a freeform string
   # for humans to read. In Fedora, a FAS nick is recommended.
@@ -35,16 +35,15 @@ data:
   #
   # (mandatory field)
   repositories:
-  #- repo-fedora-31
-  - repo-fedora-rawhide
+  - repo-eln
+  - repo-rawhide
 
   # Packages defining this environment.
   # This list includes packages for all
   # architectures — that's the one to use by default.
   #
   # (mandatory field)
-  packages:
-  - glibc-minimal-langpack
+  packages: []
 
   # Labels connect things together.
   # Workloads get installed in environments with the same label.
@@ -52,10 +51,7 @@ data:
   # 
   # (mandatory field)
   labels:
-  - label-fedora-31-all
-  - label-fedora-rawhide-all
-  - label-eln-compose
-
+  - fedora
 
   ### OPTIONAL FIELDS ###
 
@@ -74,3 +70,4 @@ data:
   # (optional field)
   #options:
   #- option
+

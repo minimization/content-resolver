@@ -1,12 +1,13 @@
 ---
-# This configuration file defines a "Workload" in Feedback Pipeline.
+# This configuration file defines an "Environment" in Feedback Pipeline.
 # https://tiny.distro.builders
 #
-# Workload is a set of packages with a purpouse that someone cares about.
-# They might want to monitor it for the install size, dependencies that get
-# pulled in, etc.
+# Environments influence how a workload looks like when installed.
+# That's achieved by including specific packages — like coreutils-single — that
+# influence the result.
+# Environments can also act as base images when monitoring container sizes.
 
-document: feedback-pipeline-workload
+document: feedback-pipeline-environment
 version: 1
 data:
   # id is the filename — that automatically prevents collisions for free!
@@ -17,12 +18,12 @@ data:
   # Name is an identifier for humans
   #
   # (mandatory field)
-  name: Nodejs 12
+  name: ELN Environment
   
   # A short description, perhaps hinting the purpose
   #
   # (mandatory field)
-  description: Nodejs
+  description: A base environment on top of which all ELN workloads are analyzed.
 
   # Who maintains it? This is just a freeform string
   # for humans to read. In Fedora, a FAS nick is recommended.
@@ -30,13 +31,20 @@ data:
   # (mandatory field)
   maintainer: asamalik
 
-  # Packages defining this workload.
+  # Different instances of the environment, one per repository.
+  #
+  # (mandatory field)
+  repositories:
+  - repo-eln
+
+  # Packages defining this environment.
   # This list includes packages for all
   # architectures — that's the one to use by default.
   #
   # (mandatory field)
   packages:
-  - nodejs
+  - fedora-repos-eln
+  - fedora-release-eln
 
   # Labels connect things together.
   # Workloads get installed in environments with the same label.
@@ -44,10 +52,7 @@ data:
   # 
   # (mandatory field)
   labels:
-  - label-fedora-31-all
-  #- label-fedora-rawhide-all
-  - label-eln-compose
-
+  - eln
 
   ### OPTIONAL FIELDS ###
 

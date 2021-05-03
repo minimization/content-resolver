@@ -17,12 +17,12 @@ data:
   # Name is an identifier for humans
   #
   # (mandatory field)
-  name: Nginx web server
+  name: MariaDB (just in view)
   
   # A short description, perhaps hinting the purpose
   #
   # (mandatory field)
-  description: The Nginx web server.
+  description: MariaDB
 
   # Who maintains it? This is just a freeform string
   # for humans to read. In Fedora, a FAS nick is recommended.
@@ -36,7 +36,7 @@ data:
   #
   # (mandatory field)
   packages:
-  - nginx
+  - mariadb-server
 
   # Labels connect things together.
   # Workloads get installed in environments with the same label.
@@ -44,9 +44,7 @@ data:
   # 
   # (mandatory field)
   labels:
-  - label-fedora-31-all
-  #- label-fedora-rawhide-all
-  #- label-eln-compose
+  - eln
 
 
   ### OPTIONAL FIELDS ###
@@ -66,4 +64,3 @@ data:
   # (optional field)
   #options:
   #- option
-

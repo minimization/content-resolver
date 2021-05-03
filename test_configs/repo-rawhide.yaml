@@ -6,7 +6,7 @@
 # Right now, they represent Fedora releases, but can be extended in the future.
 
 document: feedback-pipeline-repository
-version: 1
+version: 2
 data:
   # id is the filename — that automatically prevents collisions for free!
 
@@ -16,7 +16,7 @@ data:
   # Name is an identifier for humans
   #
   # (mandatory field)
-  name: Fedora ELN
+  name: Fedora rawhide
   
   # A short description, perhaps hinting the purpose
   #
@@ -35,23 +35,17 @@ data:
   # 
   # (mandatory field)
   source:
-    # Only Fedora repos supported at this time.
-    # Fedora release.
-    # 
-    # (mandatory field)
-    fedora_release: "33"
-    # List of architectures
-    # 
-    # (mandatory field)
+ 
+    repos:
+
+      everything:
+        baseurl: https://kojipkgs.fedoraproject.org/compose/rawhide/latest-Fedora-Rawhide/compose/Everything/$basearch/os/
+      
+      modular:
+        baseurl: https://kojipkgs.fedoraproject.org/compose/rawhide/latest-Fedora-Rawhide/compose/Modular/$basearch/os/
+
+    releasever: "rawhide"
+
     architectures:
     - aarch64
     - x86_64
-
-    # An additional repository to be added to the mix.
-    # This repository will get a higher priority then the primary
-    # one defined by fedora_release.
-    # Practiaclly, this has been added for Fedora ELN that's used
-    # on top of Rawhide.
-    # 
-    # (Optional field)
-    #additional_repository: https://odcs.fedoraproject.org/composes/production/latest-Fedora-ELN/compose/Everything/$basearch/os/

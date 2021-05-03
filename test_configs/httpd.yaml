@@ -17,18 +17,18 @@ data:
   # Name is an identifier for humans
   #
   # (mandatory field)
-  name: Nodejs 14
+  name: Apache httpd
   
   # A short description, perhaps hinting the purpose
   #
   # (mandatory field)
-  description: Nodejs
+  description: Apache httpd
 
   # Who maintains it? This is just a freeform string
   # for humans to read. In Fedora, a FAS nick is recommended.
   #
   # (mandatory field)
-  maintainer: sgallagh
+  maintainer: asamalik
 
   # Packages defining this workload.
   # This list includes packages for all
@@ -36,7 +36,7 @@ data:
   #
   # (mandatory field)
   packages:
-  - nodejs
+  - httpd
 
   # Labels connect things together.
   # Workloads get installed in environments with the same label.
@@ -44,12 +44,9 @@ data:
   # 
   # (mandatory field)
   labels:
-  - label-fedora-31-all
-  #- label-fedora-rawhide-all
-  - label-eln-compose
+  - fedora
+  - eln
 
-  modules_enable:
-  - nodejs:14
 
   ### OPTIONAL FIELDS ###
 
@@ -68,4 +65,3 @@ data:
   # (optional field)
   #options:
   #- option
-

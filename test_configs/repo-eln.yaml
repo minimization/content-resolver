@@ -2,10 +2,9 @@
 document: feedback-pipeline-repository
 version: 2
 data:
-  name: Fedora ELN
-  description: Fedora ELN
+  name: Fedora ELN (backed by rawhide)
+  description: Fedora ELN with rawhide as a backup for missing packages
   maintainer: asamalik
-
   source:
 
     repos:
@@ -22,10 +21,9 @@ data:
         priority: 2
 
     releasever: "rawhide"
-
+    
     architectures:
-    #- armv7hl
     - aarch64
-    #- ppc64le
-    #- s390x
     - x86_64
+
+    composeinfo: https://odcs.fedoraproject.org/composes/production/latest-Fedora-ELN/compose/metadata/composeinfo.json
