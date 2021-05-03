@@ -730,7 +730,8 @@ def get_configs(settings):
                     configs["labels"][document_id] = _load_config_label(document_id, document, settings)
 
                 # === Case: View config ===
-                if document["document"] == "feedback-pipeline-compose-view":
+                #  (Also including the legacy "feedback-pipeline-compose-view" for backwards compatibility)
+                if document["document"] in ["feedback-pipeline-view", "feedback-pipeline-compose-view"]:
                     configs["views"][document_id] = _load_config_compose_view(document_id, document, settings)
 
                 # === Case: Unwanted config ===
