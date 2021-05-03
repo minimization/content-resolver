@@ -58,7 +58,6 @@
                             <h5 class="card-title">Binary Packages (NEVRAs)</h5>
                             <h6 class="card-subtitle mb-2 text-muted">All specific NEVRAs of this RPM package</h6>
 
-
                         </div>
                         <ul class="list-group list-group-flush">
                             {% for pkg_id, pkg_arches in pkg_ids.items() | sort(attribute='0') %}
@@ -82,6 +81,7 @@
                             <li class="list-group-item">
                                 {% if srpm_name %}
                                 <a href="view-srpm--{{view_conf.id}}--{{srpm_name}}.html">{{srpm_name}} (SRPM)</a>
+                                <span class="text-muted"> - Look here for ownership recommendation</span>
                                 {% else %}
                                 <span class="text-muted">Not available</span>
                                 {% endif %}
