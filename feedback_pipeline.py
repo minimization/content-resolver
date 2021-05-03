@@ -1312,6 +1312,11 @@ def _analyze_workload(tmp_dnf_cachedir, tmp_installroots, workload_conf, env_con
     workload["succeeded"] = True
     workload["env_succeeded"] = True
 
+
+    # Figure out the workload labels
+    # It can only have labels that are in both the workload_conf and the env_conf
+    workload["labels"] = list(set(workload_conf["labels"]) & set(env_conf["labels"]))
+
     with dnf.Base() as base:
 
         # Local DNF cache
@@ -2342,7 +2347,7 @@ class Query():
                 if workload_maintainer != maintainer:
                     continue
 
-            workload_labels = workload_conf["labels"]
+            workload_labels = workload["labels"]
             for workload_label in workload_labels:
                 if workload_label in labels:
                     final_workload_ids.add(workload_id)

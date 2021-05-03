@@ -53,6 +53,7 @@ data:
   # (mandatory field)
   labels:
   - eln
+  - eln-but-not-included
 
   ### OPTIONAL FIELDS ###
 

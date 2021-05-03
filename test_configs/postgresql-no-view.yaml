@@ -45,6 +45,7 @@ data:
   # (mandatory field)
   labels:
   - fedora
+  - eln-but-not-included
 
 
   ### OPTIONAL FIELDS ###

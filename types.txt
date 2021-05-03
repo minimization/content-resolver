@@ -111,6 +111,7 @@ data["workloads"][workload_id]["errors"]["non_existing_pkgs"]
 data["workloads"][workload_id]["errors"]["message"]
 data["workloads"][workload_id]["env_succeeded"]
 data["workloads"][workload_id]["succeeded"]
+data["workloads"][workload_id]["labels"]
 
 
 
