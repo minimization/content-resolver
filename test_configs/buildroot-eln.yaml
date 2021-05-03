@@ -1,0 +1,38 @@
+---
+# This configuration file defines a buildroot data in Feedback Pipeline.
+# https://tiny.distro.builders
+#
+
+document: feedback-pipeline-buildroot
+version: 1
+data:
+  # id is the filename — that automatically prevents collisions for free!
+
+  # Who maintains it? This is just a freeform string
+  # for humans to read. In Fedora, a FAS nick is recommended.
+  #
+  # (mandatory field)
+  maintainer: asamalik
+
+  # What view is this for
+  view_id: view-eln
+  
+  # A list of packages that is always in the buildroot.
+  # And if a source package from the list below only needs this,
+  # its list will be empty.
+  base_buildroot:
+    x86_64:
+      - tar
+      - tzdata
+  
+
+
+  source_packages:
+    x86_64:
+      httpd:
+        requires:
+          - bash
+          - pizza-package
+  
+
+

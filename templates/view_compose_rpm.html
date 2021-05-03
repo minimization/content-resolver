@@ -20,21 +20,21 @@
         <small>{{view_conf.name}}</small>
 
         <small>
-        {% if exclusion_list_ids or unwanted_in_view %}
-        <span class="badge badge-danger">Unwanted</span>
-        {% endif %}
-        {% if workload_conf_ids_required %}
-        <span class="badge badge-success">Required</span>
-        {% endif %}
-        {% if workload_conf_ids_env %}
-        <span class="badge badge-success">Environment</span>
-        {% endif %}
-        {% if workload_conf_ids_dependency %}
-        <span class="badge badge-secondary">Dependency</span>
-        {% endif %}
-        {% if build_dependency %}
-        <span class="badge badge-secondary" style="background-color: #999">Build Dependency</span>
-        {% endif %}
+            {% if exclusion_list_ids or unwanted_in_view %}
+            <span class="badge badge-danger">Unwanted</span>
+            {% endif %}
+            {% if workload_conf_ids_required %}
+            <span class="badge badge-success">Required</span>
+            {% endif %}
+            {% if workload_conf_ids_env %}
+            <span class="badge badge-success">Environment</span>
+            {% endif %}
+            {% if workload_conf_ids_dependency %}
+            <span class="badge badge-secondary">Dependency</span>
+            {% endif %}
+            {% if build_dependency %}
+            <span class="badge badge-secondary" style="background-color: #999">Build Dependency</span>
+            {% endif %}
         </small>
     </h1>
 
@@ -42,105 +42,73 @@
 
     {% if query.data.repos[view_conf.repository].compose_days_ago >= 2 %}
     <div class="alert alert-warning" role="alert">
-        The compose is {{query.data.repos[view_conf.repository].compose_days_ago}} days old, and you are seeing data from that time. 
+        The compose is {{query.data.repos[view_conf.repository].compose_days_ago}} days old, and you are seeing data
+        from that time.
     </div>
     {% endif %}
 
-    <div class="row">
-        <div class="col-sm-8">
-            <div class="card">
-                <h5 class="card-header">SRPM</h5>
-                <ul class="list-group list-group-flush">
-                    <li class="list-group-item">
-                        {% if srpm_name %}
-                        <a href="view-srpm--{{view_conf.id}}--{{srpm_name}}.html">{{srpm_name}}</a>
-                        {% else %}
-                        <span class="text-muted">Not available</span>
-                        {% endif %}
-                    </li>
-                </ul>
-            </div>
-            <br>
-            <div class="card">
-                <h5 class="card-header">Specific RPMs</h5>
-                <ul class="list-group list-group-flush">
-                    {% for pkg_id, pkg_arches in pkg_ids.items() | sort(attribute='0') %}
-                    <li class="list-group-item">
-                        {{pkg_id}}
-                        <br>
-                        <small class="text-muted"> {{pkg_arches | sort | join(', ')}}</small>
-                    </li>
-                    {% endfor %}
-                </ul>
-            </div>
-            <br>
-            {% if required_to_build_srpms %}
-            <div class="card">
-                <div class="card-body">
-                    Required to build {{ required_to_build_srpms | count }} SRPMs. <span class="text-muted">(See list at the bottom of the page)</span>
-                </div>
-            </div>
-            <br>
-            {% endif %}
-            <div class="card">
-                <h5 class="card-header">Runtime dependency of:</h5>
-                <ul class="list-group list-group-flush">
-                {% for this_pkg_id, this_pkg_data in pkgs_required_by.items() | sort(attribute='0') %}
-                <li class="list-group-item">
-                    <h5 class="card-title">{{this_pkg_id}} <span class="text-muted">required by</span> </h5>
-                    <table id="table_packages" class="table-packages">
-                        <tbody>
-                            {% for required_by_name, required_by_ids in this_pkg_data.items() | sort(attribute='0') %}
-                            <tr>
-                                <td><a href="view-rpm--{{view_conf.id}}--{{required_by_name}}.html">{{required_by_name}}</a></td>
-                                <td>
-                                    {% for required_by_id in required_by_ids %}
-                                    {{required_by_id}}<br>
-                                    {% endfor %}
-                                </td>
-                            </tr>
-                            
-                        {% endfor %}
-                        </tbody>
-                    </table>
-                </li>
-                {% endfor %}
-                </ul>
-            </div>
-            <br>
-            <div class="card">
-                <h5 class="card-header">Required to build <span class="text-muted">(SRPMs)</span></h5>
-                <div class="card-body">
-                    <div class="text-muted">This list also requires indirect build dependencies. This package is required to be in the buildroot of the following SRPMs, but it's not necessarily pulled by them directly. It can be a runtime dependency of other buildroot packages. See the list above for runtime dependencies for additional information.</div>
-                </div>
-                {% if required_to_build_srpms %}
-                <ul class="list-group list-group-flush">
-                    <table id="table_packages" class="table-packages">
-                        <tbody>
-                            
-                            {% for pkg_name in required_to_build_srpms | sort %}
-                            <tr>
-                                <td><a href="view-srpm--{{view_conf.id}}--{{pkg_name}}.html">{{pkg_name}}</a></td>
-                            </tr>
+    <div class="card">
+        <div class="card-body" style="background-color: #f2f2f2;">
+            <h4 style="margin-bottom:1.2rem">Package Information</h4>
+
+            <div class="row">
+                <div class="col-sm-6">
+                    <div class="card">
+                        <div class="card-body">
+                            <h5 class="card-title">Binary Packages (NEVRAs)</h5>
+                            <h6 class="card-subtitle mb-2 text-muted">All specific NEVRAs of this RPM package</h6>
+
+
+                        </div>
+                        <ul class="list-group list-group-flush">
+                            {% for pkg_id, pkg_arches in pkg_ids.items() | sort(attribute='0') %}
+                            <li class="list-group-item">
+                                {{pkg_id}}
+                                <br>
+                                <small class="text-muted"> {{pkg_arches | sort | join(', ')}}</small>
+                            </li>
                             {% endfor %}
-                            
-                        </tbody>
-                    </table>
-                </ul>
-                {% else %}
-                <div class="card-body">
-                    <div class="text-muted">Not needed to build any SRPMs</div>
+                        </ul>
+                    </div>
                 </div>
-                {% endif %}
+                <div class="col-sm-6">
+                    <div class="card">
+                        <div class="card-body">
+                            <h5 class="card-title">Source Package (SRPM)</h5>
+                            <h6 class="card-subtitle mb-2 text-muted">The SRPM (component) name</h6>
+
+                        </div>
+                        <ul class="list-group list-group-flush">
+                            <li class="list-group-item">
+                                {% if srpm_name %}
+                                <a href="view-srpm--{{view_conf.id}}--{{srpm_name}}.html">{{srpm_name}} (SRPM)</a>
+                                {% else %}
+                                <span class="text-muted">Not available</span>
+                                {% endif %}
+                            </li>
+                        </ul>
+                    </div>
+                </div>
             </div>
             <br>
         </div>
-        <div class="col-sm-4">
-            {% if exclusion_list_ids or unwanted_in_view %}
+    </div>
+    <br>
+
+    {% if exclusion_list_ids or unwanted_in_view %}
+    <div class="card">
+        <div class="card-body" style="background-color: #f2f2f2;">
+            <h4 style="margin-bottom:1.2rem">Additional Information</h4>
+
             <div class="card border-danger">
-                <h5 class="card-header">Unwanted in <span class="text-muted">(exclusion lists)</span></h5>
+                <div class="card-body">
+                    <h5 class="card-title">Unwanted</h5>
+                    <h6 class="card-subtitle mb-2 text-muted">This package is marked as unwanted on the following
+                        list(s)</h6>
+                </div>
                 <ul class="list-group list-group-flush">
-                    {% for exclusion_list_conf_id, exclusion_list_arches in exclusion_list_ids.items() | sort(attribute='0') %}
+                    {% for exclusion_list_conf_id, exclusion_list_arches in exclusion_list_ids.items() |
+                    sort(attribute='0') %}
                     <li class="list-group-item">
                         <a href="config-unwanted--{{exclusion_list_conf_id}}.html">
                             {{query.configs.unwanteds[exclusion_list_conf_id].name}}
@@ -160,63 +128,146 @@
                 </ul>
             </div>
             <br>
-            {% endif %}
-            {% if workload_conf_ids_required %}
-            <div class="card border-success">
-                <h5 class="card-header">Required in <span class="text-muted">(workloads)</span></h5>
-                <ul class="list-group list-group-flush">
-                    {% for workload_conf_id, workload_arches in workload_conf_ids_required.items() | sort(attribute='0') %}
-                    <li class="list-group-item">
-                        <a href="workload-overview--{{workload_conf_id}}--{{view_conf.repository}}.html">
-                            {{query.configs.workloads[workload_conf_id].name}}
-                        </a>
-                        <span class="text-muted">
-                            ({{query.configs.workloads[workload_conf_id].maintainer}})
-                        </span>
-                        <br>
-                        <small class="text-muted"> {{workload_arches | sort | join(', ')}}</small>
-                    </li>
-                    {% endfor %}
-                </ul>
-            </div>
-            {% else %}
-            <div class="card">
-                <h5 class="card-header">Required in <span class="text-muted">(workloads)</span></h5>
-                <div class="card-body">
-                    <div class="text-muted">Not explicitly required</div>
-                </div>
-            </div>
-            {% endif %}
-            <br>
-            {% if workload_conf_ids_dependency %}
-            <div class="card">
-                <h5 class="card-header">Dependency in <span class="text-muted">(workloads)</span></h5>
-                <ul class="list-group list-group-flush">
-                    {% for workload_conf_id, workload_arches in workload_conf_ids_dependency.items() | sort(attribute='0') %}
-                    <li class="list-group-item">
-                        <a href="workload-overview--{{workload_conf_id}}--{{view_conf.repository}}.html">
-                            {{query.configs.workloads[workload_conf_id].name}}
-                        </a>
-                        <span class="text-muted">
-                            ({{query.configs.workloads[workload_conf_id].maintainer}})
-                        </span>
-                        <br>
-                        <small class="text-muted"> {{workload_arches | sort | join(', ')}}</small>
-                    </li>
-                    {% endfor %}
-                </ul>
-            </div>
-            {% else %}
-            <div class="card">
-                <h5 class="card-header">Dependency in <span class="text-muted">(workloads)</span></h5>
-                <div class="card-body">
-                    <div class="text-muted">Not a dependency</div>
-                </div>
-            </div>
-            {% endif %}
-            <br>
         </div>
     </div>
+    <br>
+    {% endif %}
+
+
+    <div class="card">
+        <div class="card-body" style="background-color: #f2f2f2;">
+            <h4 style="margin-bottom:1.2rem">Why is this package in {{view_conf.name}}?</h4>
+
+            {% if workload_conf_ids_required %}
+            <div class="card border-success">
+                <div class="card-body">
+                    <h5 class="card-title">Required</h5>
+                    <h6 class="card-subtitle mb-2 text-muted">This package is explicitly required in the following
+                        workload(s)</h6>
+                </div>
+                <ul class="list-group list-group-flush">
+                    {% for workload_conf_id, workload_arches in workload_conf_ids_required.items() | sort(attribute='0')
+                    %}
+                    <li class="list-group-item">
+                        <a href="workload-overview--{{workload_conf_id}}--{{view_conf.repository}}.html">
+                            {{query.configs.workloads[workload_conf_id].name}}
+                        </a>
+                        <span class="text-muted">
+                            (added by {{query.configs.workloads[workload_conf_id].maintainer}})
+                        </span>
+                        <br>
+                        <small class="text-muted"> {{workload_arches | sort | join(', ')}}</small>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+            <br>
+            {% endif %}
+
+
+            {% if workload_conf_ids_dependency %}
+            <div class="row">
+                <div class="col-sm-8">
+                    <div class="card">
+                        <div class="card-body">
+                            <h5 class="card-title">Dependency - RPM level</h5>
+                            <h6 class="card-subtitle mb-2 text-muted">This package is required at runtime by other RPM
+                                packages. (Each NEVRA of this package has its own list.)</h6>
+                        </div>
+                        <ul class="list-group list-group-flush">
+                            {% for this_pkg_id, this_pkg_data in pkgs_required_by.items() | sort(attribute='0') %}
+                            <li class="list-group-item">
+                                <h7 class="card-title">{{this_pkg_id}} <span class="text-muted">is required by</span> </h7>
+                                <table id="table_packages" class="table-packages">
+                                    <tbody>
+                                        {% for required_by_name, required_by_ids in this_pkg_data.items() |
+                                        sort(attribute='0')
+                                        %}
+                                        <tr>
+                                            <td><a
+                                                    href="view-rpm--{{view_conf.id}}--{{required_by_name}}.html">{{required_by_name}}</a>
+                                            </td>
+                                            <td>
+                                                {% for required_by_id in required_by_ids %}
+                                                {{required_by_id}}<br>
+                                                {% endfor %}
+                                            </td>
+                                        </tr>
+
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </li>
+                            {% endfor %}
+                        </ul>
+
+                    </div>
+                </div>
+                <div class="col-sm-4">
+                    <div class="card">
+                        <div class="card-body">
+                            <h5 class="card-title">Dependency - workload level</h5>
+                            <h6 class="card-subtitle mb-2 text-muted">This package is required at runtime in these
+                                workload(s)</h6>
+                        </div>
+
+                        <ul class="list-group list-group-flush">
+                            {% for workload_conf_id, workload_arches in workload_conf_ids_dependency.items() |
+                            sort(attribute='0') %}
+                            <li class="list-group-item">
+                                <a href="workload-overview--{{workload_conf_id}}--{{view_conf.repository}}.html">
+                                    {{query.configs.workloads[workload_conf_id].name}}
+                                </a>
+                                <span class="text-muted">
+                                    ({{query.configs.workloads[workload_conf_id].maintainer}})
+                                </span>
+                                <br>
+                                <small class="text-muted"> {{workload_arches | sort | join(', ')}}</small>
+                            </li>
+                            {% endfor %}
+                        </ul>
+
+                    </div>
+                </div>
+            </div>
+            <br>
+            {% endif %}
+
+
+            {% if required_to_build_srpms %}
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Build Dependency</h5>
+                    <h6 class="card-subtitle mb-2 text-muted">This package needs to be in the buildroot of
+                        the following SRPM(s)</h6>
+                    <p class="card-text">Please note this list also includes runtime dependencies of the build
+                        dependencies. So it's not just the direct build dependencies. This is currently the best
+                        data Content Resolver can give at the moment.</p>
+                </div>
+                <ul class="list-group list-group-flush">
+                    <li class="list-group-item">
+                        <table id="table_packages" class="table-packages">
+                            <tbody>
+
+                                {% for pkg_name in required_to_build_srpms | sort %}
+                                <tr>
+                                    <td><a href="view-srpm--{{view_conf.id}}--{{pkg_name}}.html">{{pkg_name}} (SRPM)</a></td>
+                                </tr>
+                                {% endfor %}
+
+                            </tbody>
+                        </table>
+                    </li>
+                </ul>
+            </div>
+            <br>
+            {% endif %}
+
+
+
+        </div>
+    </div>
+
 
 
 

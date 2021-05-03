@@ -153,6 +153,7 @@ width: 100%;
 table.table-packages tr.sort_control_row,
 table.table-packages tbody {
   font-family: monospace;
+  font-size: 14px;
 }
 
 table.table-packages tr.heading {
