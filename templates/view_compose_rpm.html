@@ -64,7 +64,7 @@
                             <li class="list-group-item">
                                 {{pkg_id}}
                                 <br>
-                                <small class="text-muted"> {{pkg_arches | sort | join(', ')}}</small>
+                                <small class="text-muted">Present in: {{pkg_arches | sort | join(', ')}}</small>
                             </li>
                             {% endfor %}
                         </ul>
