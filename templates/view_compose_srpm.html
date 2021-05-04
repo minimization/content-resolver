@@ -123,34 +123,57 @@
                                 {% if ownership_recommendations %}
                                 {% for level_name, level_data in ownership_recommendations["ownership"].items() %}
                                 {% if level_name == "level0" %}
-                                <h4>Directly required:</h4>
+                                <h5>Directly required:</h5>
                                 {% elif level_name == "level1" %}
                                 <br>
-                                <h4>Runtime dependency group:</h4>
+                                <h5>Runtime dependency (levels 1-9):</h5>
                                 {% elif level_name == "level10" %}
                                 <br>
-                                <h4>Direct build dependency group:</h4>
-                                {% elif level_name in
-                                ["level20","level30","level40","level50","level60","level70","level80","level90"] %}
+                                <h5>Direct buildroot (levels 10-19):</h5>
+                                {% elif level_name == "level20" %}
                                 <br>
-                                <h4>Build dependency of a build dependency group:</h4>
-                                {% else %}
+                                <h5>Buildroot of a build dependency (levels 20-29):</h5>
+                                {% elif level_name == "level30" %}
+                                <br>
+                                <h5>Buildroot of a build dependency (levels 30-39):</h5>
+                                {% elif level_name == "level40" %}
+                                <br>
+                                <h5>Buildroot of a build dependency (levels 40-49):</h5>
+                                {% elif level_name == "level50" %}
+                                <br>
+                                <h5>Buildroot of a build dependency (levels 50-59):</h5>
+                                {% elif level_name == "level60" %}
+                                <br>
+                                <h5>Buildroot of a build dependency (levels 60-69):</h5>
+                                {% elif level_name == "level70" %}
+                                <br>
+                                <h5>Buildroot of a build dependency (levels 70-79):</h5>
+                                {% elif level_name == "level80" %}
+                                <br>
+                                <h5>Buildroot of a build dependency (levels 80-89):</h5>
+                                {% elif level_name == "level90" %}
+                                <br>
+                                <h5>Buildroot of a build dependency (levels 90-99):</h5>
                                 {% endif %}
-                                <h5>
+                                <h6>
+
                                     {% if level_name == "level0" %}
 
                                     {% elif level_name == "level1" %}
-                                    {{level_name}} <small class="text-muted">(direct runtime dep)</small>
+                                    {{level_name}} <small>(direct runtime dep)</small>
 
                                     {% elif level_name in
                                     ["level10","level20","level30","level40","level50","level60","level70","level80","level90"]
                                     %}
-                                    {{level_name}} <small class="text-muted">(build dep of previous group)</small>
+                                    {{level_name}} <small>(build dep of previous group)</small>
 
                                     {% else %}
-                                    {{level_name}} <small class="text-muted">(runtime dep of previous level)</small>
+                                    {{level_name}} <small>(runtime dep of previous level)</small>
                                     {% endif %}
-                                </h5>
+                                    {% if not level_data %}
+                                    <small class="text-muted">Not required or skipped, because it wouldn't influence the decision.</small>
+                                    {% endif %}
+                                </h6>
                                 {% for maintainer, maintainer_data in level_data.items() %}
                                 <span>{{maintainer}}</span>
                                 <br>
@@ -196,10 +219,6 @@
                                 {% endif %}
 
 
-                                <br>
-                                {% else %}
-                                <span class="text-muted">No one.</span>
-                                <br>
                                 <br>
                                 {% endfor %}
                                 {% endfor %}
