@@ -1,0 +1,47 @@
+---
+# This configuration file defines a "View" in Feedback Pipeline.
+# https://tiny.distro.builders
+#
+# Views are, well, views combining various things together!
+# And a view addon is like a view on top of an existing view,
+# only showing what was added.
+
+document: feedback-pipeline-view-addon
+version: 1
+data:
+  # id is the filename — that automatically prevents collisions for free!
+
+
+  ### MANDATORY FIELDS ###
+  
+  # Name is an identifier for humans
+  #
+  # (mandatory field)
+  name: Fedora ELN Extras
+  
+  # A short description, perhaps hinting the purpose
+  #
+  # (mandatory field)
+  description: Extra packages on top of ELN
+
+  # Who maintains it? This is just a freeform string
+  # for humans to read. In Fedora, a FAS nick is recommended.
+  #
+  # (mandatory field)
+  maintainer: asamalik
+
+  # ID of the view this addon is on top of.
+  #
+  # (mandatory field)
+  base_view_id: view-eln
+
+  # Labels connect things together.
+  # Workloads get installed in environments with the same label.
+  # They also get included in views with the same label.
+  # 
+  # For this view addon, this label is only for the workloads
+  # to be included on top of the primary view.  
+  # 
+  # (mandatory field)
+  labels:
+  - eln-extras

@@ -54,6 +54,7 @@ data:
   labels:
   - eln
   - eln-but-not-included
+  - eln-extras
 
   ### OPTIONAL FIELDS ###
 

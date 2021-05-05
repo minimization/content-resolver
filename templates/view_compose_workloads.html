@@ -20,6 +20,10 @@
         <small> {{arch}}</small>
     </h1>
 
+    {% if view_conf.type == "addon" %}
+    <p class="lead">Resolved on top of <a href="./view--{{view_conf.base_view_id}}.html">{{query.configs.views[view_conf.base_view_id].name}}</a></p>
+    {% endif %}
+
 
     <p class="lead"><span class="text-muted">Description: </span>{{view_conf.description}}</p>
     <br>

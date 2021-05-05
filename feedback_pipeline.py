@@ -4,7 +4,6 @@ import argparse, yaml, tempfile, os, subprocess, json, jinja2, datetime, copy, r
 import concurrent.futures
 import rpm_showme as showme
 from functools import lru_cache
-import eln_repo_split as reposplit
 
 
 # Features of this new release
@@ -493,6 +492,71 @@ def _load_config_compose_view(document_id, document, settings):
     return config
 
 
+def _load_config_addon_view(document_id, document, settings):
+    config = {}
+    config["id"] = document_id
+    config["type"] = "addon"
+
+    # Step 1: Mandatory fields
+    try:
+        # Name is an identifier for humans
+        config["name"] = str(document["data"]["name"])
+
+        # A short description, perhaps hinting the purpose
+        config["description"] = str(document["data"]["description"])
+
+        # Who maintains it? This is just a freeform string
+        # for humans to read. In Fedora, a FAS nick is recommended.
+        config["maintainer"] = str(document["data"]["maintainer"])
+
+        # Labels connect things together.
+        # Workloads get installed in environments with the same label.
+        # They also get included in views with the same label.
+        config["labels"] = []
+        for repo in document["data"]["labels"]:
+            config["labels"].append(str(repo))
+
+        # Choose one repository that gets used as a source.
+        config["base_view_id"] = str(document["data"]["base_view_id"])
+
+    except KeyError:
+        raise ConfigError("Error: {document_id}.yml is invalid.".format(document_id=document_id))
+    
+    # Step 2: Optional fields
+
+    # Packages to be flagged as unwanted
+    config["unwanted_packages"] = []
+    if "unwanted_packages" in document["data"]:
+        for pkg in document["data"]["unwanted_packages"]:
+            config["unwanted_packages"].append(str(pkg))
+
+    # Packages to be flagged as unwanted  on specific architectures
+    config["unwanted_arch_packages"] = {}
+    for arch in settings["allowed_arches"]:
+        config["unwanted_arch_packages"][arch] = []
+    if "unwanted_arch_packages" in document["data"]:
+        for arch, pkgs in document["data"]["unwanted_arch_packages"].items():
+            if arch not in settings["allowed_arches"]:
+                err_log("Error: {file}.yaml lists an invalid architecture: {arch}. Ignoring.".format(
+                    file=document_id,
+                    arch=arch
+                ))
+                continue
+            for pkg_raw in pkgs:
+                pkg = str(pkg_raw)
+                config["unwanted_arch_packages"][arch].append(pkg)
+    
+    # SRPMs (components) to be flagged as unwanted
+    config["unwanted_source_packages"] = []
+    if "unwanted_source_packages" in document["data"]:
+        for pkg in document["data"]["unwanted_source_packages"]:
+            config["unwanted_source_packages"].append(str(pkg))
+
+
+
+    return config
+
+
 def _load_config_unwanted(document_id, document, settings):
     config = {}
     config["id"] = document_id
@@ -734,6 +798,10 @@ def get_configs(settings):
                 if document["document"] in ["feedback-pipeline-view", "feedback-pipeline-compose-view"]:
                     configs["views"][document_id] = _load_config_compose_view(document_id, document, settings)
 
+                # === Case: View addon config ===
+                if document["document"] == "feedback-pipeline-view-addon":
+                    configs["views"][document_id] = _load_config_addon_view(document_id, document, settings)
+
                 # === Case: Unwanted config ===
                 if document["document"] == "feedback-pipeline-unwanted":
                     configs["unwanteds"][document_id] = _load_config_unwanted(document_id, document, settings)
@@ -784,12 +852,47 @@ def get_configs(settings):
     log("  Done!")
     log("")
 
+
+
     # Step 2: cross check configs for references and other validation
+    #
+    # Also, for some configs, such as the view addon, add some fields
+    # from its base view
+    #
+    # They need to be checked in some logical order, because
+    # invalid configs get removed. So, for example, I need to first
+    # check the compose views before checking the addon views,
+    # because if I need to ditch a proper view, I can't use any
+    # of the addon views either.
     log("  Validating configs...")
-    # FIXME: Do this, please!
-    log("  Warning: This is not implemented, yet!")
-    log("           But there would be a traceback somewhere during runtime ")
-    log("           if an error exists, so wrong outputs won't happen.")
+
+    for view_conf_id, view_conf in configs["views"].items():
+        if view_conf["type"] == "compose":
+            if view_conf["repository"] not in configs["repos"]:
+                log("   View {} is referencing a non-existing repository. Removing it.".format(view_conf_id))
+                del configs["views"][view_conf_id]
+
+    for view_conf_id, view_conf in configs["views"].items():
+        if view_conf["type"] == "addon":
+            base_view_id = view_conf["base_view_id"]
+            if base_view_id not in configs["views"]:
+                log("   Addon view {} is referencing a non-existing base_view_id. Removing it.".format(view_conf_id))
+                del configs["views"][view_conf_id]
+    
+            else:
+                base_view = configs["views"][base_view_id]
+                if base_view["type"] != "compose":
+                    log("   Addon view {} is referencing an addon base_view_id, which is not supported. Removing it.".format(view_conf_id))
+                    del configs["views"][view_conf_id]
+
+            
+            # Ading some extra fields onto the addon view
+            configs["views"][view_conf_id]["repository"] = configs["views"][base_view_id]["repository"]
+            configs["views"][view_conf_id]["architectures"] = configs["views"][base_view_id]["architectures"]
+    
+    # FIXME: Check other configs, too!
+
+
 
     log("  Done!")
     log("")
@@ -1758,6 +1861,8 @@ class Query():
         self.configs = configs
         self.settings = settings
 
+        self.computed_data = {}
+
     def size(self, num, suffix='B'):
         for unit in ['','k','M','G']:
             if abs(num) < 1024.0:
@@ -2385,6 +2490,11 @@ class Query():
             if output_change not in ["ids", "nevrs", "binary_names", "source_nvr", "source_names"]:
                 raise ValueError('output_change must be one of: "ids", "nevrs", "binary_names", "source_nvr", "source_names"')
 
+        
+        # -----
+        # Step 1: get all packages from all workloads in this view
+        # -----
+
         workload_ids = self.workloads_in_view(view_conf_id, arch)
         repo_id = self.configs["views"][view_conf_id]["repository"]
 
@@ -2493,7 +2603,25 @@ class Query():
                 pkgs[placeholder_id]["q_required_in"].add(workload_id)
                 # Maintainer
                 pkgs[placeholder_id]["q_maintainers"].add(workload_conf["maintainer"])
-                
+
+        
+        # -----
+        # Step 2: narrow the package list down based on various criteria
+        # -----
+
+        # Is this an addon view?
+        # Then I need to remove all packages that are already 
+        # in the base view
+        view_conf = self.configs["views"][view_conf_id]
+        if view_conf["type"] == "addon":
+            base_view_id = view_conf["base_view_id"]
+
+            # I always need to get all package IDs
+            base_pkg_ids = self.pkgs_in_view(base_view_id, arch, output_change="ids")
+            for base_pkg_id in base_pkg_ids:
+                if base_pkg_id in pkgs:
+                    del pkgs[base_pkg_id]
+
 
         # Filtering by a maintainer?
         # Filter out packages not belonging to the maintainer
@@ -2506,6 +2634,12 @@ class Query():
                     pkg_ids_to_delete.add(pkg_id)
         for pkg_id in pkg_ids_to_delete:
             del pkgs[pkg_id]
+
+        
+                
+        # -----
+        # Step 3: Make the output to be the right format
+        # -----
 
         # Is it supposed to only output ids?
         if output_change:
@@ -3329,8 +3463,12 @@ def _generate_view_pages(query):
     log("Generating view pages...")
 
     for view_conf_id,view_conf in query.configs["views"].items():
-        if view_conf["type"] == "compose":
+        if view_conf["type"] in ["compose", "addon"]:
 
+            # ==================
+            # ===   Part 1   ===
+            # ==================
+            #
             # First, generate the overview page comparing all architectures
             log("  Generating 'compose' view overview {view_conf_id}".format(
                 view_conf_id=view_conf_id
@@ -3386,6 +3524,11 @@ def _generate_view_pages(query):
             log("    Done!")
             log("")
 
+
+            # ==================
+            # ===   Part 2   ===
+            # ==================
+            #
             # Second, generate detail pages for each architecture
             for arch in query.arches_in_view(view_conf_id):
                 # First, generate the overview page comparing all architectures
@@ -3432,6 +3575,10 @@ def _generate_view_pages(query):
 
                 
 
+            # ==================
+            # ===   Part 3   ===
+            # ==================
+            #
             # third, generate one page per RPM name
 
             pkg_names = set()
@@ -3623,6 +3770,10 @@ def _generate_view_pages(query):
                 _generate_html_page("view_compose_rpm", template_data, page_name, query.settings)
             
             
+            # ==================
+            # ===   Part 4   ===
+            # ==================
+            #
             # fourth, generate one page per SRPM name
 
             srpm_names = set()
@@ -3635,7 +3786,9 @@ def _generate_view_pages(query):
             for arch in all_arches:
                 buildroot_srpm_names.update(query.view_buildroot_pkgs(view_conf_id, arch, output_change="source_names"))
 
-            srpm_maintainers = query.data["views"][view_conf_id]["srpm_maintainers"]
+            srpm_maintainers = {}
+            if "srpm_maintainers" in query.computed_data["views"][view_conf_id]:
+                srpm_maintainers = query.computed_data["views"][view_conf_id]["srpm_maintainers"]
 
             all_srpm_names.update(srpm_names)
             all_srpm_names.update(buildroot_srpm_names)
@@ -3668,8 +3821,9 @@ def _generate_view_pages(query):
                                 srpm_pkg_names.add(buildroot_pkg_name)
 
                 ownership_recommendations = None
-                if srpm_name in query.data["views"][view_conf_id]["ownership_recommendations"]:
-                    ownership_recommendations = query.data["views"][view_conf_id]["ownership_recommendations"][srpm_name]
+                if "ownership_recommendations" in query.computed_data["views"][view_conf_id]:
+                    if srpm_name in query.computed_data["views"][view_conf_id]["ownership_recommendations"]:
+                        ownership_recommendations = query.computed_data["views"][view_conf_id]["ownership_recommendations"][srpm_name]
 
                 template_data = {
                     "query": query,
@@ -3686,86 +3840,6 @@ def _generate_view_pages(query):
                 )
                 _generate_html_page("view_compose_srpm", template_data, page_name, query.settings)
 
-
-
-#            # third, generate one page per SRPM
-#            all_arches = query.arches_in_view(view_conf_id)
-#            all_pkgs = {}
-#            for arch in all_arches:
-#                all_pkgs[arch] = {}
-#                _all_pkgs_list = query.pkgs_in_view(view_conf_id, arch)
-#                for pkg in _all_pkgs_list:
-#                    all_pkgs[arch][pkg["id"]] = pkg
-#            all_workloads = {}
-#            for arch in all_arches:
-#                all_workload_ids = query.workloads_in_view(view_conf_id, arch)
-#                all_workloads[arch] = ""
-#                for workload_id in all_workload_ids:
-#                    all_workloads[workload_id] = query.data["workloads"][workload_id]
-#
-#            for srpm_name in pkg_source_names:
-#
-#                reasons_of_presense = {}
-#
-#                for arch in all_arches:
-#                    for pkg_id, pkg in all_pkgs[arch].items():
-#                        # For each package, I need to find all the reasons it's here
-#                        # some-other-binary (some-other) pulls this-pkg-binary (this-pkg)
-#
-#                        if pkg["source_name"] != srpm_name:
-#                            continue
-#
-#                        for workload_id in pkg["q_in"]:
-#                            workload = query.data["workloads"][workload_id]
-#
-#                            for related_pkg_id in workload["pkg_relations"][pkg_id]["required_by"]:
-#
-#                                related_pkg = all_pkgs[arch][related_pkg_id]
-#
-#                                if related_pkg_id not in reasons_of_presense:
-#                                    reasons_of_presense[related_pkg_id] = {}
-#                                    reasons_of_presense[related_pkg_id]["source_name"] = related_pkg["source_name"]
-#                                    reasons_of_presense[related_pkg_id]["requires"] = set()
-#                                    reasons_of_presense[related_pkg_id]["workload_conf_ids"] = set()
-#                                
-#                                reasons_of_presense[related_pkg_id]["requires"].add(pkg_id)
-#                                reasons_of_presense[related_pkg_id]["workload_conf_ids"].add(workload["workload_conf_id"])
-#
-#
-#                pkgs = {}
-#                srpm_arches = set()
-#
-#                for arch, arch_pkgs in all_pkgs.items():
-#                    for pkg_id, pkg in all_pkgs[arch].items():
-#                        if pkg["source_name"] == srpm_name:
-#                            pkg_nevr = "{name}-{evr}".format(
-#                                name=pkg["name"],
-#                                evr=pkg["evr"]
-#                            )
-#
-#                            if pkg_nevr not in pkgs:
-#                                pkgs[pkg_nevr] = {}
-#                            
-#                            if arch not in pkgs[pkg_nevr]:
-#                                pkgs[pkg_nevr][arch] = {}
-#                            
-#                            pkgs[pkg_nevr][arch][pkg["id"]] = pkg
-#                            srpm_arches.add(arch)
-#
-#                template_data = {
-#                    "query": query,
-#                    "view_conf": view_conf,
-#                    "srpm_name": srpm_name,
-#                    "pkgs": pkgs,
-#                    "arches": sorted(list(srpm_arches)),
-#                    "reasons_of_presense": reasons_of_presense
-#                }
-#                page_name = "view-srpm--{view_conf_id}--{srpm_name}".format(
-#                    view_conf_id=view_conf_id,
-#                    srpm_name=srpm_name
-#                )
-#                _generate_html_page("view_compose_srpm_package", template_data, page_name, query.settings)
-#
 
     log("  Done!")
     log("")
@@ -3792,7 +3866,7 @@ def _generate_view_lists(query):
     log("Generating view lists...")
 
     for view_conf_id,view_conf in query.configs["views"].items():
-        if view_conf["type"] == "compose":
+        if view_conf["type"] in ["compose", "addon"]:
 
             repo_id = view_conf["repository"]
 
@@ -3806,8 +3880,22 @@ def _generate_view_lists(query):
 
                 pkg_ids = query.pkgs_in_view(view_conf_id, arch, output_change="ids")
                 pkg_binary_names = query.pkgs_in_view(view_conf_id, arch, output_change="binary_names")
-                pkg_source_nvr = query.pkgs_in_view(view_conf_id, arch, output_change="source_nvr")
+                pkg_source_nvrs = query.pkgs_in_view(view_conf_id, arch, output_change="source_nvr")
                 pkg_source_names = query.pkgs_in_view(view_conf_id, arch, output_change="source_names")
+
+                # If it's the addon view, there are two SRPM lists:
+                #   1/ all SRPMs in the addon, with some potentially also being in the base view
+                #      because, one SRPM can have RPMs in both
+                #   2/ added SRPMs - only SRPMs not in the base view, potentially missing
+                #      some SRPMs that are in this addon
+                if view_conf["type"] == "addon":
+                    base_view_id = view_conf["base_view_id"]
+                    base_pkg_source_nvrs = query.pkgs_in_view(base_view_id, arch, output_change="source_nvr")
+                    base_pkg_source_names = query.pkgs_in_view(base_view_id, arch, output_change="source_names")
+
+                    added_pkg_source_nvrs = sorted(list(set(pkg_source_nvrs) - set(base_pkg_source_nvrs)))
+                    added_pkg_source_names = sorted(list(set(pkg_source_names) - set(base_pkg_source_names)))
+
                 
                 buildroot_data = query.view_buildroot_pkgs(view_conf_id, arch)
                 pkg_buildroot_source_names = query.view_buildroot_pkgs(view_conf_id, arch, output_change="source_names")
@@ -3830,17 +3918,43 @@ def _generate_view_lists(query):
                 )
                 _generate_a_flat_list_file(pkg_binary_names, file_name, query.settings)
 
-                file_name = "view-source-package-list--{view_conf_id}--{arch}".format(
-                    view_conf_id=view_conf_id,
-                    arch=arch
-                )
-                _generate_a_flat_list_file(pkg_source_nvr, file_name, query.settings)
-    
-                file_name = "view-source-package-name-list--{view_conf_id}--{arch}".format(
-                    view_conf_id=view_conf_id,
-                    arch=arch
-                )
-                _generate_a_flat_list_file(pkg_source_names, file_name, query.settings)
+                if view_conf["type"] == "compose":
+                    file_name = "view-source-package-list--{view_conf_id}--{arch}".format(
+                        view_conf_id=view_conf_id,
+                        arch=arch
+                    )
+                    _generate_a_flat_list_file(pkg_source_nvrs, file_name, query.settings)
+        
+                    file_name = "view-source-package-name-list--{view_conf_id}--{arch}".format(
+                        view_conf_id=view_conf_id,
+                        arch=arch
+                    )
+                    _generate_a_flat_list_file(pkg_source_names, file_name, query.settings)
+
+                elif view_conf["type"] == "addon":
+                    file_name = "view-all-source-package-list--{view_conf_id}--{arch}".format(
+                        view_conf_id=view_conf_id,
+                        arch=arch
+                    )
+                    _generate_a_flat_list_file(pkg_source_nvrs, file_name, query.settings)
+        
+                    file_name = "view-all-source-package-name-list--{view_conf_id}--{arch}".format(
+                        view_conf_id=view_conf_id,
+                        arch=arch
+                    )
+                    _generate_a_flat_list_file(pkg_source_names, file_name, query.settings)
+
+                    file_name = "view-added-source-package-list--{view_conf_id}--{arch}".format(
+                        view_conf_id=view_conf_id,
+                        arch=arch
+                    )
+                    _generate_a_flat_list_file(added_pkg_source_nvrs, file_name, query.settings)
+        
+                    file_name = "view-added-source-package-name-list--{view_conf_id}--{arch}".format(
+                        view_conf_id=view_conf_id,
+                        arch=arch
+                    )
+                    _generate_a_flat_list_file(added_pkg_source_names, file_name, query.settings)
 
                 file_name = "view-buildroot-package-name-list--{view_conf_id}--{arch}".format(
                     view_conf_id=view_conf_id,
@@ -4783,6 +4897,9 @@ def generate_historic_data(query):
     # Step 3: Generate Chart.js data
     _generate_chartjs_data(historic_data, query)
 
+    log("Done!")
+    log("")
+
 
 class OwnershipEngine:
     # Levels:
@@ -5298,18 +5415,24 @@ class OwnershipEngine:
 def perform_additional_analyses(query):
 
     for view_conf_id in query.configs["views"]:
+        view_conf = query.configs["views"][view_conf_id]
 
-        if "views" not in query.data:
-            query.data["views"] = {}
+        if "views" not in query.computed_data:
+            query.computed_data["views"] = {}
 
-        if not view_conf_id in query.data["views"]:
-            query.data["views"][view_conf_id] = {}
+        if not view_conf_id in query.computed_data["views"]:
+            query.computed_data["views"][view_conf_id] = {}
 
-        ownership_engine = OwnershipEngine(query)
-        component_maintainers = ownership_engine.process_view(view_conf_id)
+        # Resolve ownership recommendations
+        # This is currently only supported for compose views, not addon views
 
-        query.data["views"][view_conf_id]["srpm_maintainers"] = component_maintainers
-        query.data["views"][view_conf_id]["ownership_recommendations"] = ownership_engine.srpm_entries
+        if view_conf["type"] == "compose":
+
+            ownership_engine = OwnershipEngine(query)
+            component_maintainers = ownership_engine.process_view(view_conf_id)
+
+            query.computed_data["views"][view_conf_id]["srpm_maintainers"] = component_maintainers
+            query.computed_data["views"][view_conf_id]["ownership_recommendations"] = ownership_engine.srpm_entries
 
 
 
@@ -5320,9 +5443,12 @@ def perform_additional_analyses(query):
 
 def main():
 
+    # -------------------------------------------------
+    # Stage 1: Data collection and analysis using DNF
+    # -------------------------------------------------
+
     # measuring time of execution
     time_started = datetime_now_string()
-
 
     settings = load_settings()
 
@@ -5339,6 +5465,11 @@ def main():
 
     settings["global_refresh_time_started"] = datetime.datetime.now().strftime("%-d %B %Y %H:%M UTC")
 
+
+    # -------------------------------------------------
+    # Stage 2: Additional analysis
+    # -------------------------------------------------
+
     query = Query(data, configs, settings)
 
     perform_additional_analyses(query)
@@ -5346,22 +5477,18 @@ def main():
     # measuring time of execution
     time_analysis_time = datetime_now_string()
 
+
+    # -------------------------------------------------
+    # Stage 3: Generating pages and data outputs
+    # -------------------------------------------------
+
     generate_pages(query)
     generate_historic_data(query)
 
-    #log("")
-    #log("Repo split time!")
-#
-    #query.settings["allowed_arches"] = ["aarch64","ppc64le","s390x","x86_64"]
-    #reposplit_configs = reposplit.get_configs(query.settings)
-    #reposplit_data = reposplit.get_data(query)
-    #reposplit_query = reposplit.Query(reposplit_data, reposplit_configs, query.settings)
-    #reposplit_query.sort_out_pkgs()
-    #reposplit.generate_pages(reposplit_query, include_content_resolver_breadcrumb=True)
-    #reposplit.print_summary(reposplit_query)
 
-    log("Done!")
-    log("")
+    # -------------------------------------------------
+    # Done! Printing final summary
+    # -------------------------------------------------
 
     # measuring time of execution
     time_ended = datetime_now_string()
@@ -5375,260 +5502,6 @@ def main():
     log("  Analysis done: {}".format(time_analysis_time))
     log("  Finished:      {}".format(time_ended))
     log("")
-
-
-
-def tests_to_be_made_actually_useful_at_some_point_because_this_is_terribble(query):
-
-
-    print("")
-    print("")
-    print("")
-    print("test test test")
-    print("test test test")
-    print("test test test")
-    print("test test test")
-    print("")
-    print("")
-
-
-    # does_workload_exist(self, workload_conf_id, env_conf_id, repo_id, arch):
-
-    #   env-empty 
-    #   env-minimal 
-    #   label-eln-compose 
-    #   label-fedora-31-all 
-    #   label-fedora-rawhide-all 
-    #   repo-fedora-31 
-    #   repo-fedora-rawhide 
-    #   view-eln-compose 
-    #   workload-httpd 
-    #   workload-nginx 
-    #   x86_64
-    #   aarch64
-
-    print("Should be False:")
-    print(query.workloads("mleko","mleko","mleko","mleko"))
-    print("")
-
-    print("Should be True:")
-    print(query.workloads("workload-httpd","env-empty","repo-fedora-31","x86_64"))
-    print("")
-
-    print("Should be False:")
-    print(query.workloads("workload-httpd","env-empty","repo-fedora-31","aarch64"))
-    print("")
-
-    print("Should be True:")
-    print(query.workloads("workload-httpd","env-empty","repo-fedora-31",None))
-    print("")
-
-    print("Should be True:")
-    print(query.workloads("workload-nginx",None, None, None))
-    print("")
-
-    print("Should be True:")
-    print(query.workloads(None,"env-minimal",None,"x86_64"))
-    print("")
-
-    print("Should be True:")
-    print(query.workloads(None,"env-minimal",None,"aarch64"))
-    print("")
-
-    print("Should be False:")
-    print(query.workloads(None,"env-minimal","repo-fedora-31","x86_64"))
-    print("")
-
-    print("Should be False:")
-    print(query.workloads(None,"env-minimal","repo-fedora-31","aarch64"))
-    print("")
-
-    print("----------")
-    print("")
-    print("")
-
-    print("Should be 7:")
-    print(len(query.workloads(None,None,None,None,list_all=True)))
-    print("")
-
-    print("Should be 3:")
-    print(len(query.workloads(None,None,None,"aarch64",list_all=True)))
-    print("")
-
-    print("Should be 2:")
-    print(len(query.workloads("workload-nginx",None,None,None,list_all=True)))
-    print("")
-
-    print("----------")
-    print("")
-    print("")
-
-    print("Should be 2 workload-nginx:")
-    for id in query.workloads("workload-nginx",None,None,None,list_all=True):
-        print(id)
-    print("")
-
-    print("Should be all 7:")
-    for id in query.workloads(None,None,None,None,list_all=True):
-        print(id)
-    print("")
-
-    print("Should be all 6 rawhide:")
-    for id in query.workloads(None,None,"repo-fedora-rawhide",None,list_all=True):
-        print(id)
-    print("")
-
-    print("Should be all 2 empty rawhide:")
-    for id in query.workloads(None,"env-empty","repo-fedora-rawhide",None,list_all=True):
-        print(id)
-    print("")
-
-    print("Should be nothing:")
-    for id in query.workloads("workload-nginx","env-empty","repo-fedora-rawhide",None,list_all=True):
-        print(id)
-    print("")
-
-    print("----------")
-    print("")
-    print("")
-
-    print("Should be env-empty:repo-fedora-31:x86_64")
-    for id in query.envs_id("workload-httpd:env-empty:repo-fedora-31:x86_64", list_all=True):
-        print(id)
-    print("")
-
-    print("Should be workload-httpd:env-empty:repo-fedora-31:x86_64")
-    for id in query.workloads_id("workload-httpd:env-empty:repo-fedora-31:x86_64", list_all=True):
-        print(id)
-    print("")
-
-    print("Should be two, workload-httpd:env-minimal:repo-fedora-rawhide:x86_64 and workload-nginx:...")
-    for id in query.workloads_id("env-minimal:repo-fedora-rawhide:x86_64", list_all=True):
-        print(id)
-    print("")
-
-    print("----------")
-    print("")
-    print("")
-
-    print("Should be all 2 arches:")
-    for id in query.workloads("workload-httpd",None, None,None,list_all=True,output_change="arches"):
-        print(id)
-    print("")
-
-    print("Should be all 2 arches:")
-    for id in query.workloads("workload-nginx",None, None,None,list_all=True,output_change="arches"):
-        print(id)
-    print("")
-
-    print("Should be all 2 env_conf_ids:")
-    for id in query.workloads("workload-httpd",None, None,None,list_all=True,output_change="env_conf_ids"):
-        print(id)
-    print("")
-
-    print("Should be all 1 env_conf_id:")
-    for id in query.workloads("workload-nginx",None, None,None,list_all=True,output_change="env_conf_ids"):
-        print(id)
-    print("")
-
-    print("----------")
-    print("")
-    print("")
-
-    print("Should be 104 packages:")
-    pkgs = query.workload_pkgs("workload-nginx", "env-minimal", "repo-fedora-rawhide", "x86_64")
-    print (len(pkgs))
-    total = 0
-    env = 0
-    required = 0
-    for pkg in pkgs:
-        workload_id = "workload-nginx:env-minimal:repo-fedora-rawhide:x86_64"
-        if workload_id in pkg["q_in"]:
-            total += 1
-        if workload_id in pkg["q_required_in"]:
-            required += 1
-        if workload_id in pkg["q_env_in"]:
-            env +=1
-    print("")
-    print("Should be 104")
-    print(total)
-    print("Should be 22")
-    print(env)
-    print("Should be 1")
-    print(required)
-    print("")
-
-    print("Should be 208 packages:")
-    pkgs = query.workload_pkgs("workload-nginx", "env-minimal", "repo-fedora-rawhide", None)
-    print (len(pkgs))
-    total = 0
-    env = 0
-    required = 0
-    for pkg in pkgs:
-        workload_id = "workload-nginx:env-minimal:repo-fedora-rawhide:x86_64"
-        if workload_id in pkg["q_in"]:
-            total += 1
-        if workload_id in pkg["q_required_in"]:
-            required += 1
-        if workload_id in pkg["q_env_in"]:
-            env +=1
-    print("")
-    print("Should be 104")
-    print(total)
-    print("Should be 22")
-    print(env)
-    print("Should be 1")
-    print(required)
-    print("")
-    print("")
-    print("")
-
-    print("----------")
-    print("")
-    print("")
-
-    print("views!!!")
-    print("")
-
-    workload_ids = query.workloads_in_view("view-eln-compose", "x86_64")
-    print("Should be 1:")
-    print(len(workload_ids))
-    print("")
-    print("print should be one nginx")
-    for workload_id in workload_ids:
-        print(workload_id)
-
-
-    print("")
-    print("")
-    print("Package Lists:")
-    print("")
-    print("")
-    print("")
-    package_ids1 = query.workload_pkgs_id("workload-httpd:env-empty:repo-fedora-rawhide:x86_64", output_change="ids")
-    package_ids2 = query.workload_pkgs_id("workload-httpd:env-minimal:repo-fedora-rawhide:x86_64", output_change="ids")
-    package_ids3 = query.workload_pkgs_id("workload-nginx:env-minimal:repo-fedora-rawhide:x86_64", output_change="ids")
-
-    all_pkg_ids = set()
-
-    all_pkg_ids.update(package_ids1)
-    all_pkg_ids.update(package_ids2)
-    all_pkg_ids.update(package_ids3)
-
-    print(len(all_pkg_ids))
-
-    pkg_ids = query.pkgs_in_view("view-eln-compose", "x86_64", output_change="ids")
-
-    print(len(pkg_ids))
-
-
-
-
-
-        # q_in          - set of workload_ids including this pkg
-        # q_required_in - set of workload_ids where this pkg is required (top-level)
-        # q_env_in      - set of workload_ids where this pkg is in env
-        # size_text     - size in a human-readable format, like 6.5 MB
 
 
 
