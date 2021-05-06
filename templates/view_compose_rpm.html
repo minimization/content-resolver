@@ -184,8 +184,12 @@
                                         sort(attribute='0')
                                         %}
                                         <tr>
-                                            <td><a
-                                                    href="view-rpm--{{view_conf.id}}--{{required_by_name}}.html">{{required_by_name}}</a>
+                                            <td>
+                                                {% if view_conf.type == "addon" and required_by_name not in view_all_pkg_names %}
+                                                <a href="view-rpm--{{view_conf.base_view_id}}--{{required_by_name}}.html">{{required_by_name}} - only in the base view ({{query.configs.views[view_conf.base_view_id].name}})</a>
+                                                {% else %}
+                                                <a href="view-rpm--{{view_conf.id}}--{{required_by_name}}.html">{{required_by_name}}</a>
+                                                {% endif %}
                                             </td>
                                             <td>
                                                 {% for required_by_id in required_by_ids %}

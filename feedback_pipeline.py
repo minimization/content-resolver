@@ -3688,6 +3688,7 @@ def _generate_view_pages(query):
                             workload = query.data["workloads"][workload_id]
                             workload_pkgs = query.workload_pkgs_id(workload_id)
                             workload_pkg_relations = workload["pkg_relations"]
+                            workload_conf_id = workload["workload_conf_id"]
 
                             for this_pkg_id in pkg_ids:
 
@@ -3704,6 +3705,14 @@ def _generate_view_pages(query):
                                         pkgs_required_by[this_pkg_id][required_by_name] = set()
                                     
                                     pkgs_required_by[this_pkg_id][required_by_name].add(required_by_id)
+
+                                    # Not all packages that are required by something are marked as "dependency"
+                                    # on the list — like those marked "required" for example. So adding them
+                                    # to the list of dependencies here additionally
+                                    if workload_conf_id not in workload_conf_ids_dependency: 
+                                        workload_conf_ids_dependency[workload_conf_id] = set()
+                                    
+                                    workload_conf_ids_dependency[workload_conf_id].add(arch)
                                 
                 # 2: Buildroot package stuff
                 if pkg_name in buildroot_pkg_names:
@@ -3753,6 +3762,7 @@ def _generate_view_pages(query):
                     "pkg_name": pkg_name,
                     "srpm_name": pkg_srpm_name,
                     "pkg_ids": pkg_ids,
+                    "view_all_pkg_names": all_pkg_names,
                     "workload_conf_ids_required": workload_conf_ids_required,
                     "workload_conf_ids_dependency": workload_conf_ids_dependency,
                     "workload_conf_ids_env": workload_conf_ids_env,
