@@ -4004,6 +4004,7 @@ def _dump_all_data(query):
     data["data"] = query.data
     data["configs"] = query.configs
     data["settings"] = query.settings
+    data["computed_data"] = query.computed_data
 
     file_name = "data.json"
     file_path = os.path.join(query.settings["output"], file_name)
