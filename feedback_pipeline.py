@@ -1130,7 +1130,7 @@ def _analyze_package_relations(dnf_query, package_placeholders = None):
         recommended_by = set()
         suggested_by = set()
 
-        for dep_pkg in dnf_query.filter(requires=pkg.provides):
+        for dep_pkg in dnf_query.filter(requires=[pkg]):
             dep_pkg_id = "{name}-{evr}.{arch}".format(
                 name=dep_pkg.name,
                 evr=dep_pkg.evr,
@@ -1138,7 +1138,7 @@ def _analyze_package_relations(dnf_query, package_placeholders = None):
             )
             required_by.add(dep_pkg_id)
 
-        for dep_pkg in dnf_query.filter(recommends=pkg.provides):
+        for dep_pkg in dnf_query.filter(recommends=[pkg]):
             dep_pkg_id = "{name}-{evr}.{arch}".format(
                 name=dep_pkg.name,
                 evr=dep_pkg.evr,
@@ -1146,7 +1146,7 @@ def _analyze_package_relations(dnf_query, package_placeholders = None):
             )
             recommended_by.add(dep_pkg_id)
         
-        for dep_pkg in dnf_query.filter(suggests=pkg.provides):
+        for dep_pkg in dnf_query.filter(suggests=[pkg]):
             dep_pkg_id = "{name}-{evr}.{arch}".format(
                 name=dep_pkg.name,
                 evr=dep_pkg.evr,
