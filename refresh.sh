@@ -24,6 +24,8 @@ cd $WORK_DIR
 git clone git@github.com:minimization/feedback-pipeline.git || exit 1
 cd feedback-pipeline || exit 1
 git clone git@github.com:minimization/feedback-pipeline-config.git || exit 1
+git clone git@github.com:minimization/content-resolver-input-additional.git || exit 1
+cp content-resolver-input-additional/configs/* feedback-pipeline-config/configs/
 
 # Local output dir. Includes a dir for the history data, too.
 mkdir -p $WORK_DIR/feedback-pipeline/out/history || exit 1
