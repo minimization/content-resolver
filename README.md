@@ -20,7 +20,7 @@ Content Resolver is entirely controlled by a set of YAML files stored in a git r
 
 ### Main concepts
 
-![Workloads and Environments](workloads-and-envs.png)
+![Workloads and Environments](docs/img/workloads-and-envs.png)
 
 *Workloads* are the primary reason for Content Resolver's existence, representing a package set with a specific purpose — an application, a runtime, a set of dependencies for a specific se case, etc.
 
@@ -42,7 +42,7 @@ Finally, everything is connected b *Labels*. Workloads are resolved on top of en
 
 ### Views
 
-![Views](views.png)
+![Views](docs/img/views.png)
 
 *Views* are an advanced concept that combines multiple workloads into a single view.
 
