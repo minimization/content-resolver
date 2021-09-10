@@ -42,7 +42,7 @@ Finally, everything is connected by *Labels*. Workloads are resolved on top of e
 
 ### Views
 
-![Views](docs/img/views.png)
+![Views](docs/img/view.png)
 
 *Views* are an advanced concept that combines multiple workloads into a single view.
 
