@@ -1917,15 +1917,66 @@ def _init_view_pkg(input_pkg, arch, placeholder=False):
         pkg = input_pkg
 
     pkg["view_arch"] = arch
+
     pkg["in_workload_ids_all"] = set()
     pkg["in_workload_ids_req"] = set()
     pkg["in_workload_ids_dep"] = set()
     pkg["in_workload_ids_env"] = set()
+
+    pkg["in_buildroot_of_srpm_id_all"] = set()
+    pkg["in_buildroot_of_srpm_id_req"] = set()
+    pkg["in_buildroot_of_srpm_id_dep"] = set()
+    pkg["in_buildroot_of_srpm_id_env"] = set()
+
+    pkg["level"] = []
+
+    # Level 0 == runtime
+    pkg["level"].append({
+        "all": pkg["in_workload_ids_all"],
+        "req": pkg["in_workload_ids_req"],
+        "dep": pkg["in_workload_ids_dep"],
+        "env": pkg["in_workload_ids_env"],
+    })
+
     pkg["required_by"] = set()
     pkg["recommended_by"] = set()
     pkg["suggested_by"] = set()
 
     return pkg
+
+
+def _init_view_srpm(pkg):
+
+    srpm_id = pkg["sourcerpm"].rsplit(".src.rpm")[0]
+
+    srpm = {}
+    srpm["id"] = srpm_id
+    srpm["name"] = pkg["source_name"]
+    srpm["reponame"] = pkg["reponame"]
+    srpm["pkg_ids"] = set()
+
+    srpm["in_workload_ids_all"] = set()
+    srpm["in_workload_ids_req"] = set()
+    srpm["in_workload_ids_dep"] = set()
+    srpm["in_workload_ids_env"] = set()
+
+    srpm["in_buildroot_of_srpm_id_all"] = set()
+    srpm["in_buildroot_of_srpm_id_req"] = set()
+    srpm["in_buildroot_of_srpm_id_dep"] = set()
+    srpm["in_buildroot_of_srpm_id_env"] = set()
+
+    srpm["level"] = []
+
+    # Level 0 == runtime
+    srpm["level"].append({
+        "all": srpm["in_workload_ids_all"],
+        "req": srpm["in_workload_ids_req"],
+        "dep": srpm["in_workload_ids_dep"],
+        "env": srpm["in_workload_ids_env"],
+    })
+
+    return srpm
+
 
 
 def _analyze_view(view_conf, arch, configs, data, views):
@@ -2085,22 +2136,15 @@ def _analyze_view(view_conf, arch, configs, data, views):
         srpm_id = pkg["sourcerpm"].rsplit(".src.rpm")[0]
 
         if srpm_id not in view["source_pkgs"]:
-            view["source_pkgs"][srpm_id] = {}
-            view["source_pkgs"][srpm_id]["id"] = srpm_id
-            view["source_pkgs"][srpm_id]["name"] = pkg["source_name"]
-            view["source_pkgs"][srpm_id]["reponame"] = pkg["reponame"]
-            view["source_pkgs"][srpm_id]["in_workload_ids_all"] = set()
-            view["source_pkgs"][srpm_id]["in_workload_ids_req"] = set()
-            view["source_pkgs"][srpm_id]["in_workload_ids_dep"] = set()
-            view["source_pkgs"][srpm_id]["in_workload_ids_env"] = set()
-            view["source_pkgs"][srpm_id]["pkg_ids"] = set()
-        
+            view["source_pkgs"][srpm_id] = _init_view_srpm(pkg)
+
         # Include some information from the RPM
+        view["source_pkgs"][srpm_id]["pkg_ids"].add(pkg_id)
+
         view["source_pkgs"][srpm_id]["in_workload_ids_all"].update(pkg["in_workload_ids_all"])
         view["source_pkgs"][srpm_id]["in_workload_ids_req"].update(pkg["in_workload_ids_req"])
         view["source_pkgs"][srpm_id]["in_workload_ids_dep"].update(pkg["in_workload_ids_dep"])
         view["source_pkgs"][srpm_id]["in_workload_ids_env"].update(pkg["in_workload_ids_env"])
-        view["source_pkgs"][srpm_id]["pkg_ids"].add(pkg_id)
     
     log("  Includes {} source packages.".format(len(view["source_pkgs"])))
 
@@ -2111,7 +2155,7 @@ def _analyze_view(view_conf, arch, configs, data, views):
     return view
 
 
-def _analyze_views(tmp_dnf_cachedir, tmp_installroots, configs, data):
+def _analyze_views(configs, data):
 
     views = {}
 
@@ -2144,7 +2188,7 @@ def _analyze_views(tmp_dnf_cachedir, tmp_installroots, configs, data):
     return views
 
 
-def _populate_view_srpms(view_conf, arch, configs, data, buildroot):
+def _populate_buildroot_with_view_srpms(view_conf, arch, configs, data, buildroot):
     view_conf_id = view_conf["id"]
 
     log("Initialising buildroot packages of: {view_name} ({view_conf_id}) for {arch}".format(
@@ -2624,7 +2668,7 @@ def _analyze_buildroot(tmp_dnf_cachedir, tmp_installroots, configs, cache, data)
         if view_conf["type"] == "compose":
             if view_conf["buildroot_strategy"] == "root_logs":
                 for arch in view_conf["architectures"]:
-                    _populate_view_srpms(view_conf, arch, configs, data, buildroot)
+                    _populate_buildroot_with_view_srpms(view_conf, arch, configs, data, buildroot)
 
     # Time to resolve the build groups!
     # 
@@ -2665,19 +2709,136 @@ def _analyze_buildroot(tmp_dnf_cachedir, tmp_installroots, configs, cache, data)
     return buildroot
 
 
-def _add_buildroot_to_views(tmp_dnf_cachedir, tmp_installroots, configs, data):
+def _add_buildroot_to_view(view_conf, arch, configs, data):
+
+    view_conf_id = view_conf["id"]
+
+    view_id = "{view_conf_id}:{arch}".format(
+        view_conf_id=view_conf_id,
+        arch=arch
+    )
+
+    repo_id = view_conf["repository"]
+
+    view = data["views"][view_id]
+
+
+    log("")
+    log("Adding buildroot to view {}...".format(view_id))
+
+    # Starting with all SRPMs in this view
+    srpm_ids_to_process = set(view["source_pkgs"])
+
+    # Starting on level 1, the first buildroot level
+    # (it's 0 because it gets incremented to 1 immediately after the loop starts)
+    level = 0
+
+    while True:
+        level += 1
+        added_pkg_ids = set()
+
+        log("  Pass {}...".format(level))
+
+        # This is similar to adding workloads in _analyze_view()
+        for buildroot_srpm_id in srpm_ids_to_process:
+            buildroot_srpm = data["buildroot"]["srpms"][repo_id][arch][buildroot_srpm_id]
+
+
+            # Packages in the base buildroot (which would be the environment in workloads)
+            for pkg_id in buildroot_srpm["pkg_env_ids"]:
+                added_pkg_ids.add(pkg_id)
+
+                # Initialise
+                if pkg_id not in view["pkgs"]:
+                    pkg = data["pkgs"][repo_id][arch][pkg_id]
+                    view["pkgs"][pkg_id] = _init_view_pkg(pkg, arch)
+                
+                # It's in this buildroot
+                view["pkgs"][pkg_id]["in_buildroot_of_srpm_id_all"].add(buildroot_srpm_id)
+
+                # And in the base buildroot specifically
+                view["pkgs"][pkg_id]["in_buildroot_of_srpm_id_env"].add(buildroot_srpm_id)
+
+                # Is it also required?
+                if view["pkgs"][pkg_id]["name"] in buildroot_srpm["directly_required_pkg_names"]:
+                    view["pkgs"][pkg_id]["in_buildroot_of_srpm_id_req"].add(buildroot_srpm_id)
+                
+                # pkg_relations
+                view["pkgs"][pkg_id]["required_by"].update(buildroot_srpm["pkg_relations"][pkg_id]["required_by"])
+                view["pkgs"][pkg_id]["recommended_by"].update(buildroot_srpm["pkg_relations"][pkg_id]["recommended_by"])
+                view["pkgs"][pkg_id]["suggested_by"].update(buildroot_srpm["pkg_relations"][pkg_id]["suggested_by"])
+
+            # Packages needed on top of the base buildroot (required or dependency)
+            for pkg_id in buildroot_srpm["pkg_added_ids"]:
+                added_pkg_ids.add(pkg_id)
+
+                # Initialise
+                if pkg_id not in view["pkgs"]:
+                    pkg = data["pkgs"][repo_id][arch][pkg_id]
+                    view["pkgs"][pkg_id] = _init_view_pkg(pkg, arch)
+                
+                # It's in this buildroot
+                view["pkgs"][pkg_id]["in_buildroot_of_srpm_id_all"].add(buildroot_srpm_id)
+
+                # Is it also required?
+                if view["pkgs"][pkg_id]["name"] in buildroot_srpm["directly_required_pkg_names"]:
+                    view["pkgs"][pkg_id]["in_buildroot_of_srpm_id_req"].add(buildroot_srpm_id)
+                
+                # Or a dependency?
+                else:
+                    view["pkgs"][pkg_id]["in_buildroot_of_srpm_id_dep"].add(buildroot_srpm_id)
+                
+                # pkg_relations
+                view["pkgs"][pkg_id]["required_by"].update(buildroot_srpm["pkg_relations"][pkg_id]["required_by"])
+                view["pkgs"][pkg_id]["recommended_by"].update(buildroot_srpm["pkg_relations"][pkg_id]["recommended_by"])
+                view["pkgs"][pkg_id]["suggested_by"].update(buildroot_srpm["pkg_relations"][pkg_id]["suggested_by"])
+        
+        # Resetting the SRPMs, so only the new ones can be added
+        srpm_ids_to_process = set()
+
+        # SRPMs
+        for pkg_id in added_pkg_ids:
+            pkg = view["pkgs"][pkg_id]
+            srpm_id = pkg["sourcerpm"].rsplit(".src.rpm")[0]
+
+            if srpm_id not in view["source_pkgs"]:
+                view["source_pkgs"][srpm_id] = _init_view_srpm(pkg)
+                srpm_ids_to_process.add(srpm_id)
+
+            # Include some information from the RPM
+            view["source_pkgs"][srpm_id]["pkg_ids"].add(pkg_id)
+
+            view["source_pkgs"][srpm_id]["in_buildroot_of_srpm_id_all"].update(pkg["in_buildroot_of_srpm_id_all"])
+            view["source_pkgs"][srpm_id]["in_buildroot_of_srpm_id_req"].update(pkg["in_buildroot_of_srpm_id_req"])
+            view["source_pkgs"][srpm_id]["in_buildroot_of_srpm_id_dep"].update(pkg["in_buildroot_of_srpm_id_dep"])
+            view["source_pkgs"][srpm_id]["in_buildroot_of_srpm_id_env"].update(pkg["in_buildroot_of_srpm_id_env"])
+
+        log ("    added {} RPMs".format(len(added_pkg_ids)))
+        log ("    added {} SRPMs".format(len(srpm_ids_to_process)))
+
+        # More iterations needed?
+        if not srpm_ids_to_process:
+            log("  All passes completed!")
+            log("")
+            break
+
+
+def _add_buildroot_to_views(configs, data):
 
     log("")
     log("Adding Buildroot to views...")
     log("")
 
-    #data["views"][view_id]["buildroot_pkgs"] = {}
-    #data["views"][view_id]["buildroot_source_pkgs"] = {}
+    # First, the standard views
+    for view_conf_id in configs["views"]:
+        view_conf = configs["views"][view_conf_id]
 
+        if view_conf["type"] == "compose":
+            if view_conf["buildroot_strategy"] == "root_logs":
+                for arch in view_conf["architectures"]:
+                    _add_buildroot_to_view(view_conf, arch, configs, data)
 
-
-
-
+    # And the addon is not supported now
 
     log("")
     log("  DONE!")
@@ -2770,18 +2931,17 @@ def analyze_things(configs, settings, cache):
         #    data["views"][view_id]["source_pkgs"]
         #    data["views"][view_id]["modules"]
         #
-        # But not:
-        #   data["views"][view_id]["buildroot_pkgs"]
-        #   data["views"][view_id]["buildroot_source_pkgs"]
-        #
         log("")
         log("=====  Analyzing Views =====")
         log("")
-        data["views"] = _analyze_views(tmp_dnf_cachedir, tmp_installroots, configs, data)
+        data["views"] = _analyze_views(configs, data)
 
         # Buildroot
         # This is partially similar to workloads, because it's resolving
         # the full dependency tree of the direct build dependencies of SRPMs
+        #
+        # FIXME: Needs to include package placeholders!
+        #        Probably will need to implement placeholders_v2
         #
         # So compared to workloads:
         #   direct build dependencies are like required packages in workloads
@@ -2799,14 +2959,14 @@ def analyze_things(configs, settings, cache):
 
         # Add buildroot packages to views
         # 
-        # This adds:
-        #   data["views"][view_id]["buildroot_pkgs"]
-        #   data["views"][view_id]["buildroot_source_pkgs"]
+        # Further extends the following with buildroot packages:
+        #   data["views"][view_id]["pkgs"]
+        #   data["views"][view_id]["source_pkgs"]
         #
         log("")
         log("=====  Adding Buildroot to Views =====")
         log("")
-        _add_buildroot_to_views(tmp_dnf_cachedir, tmp_installroots, configs, data)
+        _add_buildroot_to_views(configs, data)
 
         # Unwanted packages
         # TODO
