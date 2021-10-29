@@ -1898,7 +1898,7 @@ def _analyze_workloads(tmp_dnf_cachedir, tmp_installroots, configs, data):
 
 
 
-def _init_view_pkg(input_pkg, arch, placeholder=False):
+def _init_view_pkg(input_pkg, arch, placeholder=False, level=0):
     if placeholder:
         pkg = {
             "id": pkg_placeholder_name_to_id(input_pkg["name"]),
@@ -1930,13 +1930,22 @@ def _init_view_pkg(input_pkg, arch, placeholder=False):
 
     pkg["level"] = []
 
-    # Level 0 == runtime
+    # Level 0 is runtime
     pkg["level"].append({
         "all": pkg["in_workload_ids_all"],
         "req": pkg["in_workload_ids_req"],
         "dep": pkg["in_workload_ids_dep"],
         "env": pkg["in_workload_ids_env"],
     })
+
+    # Level 1 and higher is buildroot
+    for _ in range(level):
+        pkg["level"].append({
+            "all": set(),
+            "req": set(),
+            "dep": set(),
+            "env": set()
+        })
 
     pkg["required_by"] = set()
     pkg["recommended_by"] = set()
@@ -1945,7 +1954,7 @@ def _init_view_pkg(input_pkg, arch, placeholder=False):
     return pkg
 
 
-def _init_view_srpm(pkg):
+def _init_view_srpm(pkg, level=0):
 
     srpm_id = pkg["sourcerpm"].rsplit(".src.rpm")[0]
 
@@ -1967,13 +1976,22 @@ def _init_view_srpm(pkg):
 
     srpm["level"] = []
 
-    # Level 0 == runtime
+    # Level 0 is runtime
     srpm["level"].append({
         "all": srpm["in_workload_ids_all"],
         "req": srpm["in_workload_ids_req"],
         "dep": srpm["in_workload_ids_dep"],
         "env": srpm["in_workload_ids_env"],
     })
+
+    # Level 1 and higher is buildroot
+    for _ in range(level):
+        srpm["level"].append({
+            "all": set(),
+            "req": set(),
+            "dep": set(),
+            "env": set()
+        })
 
     return srpm
 
@@ -2709,6 +2727,18 @@ def _analyze_buildroot(tmp_dnf_cachedir, tmp_installroots, configs, cache, data)
     return buildroot
 
 
+def _add_missing_levels_to_pkg_or_srpm(pkg_or_srpm, level):
+
+    pkg_current_max_level = len(pkg_or_srpm["level"]) - 1
+    for _ in range(level - pkg_current_max_level):
+        pkg_or_srpm["level"].append({
+            "all": set(),
+            "req": set(),
+            "dep": set(),
+            "env": set()
+        })
+
+
 def _add_buildroot_to_view(view_conf, arch, configs, data):
 
     view_conf_id = view_conf["id"]
@@ -2751,17 +2781,23 @@ def _add_buildroot_to_view(view_conf, arch, configs, data):
                 # Initialise
                 if pkg_id not in view["pkgs"]:
                     pkg = data["pkgs"][repo_id][arch][pkg_id]
-                    view["pkgs"][pkg_id] = _init_view_pkg(pkg, arch)
+                    view["pkgs"][pkg_id] = _init_view_pkg(pkg, arch, level=level)
                 
+                # Add missing levels to the pkg
+                _add_missing_levels_to_pkg_or_srpm(view["pkgs"][pkg_id], level)
+
                 # It's in this buildroot
                 view["pkgs"][pkg_id]["in_buildroot_of_srpm_id_all"].add(buildroot_srpm_id)
+                view["pkgs"][pkg_id]["level"][level]["all"].add(buildroot_srpm_id)
 
                 # And in the base buildroot specifically
                 view["pkgs"][pkg_id]["in_buildroot_of_srpm_id_env"].add(buildroot_srpm_id)
+                view["pkgs"][pkg_id]["level"][level]["env"].add(buildroot_srpm_id)
 
                 # Is it also required?
                 if view["pkgs"][pkg_id]["name"] in buildroot_srpm["directly_required_pkg_names"]:
                     view["pkgs"][pkg_id]["in_buildroot_of_srpm_id_req"].add(buildroot_srpm_id)
+                    view["pkgs"][pkg_id]["level"][level]["req"].add(buildroot_srpm_id)
                 
                 # pkg_relations
                 view["pkgs"][pkg_id]["required_by"].update(buildroot_srpm["pkg_relations"][pkg_id]["required_by"])
@@ -2775,18 +2811,24 @@ def _add_buildroot_to_view(view_conf, arch, configs, data):
                 # Initialise
                 if pkg_id not in view["pkgs"]:
                     pkg = data["pkgs"][repo_id][arch][pkg_id]
-                    view["pkgs"][pkg_id] = _init_view_pkg(pkg, arch)
+                    view["pkgs"][pkg_id] = _init_view_pkg(pkg, arch, level=level)
+                
+                # Add missing levels to the pkg
+                _add_missing_levels_to_pkg_or_srpm(view["pkgs"][pkg_id], level)
                 
                 # It's in this buildroot
                 view["pkgs"][pkg_id]["in_buildroot_of_srpm_id_all"].add(buildroot_srpm_id)
+                view["pkgs"][pkg_id]["level"][level]["all"].add(buildroot_srpm_id)
 
                 # Is it also required?
                 if view["pkgs"][pkg_id]["name"] in buildroot_srpm["directly_required_pkg_names"]:
                     view["pkgs"][pkg_id]["in_buildroot_of_srpm_id_req"].add(buildroot_srpm_id)
+                    view["pkgs"][pkg_id]["level"][level]["req"].add(buildroot_srpm_id)
                 
                 # Or a dependency?
                 else:
                     view["pkgs"][pkg_id]["in_buildroot_of_srpm_id_dep"].add(buildroot_srpm_id)
+                    view["pkgs"][pkg_id]["level"][level]["dep"].add(buildroot_srpm_id)
                 
                 # pkg_relations
                 view["pkgs"][pkg_id]["required_by"].update(buildroot_srpm["pkg_relations"][pkg_id]["required_by"])
@@ -2801,17 +2843,25 @@ def _add_buildroot_to_view(view_conf, arch, configs, data):
             pkg = view["pkgs"][pkg_id]
             srpm_id = pkg["sourcerpm"].rsplit(".src.rpm")[0]
 
+            # Initialise
             if srpm_id not in view["source_pkgs"]:
-                view["source_pkgs"][srpm_id] = _init_view_srpm(pkg)
+                view["source_pkgs"][srpm_id] = _init_view_srpm(pkg, level=level)
                 srpm_ids_to_process.add(srpm_id)
+                
+            # Add missing levels to the pkg
+            _add_missing_levels_to_pkg_or_srpm(view["source_pkgs"][srpm_id], level)
 
-            # Include some information from the RPM
             view["source_pkgs"][srpm_id]["pkg_ids"].add(pkg_id)
 
+            # Include some information from the RPM
             view["source_pkgs"][srpm_id]["in_buildroot_of_srpm_id_all"].update(pkg["in_buildroot_of_srpm_id_all"])
             view["source_pkgs"][srpm_id]["in_buildroot_of_srpm_id_req"].update(pkg["in_buildroot_of_srpm_id_req"])
             view["source_pkgs"][srpm_id]["in_buildroot_of_srpm_id_dep"].update(pkg["in_buildroot_of_srpm_id_dep"])
             view["source_pkgs"][srpm_id]["in_buildroot_of_srpm_id_env"].update(pkg["in_buildroot_of_srpm_id_env"])
+            view["source_pkgs"][srpm_id]["level"][level]["all"].update(pkg["level"][level]["all"])
+            view["source_pkgs"][srpm_id]["level"][level]["req"].update(pkg["level"][level]["req"])
+            view["source_pkgs"][srpm_id]["level"][level]["dep"].update(pkg["level"][level]["dep"])
+            view["source_pkgs"][srpm_id]["level"][level]["env"].update(pkg["level"][level]["env"])
 
         log ("    added {} RPMs".format(len(added_pkg_ids)))
         log ("    added {} SRPMs".format(len(srpm_ids_to_process)))
