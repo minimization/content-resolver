@@ -113,42 +113,34 @@ To run the script, you'll need Python 3 and the following dependencies:
 * `yaml`
 * `jinja2`
 
-Option 1: on Fedora natively:
-
-```
-$ sudo dnf install python3-yaml python3-jinja2
-$ mkdir -p output/history
-$ ./feedback_pipeline.py test_configs output
-```
-
-... or you can leverage the `Dockerfile` included in this repository that has all the dependencies pre-installed. You can get it pre-built from Dockerhub as `asamalik/feedback-pipeline-env`.
-
-Option 2: on Fedora in a container
+### Option 1: on Fedora in a container
 
 ```
 $ podman build . -t content-resolver-env
 $ podman run --rm -it --tmpfs /dnf_cachedir -v $(pwd):/workspace:z content-resolver-env bash
 ```
 
-And then inside the container:
+... which starts a shell in the container. And inside the container:
 
 ```
 # mkdir -p output/history
 # ./feedback_pipeline.py --dnf-cache-dir /dnf_cachedir test_configs output
 ```
 
-Option 3: on a Mac using Docker:
+The output will be generated in the `output` directory. Open the `output/index.html` in your web browser of choice to see the result.
+
+### Option 2: on a Mac using Docker:
 
 ```
 $ docker build . -t content-resolver-env
 $ docker run --rm -it --tmpfs /dnf_cachedir -v $(pwd):/workspace content-resolver-env bash
 ```
 
-And then inside the container:
+... which starts a shell in the container. And inside the container:
 
 ```
 # mkdir -p output/history
 # ./feedback_pipeline.py --dnf-cache-dir /dnf_cachedir test_configs output
 ```
 
-In both cases, the output will be generated in the `output` directory. Open the `output/index.html` in your web browser of choice to see the result.
+The output will be generated in the `output` directory. Open the `output/index.html` in your web browser of choice to see the result.
