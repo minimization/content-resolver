@@ -126,19 +126,29 @@ $ ./feedback_pipeline.py test_configs output
 Option 2: on Fedora in a container
 
 ```
-$ podman pull asamalik/feedback-pipeline-env
-$ podman run --rm -it -v $(pwd):/workspace:z asamalik/feedback-pipeline-env bash
-$ mkdir -p output/history
-$ ./feedback_pipeline.py test_configs output
+$ podman build . -t content-resolver-env
+$ podman run --rm -it --tmpfs /dnf_cachedir -v $(pwd):/workspace:z content-resolver-env bash
+```
+
+And then inside the container:
+
+```
+# mkdir -p output/history
+# ./feedback_pipeline.py --dnf-cache-dir /dnf_cachedir test_configs output
 ```
 
 Option 3: on a Mac using Docker:
 
 ```
-$ docker pull asamalik/feedback-pipeline-env
-$ docker run --rm -it -v $(pwd):/workspace asamalik/feedback-pipeline-env bash
-$ mkdir -p output/history
-$ ./feedback_pipeline.py test_configs output
+$ docker build . -t content-resolver-env
+$ docker run --rm -it --tmpfs /dnf_cachedir -v $(pwd):/workspace content-resolver-env bash
+```
+
+And then inside the container:
+
+```
+# mkdir -p output/history
+# ./feedback_pipeline.py --dnf-cache-dir /dnf_cachedir test_configs output
 ```
 
 In both cases, the output will be generated in the `output` directory. Open the `output/index.html` in your web browser of choice to see the result.
