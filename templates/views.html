@@ -45,7 +45,11 @@
                         <td><a href="view--{{view_conf_id}}.html">{{view_conf.name}}</a></td>
                         <td>
                             {% if view_conf.type == "compose" %}
+                            {% if view_conf.buildroot_strategy == "root_logs" %}
+                            <span class="text-muted">Complete Set & Buildroot</span>
+                            {% else %}
                             <span class="text-muted">Complete Set</span>
+                            {% endif %}
                             {% elif view_conf.type == "addon" %}
                             <span class="text-muted">Addon</span>
                             {% endif %}

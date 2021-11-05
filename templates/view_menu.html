@@ -1,0 +1,35 @@
+<ul class="nav nav-pills">
+    <li class="nav-item">
+        <a class="nav-link {{view_menu_active_overview}}" href="view--{{view_conf.id}}.html">Overview</a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link {{view_menu_active_packages}}" href="view-packages--{{view_conf.id}}.html">Packages</a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link {{view_menu_active_sources}}" href="view-sources--{{view_conf.id}}.html">Source Packages</a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link {{view_menu_active_modules}}" href="view-modules--{{view_conf.id}}.html">Modules</a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link {{view_menu_active_unwanted}}" href="view-unwanted--{{view_conf.id}}.html">Unwanted Packages</a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link {{view_menu_active_workloads}}" href="view-workloads--{{view_conf.id}}.html">Workloads</a>
+    </li>
+</ul>
+
+<!--hr>
+
+    <ul class="nav nav-pills">
+        <li class="nav-item">
+            <a class="nav-link {% if not arch %}active{% endif %}" href="">all arches</a>
+        </li>
+        {% for menu_arch in view_conf.architectures %}
+        <li class="nav-item">
+            <a class="nav-link {% if arch == menu_arch %}active{% endif %}" href="">{{menu_arch}}</a>
+        </li>
+        {% endfor %}
+    </ul-->
+
+<hr>

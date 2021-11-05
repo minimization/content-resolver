@@ -29,6 +29,10 @@ data:
   # Where does this repository come from?
   # Right now, only Fedora repositories are supported,
   # defined by their releasever.
+  #
+  # If you intend to use this repository for a view and need
+  # to resolve the buildroot, you need to include 'koji_api_url'
+  # for all repositories 
   # 
   # (mandatory field)
   source:
@@ -39,11 +43,15 @@ data:
         name: Fedora ELN #(optional)
         baseurl: https://whatever.wherever #(mandatory)
         priority: 42 #(optional, default 100)
+        koji_api_url: https://koji.fedoraproject.org/kojihub #(optional)
+        koji_files_url: https://kojipkgs.fedoraproject.org #(optional)
 
       some-other-repo: 
         name: Fedora Rawhide #(optional)
         baseurl: https://whatever.wherever #(mandatory)
         priority: 41 #(optional, default 100)
+        koji_api_url: https://koji.fedoraproject.org/kojihub #(optional)
+        koji_files_url: https://kojipkgs.fedoraproject.org #(optional)
         limit_arches: #(optional)
         - x86_64
 
@@ -68,3 +76,12 @@ data:
     # 
     # (optional field)
     composeinfo:  https://whatever.wherever/compose/metadata/composeinfo.json
+
+    # The 'build' group is always used as the base buildroot.
+    # This option can override it if needed.
+    #
+    # (optional field)
+    base_buildroot_override: 
+    - tar
+    - unzip
+    - which

@@ -43,10 +43,19 @@ data:
 
   ### OPTIONAL FIELDS ###
 
+  # Buildroot strategy
+  # 
+  # Choose from:
+  #   * dep_tracker (default)
+  #   * root_logs 
+  #
+  # (optional field)
+  buildroot_strategy: dep_tracker
+
   # Limit this view only to the following architectures
   # 
   # (optional field)
-  limit_architectures:
+  architectures:
   - x86_64
   - aarch64
 

@@ -1,0 +1,126 @@
+{% extends "layout.html" %}
+
+
+
+{% block title %} {{view_conf.name}} · Content Resolver {% endblock %}
+
+
+
+{% macro pkg_row_css_class(pkg) -%}
+{% if pkg.in_workload_ids_req %}
+required
+{% elif pkg.in_workload_ids_env %}
+env
+{% else %}
+dependency
+{% endif %}
+{%- endmacro %}
+
+{% macro pkg_why_data_order(pkg) -%}
+{% if pkg.in_workload_ids_req %}
+0
+{% elif pkg.in_workload_ids_req and pkg.in_workload_ids_env %}
+1
+{% elif pkg.in_workload_ids_env %}
+2
+{% elif pkg.in_workload_ids_dep %}
+3
+{% elif pkg.in_buildroot_of_srpm_id_env %}
+4
+{% elif pkg.in_buildroot_of_srpm_id_req or pkg.in_buildroot_of_srpm_id_dep %}
+5
+{% else %}
+6
+{% endif %}
+{%- endmacro %}
+
+{% macro pkg_why(pkg) -%}
+{% if pkg.in_workload_ids_req %}
+<span class="badge badge-success">Required</span>
+{% elif pkg.in_workload_ids_env %}
+<span class="badge badge-warning">Environment</span>
+{% elif pkg.in_workload_ids_dep %}
+<span class="badge badge-secondary">Dependency</span>
+{% elif pkg.in_buildroot_of_srpm_id_env %}
+<span class="badge badge-secondary" style="background-color: #a39e87">Base Buildroot</span>
+{% elif pkg.in_buildroot_of_srpm_id_req or pkg.in_buildroot_of_srpm_id_dep %}
+<span class="badge badge-secondary" style="background-color: #999">Buildroot</span>
+{% else %}
+(unknown)
+{% endif %}
+{%- endmacro %}
+
+
+{% block content %}
+
+{% if view_sub_page_name %}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="./views.html">Views</a></li>
+        <li class="breadcrumb-item"><a href="./view--{{view_conf.id}}.html">{{view_conf.name}}</a></li>
+        <li class="breadcrumb-item active" aria-current="page">{{view_sub_page_name}}</li>
+    </ol>
+</nav>
+{% else %}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="./views.html">Views</a></li>
+        <li class="breadcrumb-item active" aria-current="page">{{view_conf.name}}</li>
+    </ol>
+</nav>
+{% endif %}
+
+
+
+
+
+<div class="container-fluid">
+
+
+    <h1>
+        {{view_conf.name}}
+        <small class="text-muted"> View</small>
+    </h1>
+
+    <p class="lead"><span class="text-muted">Description: </span>{{view_conf.description}}</p>
+
+    {% if query.data.repos[view_conf.repository].compose_days_ago >= 2 %}
+    <div class="alert alert-warning" role="alert">
+        The compose is {{query.data.repos[view_conf.repository].compose_days_ago}} days old, and you are seeing data
+        from that time.
+    </div>
+    {% endif %}
+
+    <hr>
+
+    {% block view_content %}{% endblock %}
+
+    <br>
+    <br>
+    <br>
+    <br>
+    <br>
+    <br>
+    <br>
+    <br>
+    <br>
+    <br>
+    <br>
+    <br>
+    <br>
+    <br>
+    <br>
+    <br>
+    <br>
+    <br>
+    <br>
+    <br>
+    <br>
+    <br>
+    <br>
+    <br>
+    <br>
+
+</div>
+
+{% endblock %}
