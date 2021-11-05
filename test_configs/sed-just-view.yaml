@@ -17,26 +17,26 @@ data:
   # Name is an identifier for humans
   #
   # (mandatory field)
-  name: Nginx
+  name: sed (just in view)
   
   # A short description, perhaps hinting the purpose
   #
   # (mandatory field)
-  description: Nginx web server
+  description: sed
 
   # Who maintains it? This is just a freeform string
   # for humans to read. In Fedora, a FAS nick is recommended.
   #
   # (mandatory field)
-  maintainer: asamalik
+  maintainer: sed_user
 
   # Packages defining this workload.
   # This list includes packages for all
   # architectures — that's the one to use by default.
   #
   # (mandatory field)
-  packages:
-  - nginx
+  packages: 
+  - sed
 
   # Labels connect things together.
   # Workloads get installed in environments with the same label.
@@ -45,7 +45,6 @@ data:
   # (mandatory field)
   labels:
   - eln
-  - fedora
 
 
   ### OPTIONAL FIELDS ###

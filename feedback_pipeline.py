@@ -93,6 +93,10 @@ def pkg_id_to_name(pkg_id):
     pkg_name = pkg_id.rsplit("-",2)[0]
     return pkg_name
 
+def workload_id_to_conf_id(workload_id):
+    workload_conf_id = workload_id.split(":")[0]
+    return workload_conf_id
+
 def pkg_placeholder_name_to_id(placeholder_name):
     placeholder_id = "{name}-000-placeholder.placeholder".format(name=placeholder_name)
     return placeholder_id
@@ -1202,11 +1206,17 @@ def _analyze_pkgs(tmp_dnf_cachedir, tmp_installroots, repo, arch):
             pkg_nevra = "{name}-{evr}.{arch}".format(
                 name=pkg_object.name,
                 evr=pkg_object.evr,
-                arch=pkg_object.arch)
+                arch=pkg_object.arch
+            )
+            pkg_nevr = "{name}-{evr}".format(
+                name=pkg_object.name,
+                evr=pkg_object.evr
+            )
             pkg = {}
             pkg["id"] = pkg_nevra
             pkg["name"] = pkg_object.name
             pkg["evr"] = pkg_object.evr
+            pkg["nevr"] = pkg_nevr
             pkg["arch"] = pkg_object.arch
             pkg["installsize"] = pkg_object.installsize
             pkg["description"] = pkg_object.description
@@ -1914,7 +1924,7 @@ def _init_view_pkg(input_pkg, arch, placeholder=False, level=0):
         }
 
     else:
-        pkg = input_pkg
+        pkg = dict(input_pkg)
 
     pkg["view_arch"] = arch
 
@@ -2442,7 +2452,7 @@ def _resolve_srpms_using_root_logs(buildroot, cache_data, next_cache_data, pass_
                 srpms_to_resolve_counter += 1
             
                 log("")
-                log("[ Pass {}: {} of {} ]".format(pass_counter, srpms_to_resolve_counter, total_srpms_to_resolve))
+                log("[ Buildroot - pass {} - {} of {} ]".format(pass_counter, srpms_to_resolve_counter, total_srpms_to_resolve))
                 log("Koji root_log {srpm_id} {arch}".format(
                     srpm_id=srpm_id,
                     arch=arch
@@ -2633,7 +2643,7 @@ def _analyze_srpm_buildroots(tmp_dnf_cachedir, tmp_installroots, configs, data, 
 
                 srpms_to_resolve_counter += 1
                 
-                log("[ Pass {}: {} of {} ]".format(pass_counter, srpms_to_resolve_counter, total_srpms_to_resolve))
+                log("[ Buildroot - pass {} - {} of {} ]".format(pass_counter, srpms_to_resolve_counter, total_srpms_to_resolve))
                 log("Resolving SRPM buildroot: {repo_id} {arch} {srpm_id}".format(
                     repo_id=repo_id,
                     arch=arch,
@@ -2894,7 +2904,263 @@ def _add_buildroot_to_views(configs, data):
     log("  DONE!")
     log("")
 
+
+def _init_pkg_or_srpm_relations_fields(target_pkg, type = None):
+    # I kept them all listed so they're easy to copy
+
+    # Workload IDs
+    target_pkg["in_workload_ids_all"] = set()
+    target_pkg["in_workload_ids_req"] = set()
+    target_pkg["in_workload_ids_dep"] = set()
+    target_pkg["in_workload_ids_env"] = set()
+    
+    # Workload Conf IDs
+    target_pkg["in_workload_conf_ids_all"] = set()
+    target_pkg["in_workload_conf_ids_req"] = set()
+    target_pkg["in_workload_conf_ids_dep"] = set()
+    target_pkg["in_workload_conf_ids_env"] = set()
+
+    # Buildroot SRPM IDs
+    target_pkg["in_buildroot_of_srpm_id_all"] = set()
+    target_pkg["in_buildroot_of_srpm_id_req"] = set()
+    target_pkg["in_buildroot_of_srpm_id_dep"] = set()
+    target_pkg["in_buildroot_of_srpm_id_env"] = set()
+
+    # Buildroot SRPM Names
+    target_pkg["in_buildroot_of_srpm_name_all"] = {} # of set() of srpm_ids
+    target_pkg["in_buildroot_of_srpm_name_req"] = {} # of set() of srpm_ids
+    target_pkg["in_buildroot_of_srpm_name_dep"] = {} # of set() of srpm_ids
+    target_pkg["in_buildroot_of_srpm_name_env"] = {} # of set() of srpm_ids
+
+    if type == "rpm":
+
+        # Dependency of RPM NEVRs
+        target_pkg["dependency_of_pkg_nevrs"] = set()
+        target_pkg["hard_dependency_of_pkg_nevrs"] = set()
+        target_pkg["weak_dependency_of_pkg_nevrs"] = set()
+
+        # Dependency of RPM Names
+        target_pkg["dependency_of_pkg_names"] = {} # of set() of nevrs
+        target_pkg["hard_dependency_of_pkg_names"] = {} # of set() of nevrs
+        target_pkg["weak_dependency_of_pkg_names"] = {} # if set() of nevrs
+
+
+    # TODO: add the levels
+    
+    
+def _populate_pkg_or_srpm_relations_fields(target_pkg, source_pkg, type = None, view = None):
+
+    if type == "rpm" and not view:
+        raise ValueError("This function requires a view when using type = 'rpm'!")
+
+    for list_type in ["all", "req", "dep", "env"]:
+        target_pkg["in_workload_ids_{}".format(list_type)].update(source_pkg["in_workload_ids_{}".format(list_type)])
+
+        target_pkg["in_buildroot_of_srpm_id_{}".format(list_type)].update(source_pkg["in_buildroot_of_srpm_id_{}".format(list_type)])
+
+        for workload_id in source_pkg["in_workload_ids_{}".format(list_type)]:
+            workload_conf_id = workload_id_to_conf_id(workload_id)
+            target_pkg["in_workload_conf_ids_{}".format(list_type)].add(workload_conf_id)
+
+        for srpm_id in source_pkg["in_buildroot_of_srpm_id_{}".format(list_type)]:
+            srpm_name = pkg_id_to_name(srpm_id)
+
+            if srpm_name not in target_pkg["in_buildroot_of_srpm_name_{}".format(list_type)]:
+                target_pkg["in_buildroot_of_srpm_name_{}".format(list_type)][srpm_name] = set()
+            
+            target_pkg["in_buildroot_of_srpm_name_{}".format(list_type)][srpm_name].add(srpm_id)
+    
+    if type == "rpm":
+        # Hard dependency of
+        for pkg_id in source_pkg["required_by"]:
+            pkg_name = pkg_id_to_name(pkg_id)
+
+            pkg = view["pkgs"][pkg_id]
+            pkg_nevr = "{name}-{evr}".format(
+                name=pkg["name"],
+                evr=pkg["evr"]
+            )
+            target_pkg["hard_dependency_of_pkg_nevrs"].add(pkg_nevr)
+
+            if pkg_name not in target_pkg["hard_dependency_of_pkg_names"]:
+                target_pkg["hard_dependency_of_pkg_names"][pkg_name] = set()
+            target_pkg["hard_dependency_of_pkg_names"][pkg_name].add(pkg_nevr)
+
+        # Weak dependency of
+        for list_type in ["recommended", "suggested"]:
+            for pkg_id in source_pkg["{}_by".format(list_type)]:
+                pkg_name = pkg_id_to_name(pkg_id)
+
+                pkg = view["pkgs"][pkg_id]
+                pkg_nevr = "{name}-{evr}".format(
+                    name=pkg["name"],
+                    evr=pkg["evr"]
+                )
+                target_pkg["weak_dependency_of_pkg_nevrs"].add(pkg_nevr)
+
+                if pkg_name not in target_pkg["weak_dependency_of_pkg_names"]:
+                    target_pkg["weak_dependency_of_pkg_names"][pkg_name] = set()
+                target_pkg["weak_dependency_of_pkg_names"][pkg_name].add(pkg_nevr)
         
+        # All types of dependency
+        target_pkg["dependency_of_pkg_nevrs"].update(target_pkg["hard_dependency_of_pkg_nevrs"])
+        target_pkg["dependency_of_pkg_nevrs"].update(target_pkg["weak_dependency_of_pkg_nevrs"])
+
+        for pkg_name, pkg_nevrs in target_pkg["hard_dependency_of_pkg_names"].items():
+            if pkg_name not in target_pkg["dependency_of_pkg_names"]:
+                target_pkg["dependency_of_pkg_names"][pkg_name] = set()
+            
+            target_pkg["dependency_of_pkg_names"][pkg_name].update(pkg_nevrs)
+
+        for pkg_name, pkg_nevrs in target_pkg["weak_dependency_of_pkg_names"].items():
+            if pkg_name not in target_pkg["dependency_of_pkg_names"]:
+                target_pkg["dependency_of_pkg_names"][pkg_name] = set()
+            
+            target_pkg["dependency_of_pkg_names"][pkg_name].update(pkg_nevrs)
+
+        
+
+    # TODO: add the levels
+
+
+def _generate_views_all_arches(configs, data):
+
+    views_all_arches = {}
+
+    for view_conf_id, view_conf in configs["views"].items():
+
+        if view_conf["type"] == "compose":
+
+            repo_id = view_conf["repository"]
+
+            view_all_arches = {}
+
+            view_all_arches["id"] = view_conf_id
+
+            view_all_arches["workloads"] = {}
+
+            view_all_arches["pkgs_by_name"] = {}
+            view_all_arches["pkgs_by_nevr"] = {}
+
+            view_all_arches["source_pkgs_by_name"] = {}
+
+            view_all_arches["modules"] = {}
+
+            for arch in view_conf["architectures"]:
+                view_id = "{view_conf_id}:{arch}".format(
+                    view_conf_id=view_conf_id,
+                    arch=arch
+                )
+
+                view = data["views"][view_id]
+
+                # Workloads
+                for workload_id in view["workload_ids"]:
+                    workload = data["workloads"][workload_id]
+                    workload_conf_id = workload["workload_conf_id"]
+                    workload_conf = configs["workloads"][workload_conf_id]
+
+                    if workload_conf_id not in view_all_arches["workloads"]:
+                        view_all_arches["workloads"][workload_conf_id] = {}
+                        view_all_arches["workloads"][workload_conf_id]["workload_conf_id"] = workload_conf_id
+                        view_all_arches["workloads"][workload_conf_id]["name"] = workload_conf["name"]
+                        # ...
+
+                # Binary Packages
+                for package in view["pkgs"].values():
+
+                    # Binary Packages by name
+                    key = "pkgs_by_name"
+                    identifier = package["name"]
+
+                    if identifier not in view_all_arches[key]:
+                        view_all_arches[key][identifier] = {}
+                        view_all_arches[key][identifier]["name"] = package["name"]
+                        view_all_arches[key][identifier]["source_name"] = package["source_name"]
+                        view_all_arches[key][identifier]["nevrs"] = {}
+                        view_all_arches[key][identifier]["arches"] = set()
+
+                        _init_pkg_or_srpm_relations_fields(view_all_arches[key][identifier], type="rpm")
+
+                    if package["nevr"] not in view_all_arches[key][identifier]["nevrs"]:
+                        view_all_arches[key][identifier]["nevrs"][package["nevr"]] = set()
+                    view_all_arches[key][identifier]["nevrs"][package["nevr"]].add(arch)
+
+                    view_all_arches[key][identifier]["arches"].add(arch)
+
+                    _populate_pkg_or_srpm_relations_fields(view_all_arches[key][identifier], package, type="rpm", view=view)
+
+                    # Binary Packages by nevr
+                    key = "pkgs_by_nevr"
+                    identifier = package["nevr"]
+
+                    if identifier not in view_all_arches[key]:
+                        view_all_arches[key][identifier] = {}
+                        view_all_arches[key][identifier]["name"] = package["name"]
+                        view_all_arches[key][identifier]["evr"] = package["evr"]
+                        view_all_arches[key][identifier]["source_name"] = package["source_name"]
+                        view_all_arches[key][identifier]["arches"] = set()
+
+                        _init_pkg_or_srpm_relations_fields(view_all_arches[key][identifier], type="rpm")
+                    
+                    view_all_arches[key][identifier]["arches"].add(arch)
+
+                    _populate_pkg_or_srpm_relations_fields(view_all_arches[key][identifier], package, type="rpm", view=view)
+
+                
+                # Source Packages
+                for package in view["source_pkgs"].values():
+
+                    # Source Packages by name
+                    key = "source_pkgs_by_name"
+                    identifier = package["name"]
+
+                    if identifier not in view_all_arches[key]:
+                        view_all_arches[key][identifier] = {}
+                        view_all_arches[key][identifier]["name"] = package["name"]
+                        view_all_arches[key][identifier]["buildroot_succeeded"] = True
+                        view_all_arches[key][identifier]["pkg_names"] = set()
+                        view_all_arches[key][identifier]["pkg_nevrs"] = set()
+                        view_all_arches[key][identifier]["arches"] = set()
+
+                        _init_pkg_or_srpm_relations_fields(view_all_arches[key][identifier])
+                    
+                    if not data["buildroot"]["srpms"][repo_id][arch][package["id"]]["succeeded"]:
+                        view_all_arches[key][identifier]["buildroot_succeeded"] = False
+                    
+                    view_all_arches[key][identifier]["arches"].add(arch)
+
+                    _populate_pkg_or_srpm_relations_fields(view_all_arches[key][identifier], package, type="srpm")
+                
+
+                # Add binary packages to source packages
+                for pkg_id, pkg in view["pkgs"].items():
+
+                    source_name = pkg["source_name"]
+
+                    # Add package names
+                    view_all_arches["source_pkgs_by_name"][source_name]["pkg_names"].add(pkg["name"])
+
+                    # Add package nevrs
+                    pkg_nevr = "{name}-{evr}".format(
+                        name=pkg["name"],
+                        evr=pkg["evr"]
+                    )
+                    view_all_arches["source_pkgs_by_name"][source_name]["pkg_nevrs"].add(pkg_nevr)
+                                        
+                
+                # Modules
+                for module_id, module in view["modules"].items():
+
+                    if module_id not in view_all_arches["modules"]:
+                        view_all_arches["modules"][module_id] = {}
+                        view_all_arches["modules"][module_id]["id"] = module_id
+                        # ...
+            
+            views_all_arches[view_conf_id] = view_all_arches
+    
+    return views_all_arches
+
 
 
 def analyze_things(configs, settings, cache):
@@ -3022,7 +3288,10 @@ def analyze_things(configs, settings, cache):
         # TODO
 
         # Generate combined views for all arches
-        # TODO
+        log("")
+        log("=====  Generating views_all_arches =====")
+        log("")
+        data["views_all_arches"] = _generate_views_all_arches(configs, data)
         
 
     return data
@@ -4642,20 +4911,117 @@ def _generate_view_pages_new(query):
 
     for view_conf_id, view_conf in query.configs["views"].items():
 
+        # Skip all the old views
         if view_conf["type"] not in ["compose"]:
             continue
 
         if view_conf["buildroot_strategy"] not in ["root_logs"]:
             continue
 
+
+        # Common data
+        view_all_arches = query.data["views_all_arches"][view_conf_id]
         template_data = {
             "query": query,
-            "view_conf": view_conf
+            "view_conf": view_conf,
+            "view_all_arches": view_all_arches
         }
+
+        # Generate the overview page
         page_name = "view--{view_conf_id}".format(
             view_conf_id=view_conf_id
         )
         _generate_html_page("view_overview", template_data, page_name, query.settings)
+
+        # Generate the packages page
+        page_name = "view-packages--{view_conf_id}".format(
+            view_conf_id=view_conf_id
+        )
+        _generate_html_page("view_packages", template_data, page_name, query.settings)
+
+        # Generate the source packages page
+        page_name = "view-sources--{view_conf_id}".format(
+            view_conf_id=view_conf_id
+        )
+        _generate_html_page("view_sources", template_data, page_name, query.settings)
+
+        # Generate the source packages page
+        page_name = "view-modules--{view_conf_id}".format(
+            view_conf_id=view_conf_id
+        )
+        _generate_html_page("view_modules", template_data, page_name, query.settings)
+
+        # Generate the source packages page
+        page_name = "view-unwanted--{view_conf_id}".format(
+            view_conf_id=view_conf_id
+        )
+        _generate_html_page("view_unwanted", template_data, page_name, query.settings)
+
+        # Generate the source packages page
+        page_name = "view-workloads--{view_conf_id}".format(
+            view_conf_id=view_conf_id
+        )
+        _generate_html_page("view_workloads", template_data, page_name, query.settings)
+
+
+
+
+        # Generate the arch lists
+        for arch in view_conf["architectures"]:
+
+            view_id = "{view_conf_id}:{arch}".format(
+                view_conf_id=view_conf_id,
+                arch=arch
+            )
+
+            view = query.data["views"][view_id]
+
+            template_data = {
+                "query": query,
+                "view_conf": view_conf,
+                "view": view,
+                "arch": arch,
+            }
+            page_name = "view--{view_conf_id}--{arch}".format(
+                view_conf_id=view_conf_id,
+                arch=arch
+            )
+            #_generate_html_page("view_packages", template_data, page_name, query.settings)
+            # ...
+
+        
+        # Generate the RPM pages
+        for pkg_name, pkg in view_all_arches["pkgs_by_name"].items():
+
+            template_data = {
+                "query": query,
+                "view_conf": view_conf,
+                "view_all_arches": view_all_arches,
+                "pkg": pkg,
+            }
+            page_name = "view-rpm--{view_conf_id}--{pkg_name}".format(
+                view_conf_id=view_conf_id,
+                pkg_name=pkg_name
+            )
+            _generate_html_page("view_rpm", template_data, page_name, query.settings)
+        
+
+        # Generate the SRPM pages
+        for srpm_name, srpm in view_all_arches["source_pkgs_by_name"].items():
+
+            template_data = {
+                "query": query,
+                "view_conf": view_conf,
+                "view_all_arches": view_all_arches,
+                "srpm": srpm,
+            }
+            page_name = "view-srpm--{view_conf_id}--{srpm_name}".format(
+                view_conf_id=view_conf_id,
+                srpm_name=srpm_name
+            )
+            _generate_html_page("view_srpm", template_data, page_name, query.settings)
+
+
         
         
 
@@ -4668,7 +5034,7 @@ def _generate_view_pages_old(query):
         if view_conf["type"] in ["compose", "addon"]:
 
             # Skip the new kind of views. 
-            # A much better function will generate them!
+            # They're generated by a much better function: _generate_view_pages_new(query)
             if view_conf["type"] == "compose" and view_conf["buildroot_strategy"] == "root_logs":
                 continue
 
@@ -5276,7 +5642,8 @@ def generate_pages(query):
     _generate_view_lists(query)
 
     # Dump all data
-    _dump_all_data(query)
+    if not query.settings["use_cache"]:
+        _dump_all_data(query)
 
     # Generate the errors page
     template_data = {

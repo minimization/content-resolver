@@ -1,0 +1,112 @@
+{% extends "view.html" %}
+
+{% set view_menu_active_packages = "active" %}
+
+{% block view_content %}
+
+{% include "view_menu.html" %}
+
+
+
+
+
+
+
+<table id="table_packages" class="table-packages">
+    <thead>
+        <tr class="sort_control_row">
+            <th>Package Name</th>
+            <th>Category</th>
+            <th>NEVR</th>
+            {% for arch in view_conf.architectures %}
+            <th>{{arch}}</th>
+            {% endfor %}
+            <th>Source Package</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for pkg in view_all_arches.pkgs_by_nevr.values() %}
+        <tr class="{{pkg_row_css_class(pkg)}}">
+            <td><a href="view-rpm--{{view_conf.id}}--{{pkg.name}}.html">{{pkg.name}}</a></td>
+            <td data-order="{{pkg_why_data_order(pkg)}}">{{pkg_why(pkg)}}</td>
+            <td>{{pkg.name}}-{{pkg.evr}}</td>
+            {% for arch in view_conf.architectures %}
+            {% if arch in pkg.arches %}
+            <td>yes</td>
+            {% else %}
+            <td class="text-muted">no</td>
+            {% endif %}
+            {% endfor %}
+            <td><a href="view-srpm--{{view_conf.id}}--{{pkg.source_name}}.html">{{pkg.source_name}}</a></td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+</div>
+
+<script>
+    $(document).ready(function () {
+        $('#table_packages').DataTable({
+            paging: false,
+            info: false,
+            order: [[1, "asc"],[0, "asc"]],
+            initComplete: function () {
+                var input = $('.dataTables_filter input').unbind(),
+                    self = this.api(),
+                    $searchButton = $('<button>')
+                        .text('search')
+                        .click(function () {
+                            self.search(input.val()).draw();
+                        }),
+                    $clearButton = $('<button>')
+                        .text('clear')
+                        .click(function () {
+                            input.val('');
+                            $searchButton.click();
+                        });
+                $(document).keypress(function (event) {
+                    if (event.which == 13) {
+                        $searchButton.click();
+                    }
+                });
+
+                $('.dataTables_filter').append($searchButton, $clearButton);
+            }
+        });
+
+
+        function plot_graph(chartData) {
+            var chLine = document.getElementById("chLine");
+            if (chLine) {
+                new Chart(chLine, {
+                    type: 'line',
+                    data: chartData,
+                    options: {
+                        scales: {
+                            yAxes: [{
+                                ticks: {
+                                    beginAtZero: true
+                                }
+                            }]
+                        },
+                        legend: {
+                            display: false
+                        },
+                        spanGaps: true,
+                        maintainAspectRatio: false
+                    }
+                });
+            }
+        }
+
+        axios.get('chartjs-data--view--{{view_conf.id}}--{{arch}}.json')
+            .then(response => {
+                plot_graph(response.data)
+            })
+
+        var loadingDiv = document.getElementById("loading");
+        loadingDiv.parentNode.removeChild(loadingDiv);
+    });
+</script>
+
+{% endblock %}

@@ -1,0 +1,328 @@
+{% extends "view.html" %}
+
+{% set view_sub_page_name = pkg.name + " RPM" %}
+
+{% block title %} {{pkg.name}} · {{view_conf.name}} · Content Resolver {% endblock %}
+
+{% block view_content %}
+
+
+<h2>
+    <small class="text-muted">Binary Package (RPM): </small>
+    {{pkg.name}}
+    {{pkg_why(pkg)}}
+</h2>
+
+<br>
+
+
+<br><b>Source Package (SRPM)</b><br>
+
+<a href="view-srpm--{{view_conf.id}}--{{pkg.source_name}}.html">{{pkg.source_name}}</a>
+<br>
+
+<br>
+
+<hr>
+
+<br>
+<div class="row">
+    <div class="col-8">
+
+
+        <div class="card bg-light border-secondary">
+            <h4 class="card-header"><span class="text-muted">Why it's here - </span>Runtime</h4>
+            <div class="card-body">
+
+                <div class="card border-secondary">
+                    <div class="card-body">
+                        <h5 class="card-title">Runtime dependency of {{pkg.hard_dependency_of_pkg_names|count}}
+                            RPMs</h5>
+                        {% if pkg.hard_dependency_of_pkg_names %}
+                        <div class="card">
+
+                            <table class="table-packages table-packages-muted">
+
+                                <tbody>
+                                    {% for srpm_name, srpm_nevrs in pkg.hard_dependency_of_pkg_names.items() |
+                                    sort(attribute='0')
+                                    %}
+                                    <tr>
+                                        <td>
+                                            <a href="view-rpm--{{view_conf.id}}--{{srpm_name}}.html">{{srpm_name}}</a>
+                                        </td>
+                                        <td>
+                                            {{pkg_why(view_all_arches["pkgs_by_name"][srpm_name])}}
+                                        </td>
+                                        <td>
+                                            {% for srpm_nevr in srpm_nevrs | sort %}
+                                            {{srpm_nevr}}<br>
+                                            {% endfor %}
+                                        </td>
+                                    </tr>
+
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        {% else %}
+                        <div class="card bg-light">
+                            <div class="card-body text-muted text-center">
+                                No packages...
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                <br>
+
+                <div class="card border-secondary">
+                    <div class="card-body">
+                        <h5 class="card-title">Weak runtime dependency of {{pkg.weak_dependency_of_pkg_names|count}}
+                            RPMs</h5>
+                        {% if pkg.weak_dependency_of_pkg_names %}
+                        <div class="card">
+
+                            <table class="table-packages table-packages-muted">
+
+                                <tbody>
+                                    {% for srpm_name, srpm_nevrs in pkg.weak_dependency_of_pkg_names.items() |
+                                    sort(attribute='0')
+                                    %}
+                                    <tr>
+                                        <td>
+                                            <a href="view-rpm--{{view_conf.id}}--{{srpm_name}}.html">{{srpm_name}}</a>
+                                        </td>
+                                        <td>
+                                            {{pkg_why(view_all_arches["pkgs_by_name"][srpm_name])}}
+                                        </td>
+                                        <td>
+                                            {% for srpm_nevr in srpm_nevrs | sort %}
+                                            {{srpm_nevr}}<br>
+                                            {% endfor %}
+                                        </td>
+                                    </tr>
+
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        {% else %}
+                        <div class="card bg-light">
+                            <div class="card-body text-muted text-center">
+                                No packages...
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <br>
+
+
+
+        <div class="card bg-light border-secondary">
+            <h4 class="card-header"><span class="text-muted">Why it's here - </span>Build</h4>
+            <div class="card-body">
+
+                <div class="card border-secondary">
+                    <div class="card-body">
+                        <h5 class="card-title">Direct build dependency of
+                            {{pkg.in_buildroot_of_srpm_name_req|count}} SRPMs</h5>
+                        <p class="card-text text-muted">Direct build dependencies are packages directly
+                            build-required by the following SRPMs.</p>
+                        {% if pkg.in_buildroot_of_srpm_name_req %}
+                        <div class="card">
+
+                            <table class="table-packages table-packages-muted">
+
+                                <tbody>
+                                    {% for srpm_name, srpm_nevrs in pkg.in_buildroot_of_srpm_name_req.items() |
+                                    sort(attribute='0')
+                                    %}
+                                    <tr>
+                                        <td>
+                                            <a href="view-rpm--{{view_conf.id}}--{{srpm_name}}.html">{{srpm_name}}</a>
+                                        </td>
+                                        <td>
+                                            {{pkg_why(view_all_arches["source_pkgs_by_name"][srpm_name])}}
+                                        </td>
+                                        <td>
+                                            {% for srpm_nevr in srpm_nevrs | sort %}
+                                            {{srpm_nevr}}.src<br>
+                                            {% endfor %}
+                                        </td>
+                                    </tr>
+
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        {% else %}
+                        <div class="card bg-light">
+                            <div class="card-body text-muted text-center">
+                                No packages...
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <br>
+
+                <div class="card border-secondary">
+                    <div class="card-body">
+                        <h5 class="card-title">Indirect build dependency of
+                            {{pkg.in_buildroot_of_srpm_name_dep|count}} SRPMs</h5>
+                        <p class="card-text text-muted">Indirect build dependencies are runtime dependencies in
+                            buildroots of the follwing SRPMs. See the runtime dependencies section above for more
+                            info.</p>
+                        {% if pkg.in_buildroot_of_srpm_name_dep %}
+                        <div class="card">
+                            <table class="table-packages table-packages-muted">
+                                <tbody>
+                                    {% for srpm_name, srpm_nevrs in pkg.in_buildroot_of_srpm_name_dep.items() |
+                                    sort(attribute='0')
+                                    %}
+                                    <tr>
+                                        <td>
+                                            <a href="view-rpm--{{view_conf.id}}--{{srpm_name}}.html">{{srpm_name}}</a>
+                                        </td>
+                                        <td>
+                                            {{pkg_why(view_all_arches["source_pkgs_by_name"][srpm_name])}}
+                                        </td>
+                                        <td>
+                                            {% for srpm_nevr in srpm_nevrs | sort %}
+                                            {{srpm_nevr}}.src<br>
+                                            {% endfor %}
+                                        </td>
+                                    </tr>
+
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        {% else %}
+                        <div class="card bg-light">
+                            <div class="card-body text-muted text-center">
+                                No packages...
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+    <div class="col-4">
+
+        <div class="card bg-light border-secondary">
+            <h4 class="card-header"><span class="text-muted">Why it's here - </span>Workloads</h4>
+            <div class="card-body">
+
+                <div class="card border-secondary">
+                    <div class="card-body">
+                        <h5 class="card-title">Required in {{pkg.in_workload_conf_ids_req|count}} workloads</h5>
+                        {% if pkg.in_workload_conf_ids_req %}
+                        <div class="card">
+                            <ul class="list-group list-group-flush">
+                                {% for workload_conf_id in pkg.in_workload_conf_ids_req %}
+                                <li class="list-group-item">
+                                    <a href="workload-overview--{{workload_conf_id}}--{{view_conf.repository}}.html">
+                                        {{query.configs.workloads[workload_conf_id].name}}
+                                    </a>
+                                    <small>
+                                        <br>
+                                        <span class="text-mutdded">by </span>
+                                        <a href="maintainer--{{query.configs.workloads[workload_conf_id].maintainer}}.html">{{query.configs.workloads[workload_conf_id].maintainer}}</a>
+                                    </small>
+                                </li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+
+                        {% else %}
+                        <div class="card bg-light">
+                            <div class="card-body text-muted text-center">
+                                No workloads...
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                <br>
+
+                <div class="card border-secondary">
+                    <div class="card-body">
+                        <h5 class="card-title">Dependency in {{pkg.in_workload_conf_ids_dep|count}} workloads</h5>
+                        {% if pkg.in_workload_conf_ids_dep %}
+                        <div class="card">
+                            <ul class="list-group list-group-flush">
+                                {% for workload_conf_id in pkg.in_workload_conf_ids_dep %}
+                                <li class="list-group-item">
+                                    <a href="workload-overview--{{workload_conf_id}}--{{view_conf.repository}}.html">
+                                        {{query.configs.workloads[workload_conf_id].name}}
+                                    </a>
+                                    <small>
+                                        <br>
+                                        <span class="text-mutdded">by </span>
+                                        <a href="maintainer--{{query.configs.workloads[workload_conf_id].maintainer}}.html">{{query.configs.workloads[workload_conf_id].maintainer}}</a>
+                                    </small>
+                                </li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+
+                        {% else %}
+                        <div class="card bg-light">
+                            <div class="card-body text-muted text-center">
+                                No workloads...
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                <br>
+
+            </div>
+        </div>
+    </div>
+</div>
+
+<br>
+
+<hr>
+
+
+
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+
+<hr>
+{% for key, value in pkg.items() %}
+
+<b>{{key}}</b>
+<br>
+{{value}}
+<br>
+<br>
+
+{% endfor %}
+
+{% endblock %}

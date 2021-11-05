@@ -17,18 +17,18 @@ data:
   # Name is an identifier for humans
   #
   # (mandatory field)
-  name: Apache httpd
+  name: make
   
   # A short description, perhaps hinting the purpose
   #
   # (mandatory field)
-  description: Apache httpd
+  description: make
 
   # Who maintains it? This is just a freeform string
   # for humans to read. In Fedora, a FAS nick is recommended.
   #
   # (mandatory field)
-  maintainer: asamalik
+  maintainer: make_user
 
   # Packages defining this workload.
   # This list includes packages for all
@@ -36,7 +36,7 @@ data:
   #
   # (mandatory field)
   packages:
-  - httpd
+  - make
 
   # Labels connect things together.
   # Workloads get installed in environments with the same label.
@@ -44,8 +44,8 @@ data:
   # 
   # (mandatory field)
   labels:
-  - fedora
   - eln
+  - fedora
 
 
   ### OPTIONAL FIELDS ###

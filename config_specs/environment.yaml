@@ -72,3 +72,9 @@ data:
   # (optional field)
   options:
   - option
+
+  # Analyze a group
+  #
+  # (optional field)
+  groups:
+  - core

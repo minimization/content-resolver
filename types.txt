@@ -31,7 +31,8 @@ url_slug_id(any_id)
 
 === Package ===
 
-pkg_id: pkg_id
+pkg_id:  {name}-{evr}.{arch}   <-- the arch must be there because of multilib
+
 
 data["pkgs"][repo_id][arch][pkg_id]["id"]
 data["pkgs"][repo_id][arch][pkg_id]["name"]
@@ -113,6 +114,13 @@ data["workloads"][workload_id]["env_succeeded"]
 data["workloads"][workload_id]["succeeded"]
 data["workloads"][workload_id]["labels"]
 
+data["workloads"][workload_id]["pkg_relations"][pkg_id] = {}
+data["workloads"][workload_id]["pkg_relations"][pkg_id]["required_by"] = sorted(list(required_by))
+data["workloads"][workload_id]["pkg_relations"][pkg_id]["recommended_by"] = sorted(list(recommended_by))
+data["workloads"][workload_id]["pkg_relations"][pkg_id]["suggested_by"] = sorted(list(suggested_by))
+data["workloads"][workload_id]["pkg_relations"][pkg_id]["source_name"] = pkg.source_name
+data["workloads"][workload_id]["pkg_relations"][pkg_id]["reponame"] = pkg.reponame
+
 
 
 === Label ===
@@ -125,6 +133,11 @@ configs["labels"][label_id]["maintainer"]
 
 === View ===
 
+view_conf_id:   view_conf_id
+view_id:        view_conf_id:arch
+pkg_id:         NEVRA    <-- the arch must be there because of multilib
+srpm_id:        NEVR
+
 configs["views"][view_conf_id]["id"]
 configs["views"][view_conf_id]["name"]
 configs["views"][view_conf_id]["description"]
@@ -132,6 +145,106 @@ configs["views"][view_conf_id]["maintainer"]
 configs["views"][view_conf_id]["type"]
 configs["views"][view_conf_id]["labels"]
 configs["views"][view_conf_id]["repository"]
+
+
+data["views_all_arches"][view_conf_id]["id"]
+data["views_all_arches"][view_conf_id]["workloads"][workload_conf_id]
+data["views_all_arches"][view_conf_id]["pkgs"][pkg_name]          <-- name instead of NEVRA
+data["views_all_arches"][view_conf_id]["source_pkgs"][srpm_name]  <-- name instead of NEVR
+data["views_all_arches"][view_conf_id]["modules"][module_id]
+
+
+data["views"][view_id]["id"]
+data["views"][view_id]["view_conf_id"]
+data["views"][view_id]["arch"]
+data["views"][view_id]["workload_ids"]
+data["views"][view_id]["pkgs"]
+data["views"][view_id]["source_pkgs"]
+data["views"][view_id]["modules"]
+
+
+data["views"][view_id]["pkgs"][pkg_id][...]  <- everything from data["pkgs"][repo_id][arch][pkg_id]
+data["views"][view_id]["pkgs"][pkg_id]["view_arch"]
+
+data["views"][view_id]["pkgs"][pkg_id]["in_workload_ids_all"]  <--,
+data["views"][view_id]["pkgs"][pkg_id]["in_workload_ids_req"]  <--=-- workload_ids
+data["views"][view_id]["pkgs"][pkg_id]["in_workload_ids_dep"]  <--|
+data["views"][view_id]["pkgs"][pkg_id]["in_workload_ids_env"]  <--'
+
+data["views"][view_id]["pkgs"][pkg_id]["in_buildroot_of_srpm_id_all"]  <--,
+data["views"][view_id]["pkgs"][pkg_id]["in_buildroot_of_srpm_id_req"]  <--=-- srpm_ids (buildroot)
+data["views"][view_id]["pkgs"][pkg_id]["in_buildroot_of_srpm_id_dep"]  <--|
+data["views"][view_id]["pkgs"][pkg_id]["in_buildroot_of_srpm_id_env"]  <--'
+
+data["views"][view_id]["pkgs"][pkg_id]["level"][0]["all"]  <--,
+data["views"][view_id]["pkgs"][pkg_id]["level"][0]["req"]  <--=-- level - 0  workload_ids
+data["views"][view_id]["pkgs"][pkg_id]["level"][0]["dep"]  <--|         - 1+ srpm_ids (buildroot)
+data["views"][view_id]["pkgs"][pkg_id]["level"][0]["env"]  <--'
+
+data["views"][view_id]["pkgs"][pkg_id]["required_by"]        <--,
+data["views"][view_id]["pkgs"][pkg_id]["recommended_by"]     <--=-- pkg_relations
+data["views"][view_id]["pkgs"][pkg_id]["suggested_by"]       <--'
+
+data["views"][view_id]["pkgs"][pkg_id]["unwanted_runtime_in"]    <--,
+data["views"][view_id]["pkgs"][pkg_id]["unwanted_buildroot_in"]  <--=-- unwanted_ids
+
+
+data["views"][view_id]["source_pkgs"][srpm_id]["id"]
+data["views"][view_id]["source_pkgs"][srpm_id]["name"]
+data["views"][view_id]["source_pkgs"][srpm_id]["reponame"]
+data["views"][view_id]["source_pkgs"][srpm_id]["pkg_ids"]
+
+data["views"][view_id]["source_pkgs"][srpm_id]["in_workload_ids_all"]  <--,
+data["views"][view_id]["source_pkgs"][srpm_id]["in_workload_ids_req"]  <--=-- workload_ids
+data["views"][view_id]["source_pkgs"][srpm_id]["in_workload_ids_dep"]  <--|
+data["views"][view_id]["source_pkgs"][srpm_id]["in_workload_ids_env"]  <--'
+
+data["views"][view_id]["source_pkgs"][srpm_id]["in_buildroot_of_srpm_id_all"]  <--,
+data["views"][view_id]["source_pkgs"][srpm_id]["in_buildroot_of_srpm_id_req"]  <--=--  srpm_ids (buildroot)
+data["views"][view_id]["source_pkgs"][srpm_id]["in_buildroot_of_srpm_id_dep"]  <--|
+data["views"][view_id]["source_pkgs"][srpm_id]["in_buildroot_of_srpm_id_env"]  <--'
+
+data["views"][view_id]["source_pkgs"][srpm_id]["level"][0]["all"]  <--,
+data["views"][view_id]["source_pkgs"][srpm_id]["level"][0]["req"]  <--=-- level - 0  workload_ids
+data["views"][view_id]["source_pkgs"][srpm_id]["level"][0]["dep"]  <--|         - 1+ srpm_ids (buildroot)
+data["views"][view_id]["source_pkgs"][srpm_id]["level"][0]["env"]  <--'
+
+data["views"][view_id]["source_pkgs"][srpm_id]["unwanted_runtime_in"]    <--,
+data["views"][view_id]["source_pkgs"][srpm_id]["unwanted_buildroot_in"]  <--=-- unwanted_ids
+
+
+data["views"][view_id]["modules"][module_id]["id"]
+data["views"][view_id]["modules"][module_id]["in_workload_ids_all"]
+data["views"][view_id]["modules"][module_id]["in_workload_ids_req"]
+data["views"][view_id]["modules"][module_id]["in_workload_ids_dep"]
+
+
+=== Buildroot ===
+
+# This stores the direct build dependencies of SRPMs
+# This is then referenced from the "srpms" section
+
+data["buildroot"]["koji_srpms"][koji_id][arch][srpm_id]["id"]
+data["buildroot"]["koji_srpms"][koji_id][arch][srpm_id]["directly_required_pkg_names"]
+
+# This contains fully resolved build dependencies of each SRPM
+# This is very similar to workloads
+
+data["buildroot"]["srpms"][repo_id][arch][srpm_id]["id"]
+data["buildroot"]["srpms"][repo_id][arch][srpm_id]["directly_required_pkg_names"]  # like workload_conf/packages
+data["buildroot"]["srpms"][repo_id][arch][srpm_id]["pkg_relations"]
+data["buildroot"]["srpms"][repo_id][arch][srpm_id]["pkg_env_ids"]
+data["buildroot"]["srpms"][repo_id][arch][srpm_id]["pkg_added_ids"]
+data["buildroot"]["srpms"][repo_id][arch][srpm_id]["errors"]["non_existing_pkgs"]
+data["buildroot"]["srpms"][repo_id][arch][srpm_id]["errors"]["message"]
+data["buildroot"]["srpms"][repo_id][arch][srpm_id]["succeeded"]
+data["buildroot"]["srpms"][repo_id][arch][srpm_id]["processed"]
+
+# This is the build group for each repo and arch
+# Using the workload analogy, these are environments
+
+data["buildroot"]["build_groups"][repo_id][arch][...]  <-- everything from data["envs"][env_id]
+data["buildroot"]["build_groups"][repo_id][arch]["generated_id"]
 
 
 === Unwanted ===

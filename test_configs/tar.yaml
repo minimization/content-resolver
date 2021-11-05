@@ -17,26 +17,25 @@ data:
   # Name is an identifier for humans
   #
   # (mandatory field)
-  name: MariaDB (just in view)
+  name: Tar
   
   # A short description, perhaps hinting the purpose
   #
   # (mandatory field)
-  description: MariaDB
+  description: Tar
 
   # Who maintains it? This is just a freeform string
   # for humans to read. In Fedora, a FAS nick is recommended.
   #
   # (mandatory field)
-  maintainer: asamalik
+  maintainer: tar_user
 
   # Packages defining this workload.
   # This list includes packages for all
   # architectures — that's the one to use by default.
   #
   # (mandatory field)
-  packages:
-  - mariadb-server
+  packages: []
 
   # Labels connect things together.
   # Workloads get installed in environments with the same label.
@@ -44,6 +43,7 @@ data:
   # 
   # (mandatory field)
   labels:
+  - fedora
   - eln
 
 
@@ -52,8 +52,9 @@ data:
   # Architecture-specific packages.
   #
   # (optional field)
-  #arch_packages:
-  #  x86_64:
+  arch_packages:
+    x86_64:
+    - tar
   #  - arch-specific-package
 
   # Extra installation options.

@@ -218,10 +218,24 @@ table.table-packages tbody th {
   border-top: #6c757d 1px solid;
 }
 
+table.table-packages.table-packages-muted tbody tr {
+  border-bottom: #d1d1d3 1px solid!important;
+  border-top: #d1d1d3 1px solid!important;
+}
+
+table.table-packages.table-packages-muted tbody tr:first-child {
+  border-top: 0!important;
+}
+
+table.table-packages.table-packages-muted tbody tr:last-child {
+  border-bottom: 0!important;
+}
+
 #table_packages_filter,
 .dataTables_filter {
   padding: 12px 12px 0;
   background-color: #e9ecef;
+  border-radius: 4px;
 }
 
 #table_packages_filter {
@@ -239,8 +253,8 @@ table.table-packages tbody th {
 #table_packages_wrapper,
 .dataTables_wrapper {
 
-  border: 1px solid #ccc;
-  border-radius: 5px;
+  border: 1px solid #666;
+  border-radius: 4px;
 }
 
 /* Size chart */

@@ -93,7 +93,9 @@ data:
   groups:
   - core
 
-  # Add packages to the workload that don't exist (yet) in the repositories.
+  # DEPRECATED
+  #
+  # Please use "better_package_placeholders" instead.
   package_placeholders:
     package-name:
       description: This package is not in Fedora (yet), but we want to see it here.
@@ -113,4 +115,45 @@ data:
       buildrequires: []
       limit_arches: []  # empty means all arches
 
+  
+  # Add packages to the workload that don't exist (yet) in the repositories.
+  better_package_placeholders:
+
+    # An example of a SRPM called "some-name"
+    # that builds two RPMs: "some-name" and "some-name-extras":
+    - srpm_name: some-name  # SRPM name (mandatory)
+      build_dependencies:   # build dependencies (RPM names) of this SRPM (optional)
+        - pkg-one
+        - pkg-two
+      limit_arches:         # can be left empty for all arches (optional)
+        - x86_64
+        - aarch64
+      rpms:                 # List of the binary RPMs (mandatory)
+        - rpm_name: some-name   # RPM name (mandatory)
+          description: Lorem ipsum dolor sit amet  # Description (optional)
+          dependencies:     # runtime dependencies (RPM names) of this RPM (optional)
+            - pkg-three
+          limit_arches: []  # can be left empty for all arches (optional)
+        
+        - rpm_name: some-name-extras
+          description: Lorem ipsum dolor sit amet extra
+          dependencies:
+            - pkg-three
+            - pkg-four
+          limit_arches: []
+
+    # A simpler example of a SRPM called "some-name"
+    # that builds just one RPM of the same name:
+    - srpm_name: another-one
+      build_dependencies:
+        - pkg-one
+      limit_arches: []
+      rpms:
+        - rpm_name: another-one
+          dependencies: 
+            - pkg-two
+          limit_arches: []
+          description: Lorem ipsum dolor sit amet
+        
+      
 

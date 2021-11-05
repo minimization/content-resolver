@@ -35,7 +35,7 @@ data:
   # architectures — that's the one to use by default.
   #
   # (mandatory field)
-  packages:
+  packages: 
   - bash
 
   # Labels connect things together.

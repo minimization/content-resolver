@@ -1,0 +1,62 @@
+{% extends "view.html" %}
+
+{% set view_sub_page_name = srpm.name + " SRPM (Component)" %}
+
+{% block title %} {{srpm.name}} · {{view_conf.name}} · Content Resolver {% endblock %}
+
+{% block view_content %}
+
+
+<h2>
+    <small class="text-muted">Source Package (SRPM): </small>
+    {{srpm.name}}
+    {{pkg_why(srpm)}}
+</h2>
+
+<br>
+
+
+<br><b>Binary Packages (RPMs)</b><br>
+
+{% for pkg_name in srpm.pkg_names %}
+<a href="view-rpm--{{view_conf.id}}--{{pkg_name}}.html">{{pkg_name}}</a>
+<br>
+{% endfor %}
+
+
+
+
+
+
+
+
+
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+
+<hr>
+
+{% for key, value in srpm.items() %}
+
+<b>{{key}}</b>
+<br>
+{{value}}
+<br>
+<br>
+
+{% endfor %}
+
+{% endblock %}
