@@ -241,6 +241,12 @@ def _load_config_env(document_id, document, settings):
         for pkg in document["data"]["packages"]:
             config["packages"].append(str(pkg))
         
+        # Comps groups
+        config["groups"] = []
+        if "groups" in document["data"]:
+            for module in document["data"]["groups"]:
+                config["groups"].append(module)
+
         # Labels connect things together.
         # Workloads get installed in environments with the same label.
         # They also get included in views with the same label.
@@ -1267,6 +1273,24 @@ def _analyze_env(tmp_dnf_cachedir, tmp_installroots, env_conf, repo, arch):
                 env["errors"]["non_existing_pkgs"].append(pkg)
                 continue
 
+        # Groups
+        log("  Adding groups...")
+        if env_conf["groups"]:
+            base.read_comps(arch_filter=True)
+        for grp_spec in env_conf["groups"]:
+            group = base.comps.group_by_pattern(grp_spec)
+            if not group:
+                env["errors"]["non_existing_pkgs"].append(grp_spec)
+                continue
+            base.group_install(group.id, ['mandatory', 'default'])
+
+            # Mark packages as required
+            pkgs_from_groups = []
+            for pkg in group.packages_iter():
+                if pkg.name not in env_conf["packages"]:
+                    pkgs_from_groups.append(pkg.name)
+            env_conf["packages"].extend(pkgs_from_groups)
+
         # Architecture-specific packages
         for pkg in env_conf["arch_packages"][arch]:
             try:
@@ -1557,15 +1581,14 @@ def _analyze_workload(tmp_dnf_cachedir, tmp_installroots, workload_conf, env_con
                 workload["errors"]["non_existing_pkgs"].append(grp_spec)
                 continue
             base.group_install(group.id, ['mandatory', 'default'])
-        
-        
-            # TODO: Mark group packages as required... the following code doesn't work
-            #for pkg in group.packages_iter():
-            #    print(pkg.name)
-            #    workload_conf["packages"].append(pkg.name)
-               
-                
-        
+
+            # Mark group packages as required
+            pkgs_from_groups = []
+            for pkg in group.packages_iter():
+                if pkg.name not in workload_conf["packages"]:
+                    pkgs_from_groups.append(pkg.name)
+            workload_conf["packages"].extend(pkgs_from_groups)
+
         # Filter out the relevant package placeholders for this arch
         package_placeholders = {}
         for placeholder_name,placeholder_data in workload_conf["package_placeholders"].items():
