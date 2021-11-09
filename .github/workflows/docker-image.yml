@@ -1,0 +1,31 @@
+name: Content Resolver CI
+
+on:
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  setup_and_test:
+    runs-on: ubuntu-latest
+    container: 
+      image: registry.fedoraproject.org/fedora:35
+    steps:
+    
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+    - name: Update GPG keys
+      run: dnf -y update fedora-gpg-keys
+        
+    - name: Install git and Python libraries
+      run: dnf -y install git-core python3-yaml python3-jinja2 python3-pytest python3-flake8
+    
+    - name: Clean up
+      run: dnf clean all
+
+    - name: Run the build
+      run: ./feedback_pipeline.py test_configs output
+    
+    - name: Run tests
+      run: |
+        pytest
