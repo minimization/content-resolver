@@ -144,3 +144,4 @@ $ docker run --rm -it --tmpfs /dnf_cachedir -v $(pwd):/workspace content-resolve
 ```
 
 The output will be generated in the `output` directory. Open the `output/index.html` in your web browser of choice to see the result.
+
