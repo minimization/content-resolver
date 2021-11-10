@@ -21,9 +21,10 @@
     </thead>
     <tbody>
         {% for pkg_name, pkg in view_all_arches.source_pkgs_by_name.items() %}
-        <tr class="{{pkg_row_css_class(pkg)}}">
+        <tr>
             <td>
                 <a href="view-srpm--{{view_conf.id}}--{{pkg.name}}.html">{{pkg.name}}</a>
+                {% if pkg.placeholder %}<span class="text-muted">(placeholder)</span>{% endif %}
             </td>
             <td data-order="{{pkg_why_data_order(pkg)}}">{{pkg_why(pkg)}}</td>
             {% for arch in view_conf.architectures %}

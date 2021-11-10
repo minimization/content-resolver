@@ -70,6 +70,8 @@ class SetEncoder(json.JSONEncoder):
     def default(self, obj):
         if isinstance(obj, set):
             return list(obj)
+        if isinstance(obj, jinja2.Environment):
+            return ""
         return json.JSONEncoder.default(self, obj)
 
 def dump_data(path, data):
@@ -99,6 +101,10 @@ def workload_id_to_conf_id(workload_id):
 
 def pkg_placeholder_name_to_id(placeholder_name):
     placeholder_id = "{name}-000-placeholder.placeholder".format(name=placeholder_name)
+    return placeholder_id
+
+def pkg_placeholder_name_to_nevr(placeholder_name):
+    placeholder_id = "{name}-000-placeholder".format(name=placeholder_name)
     return placeholder_id
 
 def url_to_id(url):
@@ -421,21 +427,79 @@ def _load_config_workload(document_id, document, settings):
     # Package placeholders
     # Add packages to the workload that don't exist (yet) in the repositories.
     config["package_placeholders"] = {}
+    config["package_placeholders"]["pkgs"] = {}
+    config["package_placeholders"]["srpms"] = {}
     if "package_placeholders" in document["data"]:
-        for pkg_name, pkg_data in document["data"]["package_placeholders"].items():
-            pkg_description = pkg_data.get("description", "Description not provided.")
-            pkg_requires = pkg_data.get("requires", [])
-            pkg_buildrequires = pkg_data.get("buildrequires", [])
-            limit_arches = pkg_data.get("limit_arches", None)
-            srpm = pkg_data.get("srpm", "")
 
-            config["package_placeholders"][pkg_name] = {}
-            config["package_placeholders"][pkg_name]["name"] = pkg_name
-            config["package_placeholders"][pkg_name]["description"] = pkg_description
-            config["package_placeholders"][pkg_name]["requires"] = pkg_requires
-            config["package_placeholders"][pkg_name]["buildrequires"] = pkg_buildrequires
-            config["package_placeholders"][pkg_name]["limit_arches"] = limit_arches
-            config["package_placeholders"][pkg_name]["srpm"] = srpm
+        # So yeah, this is kind of awful but also brilliant.
+        # The old syntax of package placeholders was a dict,
+        # but the new one is a list. 
+        # So I can be backwards compatible!
+        #
+        # The old format
+        if isinstance(document["data"]["package_placeholders"], dict):
+            for pkg_name, pkg_data in document["data"]["package_placeholders"].items():
+                pkg_description = pkg_data.get("description", "Description not provided.")
+                pkg_requires = pkg_data.get("requires", [])
+                pkg_buildrequires = pkg_data.get("buildrequires", [])
+                limit_arches = pkg_data.get("limit_arches", None)
+                srpm = pkg_data.get("srpm", pkg_name)
+
+                config["package_placeholders"]["pkgs"][pkg_name] = {}
+                config["package_placeholders"]["pkgs"][pkg_name]["name"] = pkg_name
+                config["package_placeholders"]["pkgs"][pkg_name]["description"] = pkg_description
+                config["package_placeholders"]["pkgs"][pkg_name]["requires"] = pkg_requires
+                config["package_placeholders"]["pkgs"][pkg_name]["limit_arches"] = limit_arches
+                config["package_placeholders"]["pkgs"][pkg_name]["srpm"] = srpm
+
+                # Because the old format isn't great, it needs a srpm
+                # to be defined for every rpm, including the build requires.
+                # That can cause conflicts. 
+                # So the best thing (I think) is to just take the first one and ignore
+                # the others. This is better than nothing. And people should move
+                # to the new format anyway.
+                if srpm not in config["package_placeholders"]["srpms"]:
+                    config["package_placeholders"]["srpms"][srpm] = {}
+                    config["package_placeholders"]["srpms"][srpm]["name"] = srpm
+                    config["package_placeholders"]["srpms"][srpm]["buildrequires"] = pkg_buildrequires
+
+        
+        #
+        # The new format
+        elif isinstance(document["data"]["package_placeholders"], list):
+            for srpm in document["data"]["package_placeholders"]:
+                srpm_name = srpm["srpm_name"]
+                if not srpm_name:
+                    continue
+
+                build_dependencies = srpm.get("build_dependencies", [])
+                limit_arches = srpm.get("limit_arches", [])
+                rpms = srpm.get("rpms", [])
+
+                config["package_placeholders"]["srpms"][srpm_name] = {}
+                config["package_placeholders"]["srpms"][srpm_name]["name"] = srpm_name
+                config["package_placeholders"]["srpms"][srpm_name]["buildrequires"] = build_dependencies
+                config["package_placeholders"]["srpms"][srpm_name]["limit_arches"] = limit_arches
+
+                for rpm in rpms:
+                    rpm_name = rpm.get("rpm_name", None)
+                    if not rpm_name:
+                        continue
+                    
+                    description = rpm.get("description", "Description not provided.")
+                    dependencies = rpm.get("dependencies", [])
+                    rpm_limit_arches = rpm.get("limit_arches", [])
+
+                    if limit_arches and rpm_limit_arches:
+                        rpm_limit_arches = list(set(limit_arches) & set(rpm_limit_arches))
+
+                    config["package_placeholders"]["pkgs"][rpm_name] = {}
+                    config["package_placeholders"]["pkgs"][rpm_name]["name"] = rpm_name
+                    config["package_placeholders"]["pkgs"][rpm_name]["description"] = description
+                    config["package_placeholders"]["pkgs"][rpm_name]["requires"] = dependencies
+                    config["package_placeholders"]["pkgs"][rpm_name]["limit_arches"] = rpm_limit_arches
+                    config["package_placeholders"]["pkgs"][rpm_name]["srpm"] = srpm_name
+
 
     return config
 
@@ -1537,6 +1601,7 @@ def _analyze_workload(tmp_dnf_cachedir, tmp_installroots, workload_conf, env_con
     workload["pkg_env_ids"] = []
     workload["pkg_added_ids"] = []
     workload["pkg_placeholder_ids"] = []
+    workload["srpm_placeholder_names"] = []
 
     workload["enabled_modules"] = []
 
@@ -1701,17 +1766,27 @@ def _analyze_workload(tmp_dnf_cachedir, tmp_installroots, workload_conf, env_con
         
         # Filter out the relevant package placeholders for this arch
         package_placeholders = {}
-        for placeholder_name,placeholder_data in workload_conf["package_placeholders"].items():
+        for placeholder_name, placeholder_data in workload_conf["package_placeholders"]["pkgs"].items():
             # If this placeholder is not limited to just a usbset of arches, add it
             if not placeholder_data["limit_arches"]:
                 package_placeholders[placeholder_name] = placeholder_data
             # otherwise it is limited. In that case, only add it if the current arch is on its list
             elif arch in placeholder_data["limit_arches"]:
                 package_placeholders[placeholder_name] = placeholder_data
+        
+        # Same for SRPM placeholders
+        srpm_placeholders = {}
+        for placeholder_name, placeholder_data in workload_conf["package_placeholders"]["srpms"].items():
+            # If this placeholder is not limited to just a usbset of arches, add it
+            if not placeholder_data["limit_arches"]:
+                srpm_placeholders[placeholder_name] = placeholder_data
+            # otherwise it is limited. In that case, only add it if the current arch is on its list
+            elif arch in placeholder_data["limit_arches"]:
+                srpm_placeholders[placeholder_name] = placeholder_data
 
         # Dependencies of package placeholders
         log("  Adding package placeholder dependencies...")
-        for placeholder_name,placeholder_data in package_placeholders.items():
+        for placeholder_name, placeholder_data in package_placeholders.items():
             for pkg in placeholder_data["requires"]:
                 try:
                     base.install(pkg)
@@ -1791,6 +1866,9 @@ def _analyze_workload(tmp_dnf_cachedir, tmp_installroots, workload_conf, env_con
         # (Failed workloads need to have empty results, that's why)
         for placeholder_name in package_placeholders:
             workload["pkg_placeholder_ids"].append(pkg_placeholder_name_to_id(placeholder_name))
+        
+        for srpm_placeholder_name in srpm_placeholders:
+            workload["srpm_placeholder_names"].append(srpm_placeholder_name)
         
         workload["pkg_relations"] = _analyze_package_relations(query_all, package_placeholders)
         
@@ -1914,6 +1992,7 @@ def _init_view_pkg(input_pkg, arch, placeholder=False, level=0):
             "id": pkg_placeholder_name_to_id(input_pkg["name"]),
             "name": input_pkg["name"],
             "evr": "000-placeholder",
+            "nevr": pkg_placeholder_name_to_nevr(input_pkg["name"]),
             "arch": "placeholder",
             "installsize": 0,
             "description": input_pkg["description"],
@@ -1927,6 +2006,8 @@ def _init_view_pkg(input_pkg, arch, placeholder=False, level=0):
         pkg = dict(input_pkg)
 
     pkg["view_arch"] = arch
+
+    pkg["placeholder"] = placeholder
 
     pkg["in_workload_ids_all"] = set()
     pkg["in_workload_ids_req"] = set()
@@ -1973,6 +2054,9 @@ def _init_view_srpm(pkg, level=0):
     srpm["name"] = pkg["source_name"]
     srpm["reponame"] = pkg["reponame"]
     srpm["pkg_ids"] = set()
+
+    srpm["placeholder"] = False
+    srpm["placeholder_directly_required_pkg_names"] = []
 
     srpm["in_workload_ids_all"] = set()
     srpm["in_workload_ids_req"] = set()
@@ -2112,7 +2196,7 @@ def _analyze_view(view_conf, arch, configs, data, views):
 
             # Initialise
             if pkg_id not in view["pkgs"]:
-                placeholder = workload_conf["package_placeholders"][pkg_id_to_name(pkg_id)]
+                placeholder = workload_conf["package_placeholders"]["pkgs"][pkg_id_to_name(pkg_id)]
                 view["pkgs"][pkg_id] = _init_view_pkg(placeholder, arch, placeholder=True)
             
             # It's in this wokrload
@@ -2120,6 +2204,21 @@ def _analyze_view(view_conf, arch, configs, data, views):
 
             # Placeholders are by definition required
             view["pkgs"][pkg_id]["in_workload_ids_req"].add(workload_id)
+        
+        # ... including the SRPM placeholders
+        for srpm_name in workload["srpm_placeholder_names"]:
+            srpm_id = pkg_placeholder_name_to_nevr(srpm_name)
+
+            # Initialise
+            if srpm_id not in view["source_pkgs"]:
+                sourcerpm = "{}.src.rpm".format(srpm_id)
+                view["source_pkgs"][srpm_id] = _init_view_srpm({"sourcerpm": sourcerpm, "source_name": srpm_name, "reponame": None})
+            
+            # It's a placeholder
+            view["source_pkgs"][srpm_id]["placeholder"] = True
+
+            # Build requires
+            view["source_pkgs"][srpm_id]["placeholder_directly_required_pkg_names"] = workload_conf["package_placeholders"]["srpms"][srpm_name]["buildrequires"]
         
         # Oh! And modules
         for module_id in workload["enabled_modules"]:
@@ -2243,36 +2342,40 @@ def _populate_buildroot_with_view_srpms(view_conf, arch, configs, data, buildroo
     # Initialise each srpm
     for srpm_id, srpm in view["source_pkgs"].items():
 
-        # This is the same set in both koji_srpms and srpms
-        directly_required_pkg_names = set()
+        if srpm["placeholder"]:
+            directly_required_pkg_names = srpm["placeholder_directly_required_pkg_names"]
+        
+        else:
+            # This is the same set in both koji_srpms and srpms
+            directly_required_pkg_names = set()
 
-        # Do I need to extract the build dependencies from koji root_logs?
-        # Then also save the srpms in the koji_srpm section
-        if view_conf["buildroot_strategy"] == "root_logs":
-            srpm_reponame = srpm["reponame"]
-            koji_api_url = configs["repos"][repo_id]["source"]["repos"][srpm_reponame]["koji_api_url"]
-            koji_files_url = configs["repos"][repo_id]["source"]["repos"][srpm_reponame]["koji_files_url"]
-            koji_id = url_to_id(koji_api_url)
+            # Do I need to extract the build dependencies from koji root_logs?
+            # Then also save the srpms in the koji_srpm section
+            if view_conf["buildroot_strategy"] == "root_logs":
+                srpm_reponame = srpm["reponame"]
+                koji_api_url = configs["repos"][repo_id]["source"]["repos"][srpm_reponame]["koji_api_url"]
+                koji_files_url = configs["repos"][repo_id]["source"]["repos"][srpm_reponame]["koji_files_url"]
+                koji_id = url_to_id(koji_api_url)
 
-            # Initialise the koji_srpms section
-            if koji_id not in buildroot["koji_srpms"]:
-                # SRPMs
-                buildroot["koji_srpms"][koji_id] = {}
-                # URLs
-                buildroot["koji_urls"][koji_id] = {}
-                buildroot["koji_urls"][koji_id]["api"] = koji_api_url
-                buildroot["koji_urls"][koji_id]["files"] = koji_files_url
-            
-            if arch not in buildroot["koji_srpms"][koji_id]:
-                buildroot["koji_srpms"][koji_id][arch] = {}
+                # Initialise the koji_srpms section
+                if koji_id not in buildroot["koji_srpms"]:
+                    # SRPMs
+                    buildroot["koji_srpms"][koji_id] = {}
+                    # URLs
+                    buildroot["koji_urls"][koji_id] = {}
+                    buildroot["koji_urls"][koji_id]["api"] = koji_api_url
+                    buildroot["koji_urls"][koji_id]["files"] = koji_files_url
+                
+                if arch not in buildroot["koji_srpms"][koji_id]:
+                    buildroot["koji_srpms"][koji_id][arch] = {}
 
-            # Initialise srpms in the koji_srpms section
-            if srpm_id not in buildroot["koji_srpms"][koji_id][arch]:
-                buildroot["koji_srpms"][koji_id][arch][srpm_id] = {}
-                buildroot["koji_srpms"][koji_id][arch][srpm_id]["id"] = srpm_id
-                buildroot["koji_srpms"][koji_id][arch][srpm_id]["directly_required_pkg_names"] = directly_required_pkg_names
-            else:
-                directly_required_pkg_names = buildroot["koji_srpms"][koji_id][arch][srpm_id]["directly_required_pkg_names"]
+                # Initialise srpms in the koji_srpms section
+                if srpm_id not in buildroot["koji_srpms"][koji_id][arch]:
+                    buildroot["koji_srpms"][koji_id][arch][srpm_id] = {}
+                    buildroot["koji_srpms"][koji_id][arch][srpm_id]["id"] = srpm_id
+                    buildroot["koji_srpms"][koji_id][arch][srpm_id]["directly_required_pkg_names"] = directly_required_pkg_names
+                else:
+                    directly_required_pkg_names = buildroot["koji_srpms"][koji_id][arch][srpm_id]["directly_required_pkg_names"]
 
         # Initialise srpms in the srpms section
         if srpm_id not in buildroot["srpms"][repo_id][arch]:
@@ -2631,6 +2734,8 @@ def _analyze_srpm_buildroots(tmp_dnf_cachedir, tmp_installroots, configs, data, 
                 fake_workload_conf["packages"] = srpm["directly_required_pkg_names"]
                 fake_workload_conf["groups"] = []
                 fake_workload_conf["package_placeholders"] = {}
+                fake_workload_conf["package_placeholders"]["pkgs"] = {}
+                fake_workload_conf["package_placeholders"]["srpms"] = {}
                 fake_workload_conf["arch_packages"] = {}
                 fake_workload_conf["arch_packages"][arch] = []
 
@@ -2932,6 +3037,9 @@ def _init_pkg_or_srpm_relations_fields(target_pkg, type = None):
     target_pkg["in_buildroot_of_srpm_name_dep"] = {} # of set() of srpm_ids
     target_pkg["in_buildroot_of_srpm_name_env"] = {} # of set() of srpm_ids
 
+    # Level number
+    target_pkg["level_number"] = 999
+
     if type == "rpm":
 
         # Dependency of RPM NEVRs
@@ -2969,6 +3077,13 @@ def _populate_pkg_or_srpm_relations_fields(target_pkg, source_pkg, type = None, 
                 target_pkg["in_buildroot_of_srpm_name_{}".format(list_type)][srpm_name] = set()
             
             target_pkg["in_buildroot_of_srpm_name_{}".format(list_type)][srpm_name].add(srpm_id)
+    
+    level_number = 0
+    for level in source_pkg["level"]:
+        if level["all"]:
+            if level_number < target_pkg["level_number"]:
+                target_pkg["level_number"] = level_number
+        level_number += 1
     
     if type == "rpm":
         # Hard dependency of
@@ -3076,6 +3191,7 @@ def _generate_views_all_arches(configs, data):
                     if identifier not in view_all_arches[key]:
                         view_all_arches[key][identifier] = {}
                         view_all_arches[key][identifier]["name"] = package["name"]
+                        view_all_arches[key][identifier]["placeholder"] = package["placeholder"]
                         view_all_arches[key][identifier]["source_name"] = package["source_name"]
                         view_all_arches[key][identifier]["nevrs"] = {}
                         view_all_arches[key][identifier]["arches"] = set()
@@ -3097,6 +3213,7 @@ def _generate_views_all_arches(configs, data):
                     if identifier not in view_all_arches[key]:
                         view_all_arches[key][identifier] = {}
                         view_all_arches[key][identifier]["name"] = package["name"]
+                        view_all_arches[key][identifier]["placeholder"] = package["placeholder"]
                         view_all_arches[key][identifier]["evr"] = package["evr"]
                         view_all_arches[key][identifier]["source_name"] = package["source_name"]
                         view_all_arches[key][identifier]["arches"] = set()
@@ -3118,6 +3235,7 @@ def _generate_views_all_arches(configs, data):
                     if identifier not in view_all_arches[key]:
                         view_all_arches[key][identifier] = {}
                         view_all_arches[key][identifier]["name"] = package["name"]
+                        view_all_arches[key][identifier]["placeholder"] = package["placeholder"]
                         view_all_arches[key][identifier]["buildroot_succeeded"] = True
                         view_all_arches[key][identifier]["pkg_names"] = set()
                         view_all_arches[key][identifier]["pkg_nevrs"] = set()
@@ -3599,7 +3717,7 @@ class Query():
             
             # Third, add package placeholders if any
             for placeholder_id in workload["pkg_placeholder_ids"]:
-                placeholder = workload_conf["package_placeholders"][pkg_id_to_name(placeholder_id)]
+                placeholder = workload_conf["package_placeholders"]["pkgs"][pkg_id_to_name(placeholder_id)]
                 if placeholder_id not in pkgs[workload_repo_id][workload_arch]:
                     pkgs[workload_repo_id][workload_arch][placeholder_id] = {}
                     pkgs[workload_repo_id][workload_arch][placeholder_id]["id"] = placeholder_id
@@ -4024,7 +4142,7 @@ class Query():
 
             # Third, add package placeholders if any
             for placeholder_id in workload["pkg_placeholder_ids"]:
-                placeholder = workload_conf["package_placeholders"][pkg_id_to_name(placeholder_id)]
+                placeholder = workload_conf["package_placeholders"]["pkgs"][pkg_id_to_name(placeholder_id)]
                 if placeholder_id not in pkgs:
                     pkgs[placeholder_id] = {}
                     pkgs[placeholder_id]["id"] = placeholder_id
@@ -4385,17 +4503,14 @@ class Query():
             workload_conf_id = workload["workload_conf_id"]
             workload_conf = self.configs["workloads"][workload_conf_id]
 
-            for pkg_placeholder_name, pkg_placeholder in workload_conf["package_placeholders"].items():
+            for pkg_placeholder_name, pkg_placeholder in workload_conf["package_placeholders"]["srpms"].items():
                 # Placeholders can be limited to specific architectures.
                 # If that's the case, check if it's available on this arch, otherwise skip it.
                 if pkg_placeholder["limit_arches"]:
                     if arch not in pkg_placeholder["limit_arches"]:
                         continue
 
-                # SRPM is optional. 
-                srpm_name = pkg_placeholder["srpm"]
-                if not srpm_name:
-                    continue
+                srpm_name = pkg_placeholder["name"]
 
                 buildrequires = pkg_placeholder["buildrequires"]
 
@@ -4516,8 +4631,7 @@ def _generate_html_page(template_name, template_data, page_name, settings):
 
     output = settings["output"]
 
-    template_loader = jinja2.FileSystemLoader(searchpath="./templates/")
-    template_env = jinja2.Environment(loader=template_loader)
+    template_env = settings["jinja2_template_env"]
 
     template = template_env.get_template("{template_name}.html".format(
         template_name=template_name
@@ -5593,6 +5707,15 @@ def generate_pages(query):
     log("### Generating html pages! ####################################################")
     log("###############################################################################")
     log("")
+
+    # Create the jinja2 thingy
+    template_loader = jinja2.FileSystemLoader(searchpath="./templates/")
+    template_env = jinja2.Environment(
+        loader=template_loader,
+        trim_blocks=True,
+        lstrip_blocks=True
+    )
+    query.settings["jinja2_template_env"] = template_env
 
     # Copy static files
     log("Copying static files...")
