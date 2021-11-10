@@ -3376,9 +3376,6 @@ def analyze_things(configs, settings, cache):
         # This is partially similar to workloads, because it's resolving
         # the full dependency tree of the direct build dependencies of SRPMs
         #
-        # FIXME: Needs to include package placeholders!
-        #        Probably will need to implement placeholders_v2
-        #
         # So compared to workloads:
         #   direct build dependencies are like required packages in workloads
         #   the dependencies are like dependencies in workloads
