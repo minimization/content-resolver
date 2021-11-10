@@ -44,3 +44,6 @@ data:
   # (optional field)
   unwanted_packages:
   - bash
+
+  unwanted_source_packages:
+  - fedora-repos

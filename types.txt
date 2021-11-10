@@ -176,6 +176,9 @@ data["views"][view_id]["pkgs"][pkg_id]["in_buildroot_of_srpm_id_req"]  <--=-- sr
 data["views"][view_id]["pkgs"][pkg_id]["in_buildroot_of_srpm_id_dep"]  <--|
 data["views"][view_id]["pkgs"][pkg_id]["in_buildroot_of_srpm_id_env"]  <--'
 
+data["views"][view_id]["pkgs"][pkg_id]["unwanted_completely_in_list_ids"]  <--=--  unwanted_conf_ids
+data["views"][view_id]["pkgs"][pkg_id]["unwanted_buildroot_in_list_ids"]   <--'
+
 data["views"][view_id]["pkgs"][pkg_id]["level"][0]["all"]  <--,
 data["views"][view_id]["pkgs"][pkg_id]["level"][0]["req"]  <--=-- level - 0  workload_ids
 data["views"][view_id]["pkgs"][pkg_id]["level"][0]["dep"]  <--|         - 1+ srpm_ids (buildroot)
@@ -203,6 +206,9 @@ data["views"][view_id]["source_pkgs"][srpm_id]["in_buildroot_of_srpm_id_all"]  <
 data["views"][view_id]["source_pkgs"][srpm_id]["in_buildroot_of_srpm_id_req"]  <--=--  srpm_ids (buildroot)
 data["views"][view_id]["source_pkgs"][srpm_id]["in_buildroot_of_srpm_id_dep"]  <--|
 data["views"][view_id]["source_pkgs"][srpm_id]["in_buildroot_of_srpm_id_env"]  <--'
+
+data["views"][view_id]["source_pkgs"][srpm_id]["unwanted_completely_in_list_ids"]  <--=--  unwanted_conf_ids
+data["views"][view_id]["source_pkgs"][srpm_id]["unwanted_buildroot_in_list_ids"]   <--'
 
 data["views"][view_id]["source_pkgs"][srpm_id]["level"][0]["all"]  <--,
 data["views"][view_id]["source_pkgs"][srpm_id]["level"][0]["req"]  <--=-- level - 0  workload_ids

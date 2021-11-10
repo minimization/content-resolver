@@ -6,11 +6,13 @@
 
 {% block view_content %}
 
+<a href="view-packages--{{view_conf.id}}.html">⬅ Back to Packages</a>
 
 <h2>
     <small class="text-muted">Binary Package (RPM): </small>
     {{pkg.name}}
     {% if pkg.placeholder %}<span class="text-muted">(placeholder)</span>{% endif %}
+    {% if pkg.unwanted_completely_in_list_ids %}<span class="text-danger">(unwanted)</span>{% endif %}
     {{pkg_why(pkg)}}
 </h2>
 
@@ -23,6 +25,43 @@
 <br>
 
 <br>
+
+{% if pkg.unwanted_completely_in_list_ids %}
+<hr>
+<br>
+<div class="card bg-light border-danger">
+    <h4 class="card-header"><span class="text-muted">Why it shouldn't be here - </span>Runtime & Build</h4>
+    <div class="card-body">
+
+        <div class="card border-secondary">
+            <div class="card-body">
+                <h5 class="card-title">Marked as unwanted on {{pkg.unwanted_completely_in_list_ids|count}} lists</h5>
+
+                <div class="card">
+                    <ul class="list-group list-group-flush">
+                        {% for exclusion_list_conf_id in pkg.unwanted_completely_in_list_ids %}
+                        <li class="list-group-item">
+                            <a href="config-unwanted--{{exclusion_list_conf_id}}.html">
+                                {{query.configs.unwanteds[exclusion_list_conf_id].name}}
+                            </a>
+                            <small>
+                                <br>
+                                <span class="text-mutdded">by </span>
+                                <a
+                                    href="maintainer--{{query.configs.unwanteds[exclusion_list_conf_id].maintainer}}.html">{{query.configs.unwanteds[exclusion_list_conf_id].maintainer}}</a>
+                            </small>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>
+
+<br>
+{% endif %}
 
 <hr>
 
@@ -51,7 +90,11 @@
                                     <tr>
                                         <td>
                                             <a href="view-rpm--{{view_conf.id}}--{{srpm_name}}.html">{{srpm_name}}</a>
-                                            {% if view_all_arches["pkgs_by_name"][srpm_name].placeholder %}<span class="text-muted">(placeholder)</span>{% endif %}
+                                            {% if view_all_arches["pkgs_by_name"][srpm_name].placeholder %}<span
+                                                class="text-muted">(placeholder)</span>{% endif %}
+                                            {% if
+                                            view_all_arches["pkgs_by_name"][srpm_name].unwanted_completely_in_list_ids
+                                            %}<span class="text-danger">(unwanted)</span>{% endif %}
                                         </td>
                                         <td>
                                             {{pkg_why(view_all_arches["pkgs_by_name"][srpm_name])}}
@@ -94,7 +137,11 @@
                                     <tr>
                                         <td>
                                             <a href="view-rpm--{{view_conf.id}}--{{srpm_name}}.html">{{srpm_name}}</a>
-                                            {% if view_all_arches["pkgs_by_name"][srpm_name].placeholder %}<span class="text-muted">(placeholder)</span>{% endif %}
+                                            {% if view_all_arches["pkgs_by_name"][srpm_name].placeholder %}<span
+                                                class="text-muted">(placeholder)</span>{% endif %}
+                                            {% if
+                                            view_all_arches["pkgs_by_name"][srpm_name].unwanted_completely_in_list_ids
+                                            %}<span class="text-danger">(unwanted)</span>{% endif %}
                                         </td>
                                         <td>
                                             {{pkg_why(view_all_arches["pkgs_by_name"][srpm_name])}}
@@ -148,7 +195,11 @@
                                     <tr>
                                         <td>
                                             <a href="view-srpm--{{view_conf.id}}--{{srpm_name}}.html">{{srpm_name}}</a>
-                                            {% if view_all_arches["source_pkgs_by_name"][srpm_name].placeholder %}<span class="text-muted">(placeholder)</span>{% endif %}
+                                            {% if view_all_arches["source_pkgs_by_name"][srpm_name].placeholder %}<span
+                                                class="text-muted">(placeholder)</span>{% endif %}
+                                            {% if
+                                            view_all_arches["source_pkgs_by_name"][srpm_name].unwanted_completely_in_list_ids
+                                            %}<span class="text-danger">(unwanted)</span>{% endif %}
                                         </td>
                                         <td>
                                             {{pkg_why(view_all_arches["source_pkgs_by_name"][srpm_name])}}
@@ -193,7 +244,11 @@
                                     <tr>
                                         <td>
                                             <a href="view-srpm--{{view_conf.id}}--{{srpm_name}}.html">{{srpm_name}}</a>
-                                            {% if view_all_arches["source_pkgs_by_name"][srpm_name].placeholder %}<span class="text-muted">(placeholder)</span>{% endif %}
+                                            {% if view_all_arches["source_pkgs_by_name"][srpm_name].placeholder %}<span
+                                                class="text-muted">(placeholder)</span>{% endif %}
+                                            {% if
+                                            view_all_arches["source_pkgs_by_name"][srpm_name].unwanted_completely_in_list_ids
+                                            %}<span class="text-danger">(unwanted)</span>{% endif %}
                                         </td>
                                         <td>
                                             {{pkg_why(view_all_arches["source_pkgs_by_name"][srpm_name])}}
@@ -242,7 +297,8 @@
                                     <small>
                                         <br>
                                         <span class="text-mutdded">by </span>
-                                        <a href="maintainer--{{query.configs.workloads[workload_conf_id].maintainer}}.html">{{query.configs.workloads[workload_conf_id].maintainer}}</a>
+                                        <a
+                                            href="maintainer--{{query.configs.workloads[workload_conf_id].maintainer}}.html">{{query.configs.workloads[workload_conf_id].maintainer}}</a>
                                     </small>
                                 </li>
                                 {% endfor %}
@@ -274,7 +330,8 @@
                                     <small>
                                         <br>
                                         <span class="text-mutdded">by </span>
-                                        <a href="maintainer--{{query.configs.workloads[workload_conf_id].maintainer}}.html">{{query.configs.workloads[workload_conf_id].maintainer}}</a>
+                                        <a
+                                            href="maintainer--{{query.configs.workloads[workload_conf_id].maintainer}}.html">{{query.configs.workloads[workload_conf_id].maintainer}}</a>
                                     </small>
                                 </li>
                                 {% endfor %}

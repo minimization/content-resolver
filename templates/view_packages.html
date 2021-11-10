@@ -30,6 +30,7 @@
             <td>
                 <a href="view-rpm--{{view_conf.id}}--{{pkg.name}}.html">{{pkg.name}}</a>
                 {% if pkg.placeholder %}<span class="text-muted">(placeholder)</span>{% endif %}
+                {% if pkg.unwanted_completely_in_list_ids %}<span class="text-danger">(unwanted)</span>{% endif %}
             </td>
             <td data-order="{{pkg_why_data_order(pkg)}}">{{pkg_why(pkg)}}</td>
             <td>{{pkg.name}}-{{pkg.evr}}</td>

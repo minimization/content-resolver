@@ -2019,6 +2019,9 @@ def _init_view_pkg(input_pkg, arch, placeholder=False, level=0):
     pkg["in_buildroot_of_srpm_id_dep"] = set()
     pkg["in_buildroot_of_srpm_id_env"] = set()
 
+    pkg["unwanted_completely_in_list_ids"] = set()
+    pkg["unwanted_buildroot_in_list_ids"] = set()
+
     pkg["level"] = []
 
     # Level 0 is runtime
@@ -2067,6 +2070,9 @@ def _init_view_srpm(pkg, level=0):
     srpm["in_buildroot_of_srpm_id_req"] = set()
     srpm["in_buildroot_of_srpm_id_dep"] = set()
     srpm["in_buildroot_of_srpm_id_env"] = set()
+
+    srpm["unwanted_completely_in_list_ids"] = set()
+    srpm["unwanted_buildroot_in_list_ids"] = set()
 
     srpm["level"] = []
 
@@ -3037,6 +3043,10 @@ def _init_pkg_or_srpm_relations_fields(target_pkg, type = None):
     target_pkg["in_buildroot_of_srpm_name_dep"] = {} # of set() of srpm_ids
     target_pkg["in_buildroot_of_srpm_name_env"] = {} # of set() of srpm_ids
 
+    # Unwanted
+    target_pkg["unwanted_completely_in_list_ids"] = set()
+    target_pkg["unwanted_buildroot_in_list_ids"] = set()
+
     # Level number
     target_pkg["level_number"] = 999
 
@@ -3061,6 +3071,12 @@ def _populate_pkg_or_srpm_relations_fields(target_pkg, source_pkg, type = None, 
     if type == "rpm" and not view:
         raise ValueError("This function requires a view when using type = 'rpm'!")
 
+    # Unwanted
+    target_pkg["unwanted_completely_in_list_ids"].update(source_pkg["unwanted_completely_in_list_ids"])
+    target_pkg["unwanted_buildroot_in_list_ids"].update(source_pkg["unwanted_buildroot_in_list_ids"])
+
+
+    # Dependency relationships
     for list_type in ["all", "req", "dep", "env"]:
         target_pkg["in_workload_ids_{}".format(list_type)].update(source_pkg["in_workload_ids_{}".format(list_type)])
 
@@ -3188,6 +3204,7 @@ def _generate_views_all_arches(configs, data):
                     key = "pkgs_by_name"
                     identifier = package["name"]
 
+                    # Init
                     if identifier not in view_all_arches[key]:
                         view_all_arches[key][identifier] = {}
                         view_all_arches[key][identifier]["name"] = package["name"]
@@ -3280,6 +3297,92 @@ def _generate_views_all_arches(configs, data):
             views_all_arches[view_conf_id] = view_all_arches
     
     return views_all_arches
+
+
+def _add_unwanted_packages_to_view(view, view_conf, configs, data):
+
+    arch = view["arch"]
+
+    # Find exclusion lists mathing this view's label(s)
+    unwanted_conf_ids = set()
+    for view_label in view_conf["labels"]:
+        for unwanted_conf_id, unwanted in configs["unwanteds"].items():
+            for unwanted_label in unwanted["labels"]:
+                if view_label == unwanted_label:
+                    unwanted_conf_ids.add(unwanted_conf_id)
+    
+    # Dicts
+    pkgs_unwanted_buildroot = {}
+    pkgs_unwanted_completely = {}
+    srpms_unwanted_buildroot = {}
+    srpms_unwanted_completely = {}
+
+    # Populate the dicts
+    for unwanted_conf_id in unwanted_conf_ids:
+        unwanted_conf = configs["unwanteds"][unwanted_conf_id]
+
+        # Pkgs
+        for pkg_name in unwanted_conf["unwanted_packages"]:
+            if pkg_name not in pkgs_unwanted_completely:
+                pkgs_unwanted_completely[pkg_name] = set()
+            pkgs_unwanted_completely[pkg_name].add(unwanted_conf_id)
+
+        # Arch Pkgs
+        for pkg_name in unwanted_conf["unwanted_arch_packages"][arch]:
+            if pkg_name not in pkgs_unwanted_completely:
+                pkgs_unwanted_completely[pkg_name] = set()
+            pkgs_unwanted_completely[pkg_name].add(unwanted_conf_id)
+
+        # SRPMs
+        for pkg_source_name in unwanted_conf["unwanted_source_packages"]:
+            if pkg_source_name not in srpms_unwanted_completely:
+                srpms_unwanted_completely[pkg_source_name] = set()
+            srpms_unwanted_completely[pkg_source_name].add(unwanted_conf_id)
+
+    # Add it to the packages
+    for pkg_id, pkg in view["pkgs"].items():
+        pkg_name = pkg["name"]
+        srpm_name = pkg["source_name"]
+
+        if pkg_name in pkgs_unwanted_completely:
+            list_ids = pkgs_unwanted_completely[pkg_name]
+            view["pkgs"][pkg_id]["unwanted_completely_in_list_ids"].update(list_ids)
+
+        if srpm_name in srpms_unwanted_completely:
+            list_ids = srpms_unwanted_completely[srpm_name]
+            view["pkgs"][pkg_id]["unwanted_completely_in_list_ids"].update(list_ids)
+    
+    # Add it to the srpms
+    for srpm_id, srpm in view["source_pkgs"].items():
+        srpm_name = srpm["name"]
+
+        if srpm_name in srpms_unwanted_completely:
+            list_ids = srpms_unwanted_completely[srpm_name]
+            view["source_pkgs"][srpm_id]["unwanted_completely_in_list_ids"].update(list_ids)
+
+
+def _add_unwanted_packages_to_views(configs, data):
+
+    log("")
+    log("Adding Unwanted Packages to views...")
+    log("")
+
+    # First, the standard views
+    for view_conf_id in configs["views"]:
+        view_conf = configs["views"][view_conf_id]
+
+        if view_conf["type"] == "compose":
+            if view_conf["buildroot_strategy"] == "root_logs":
+                for arch in view_conf["architectures"]:
+
+                    view_id = "{view_conf_id}:{arch}".format(
+                        view_conf_id=view_conf_id,
+                        arch=arch
+                    )
+
+                    view = data["views"][view_id]
+
+                    _add_unwanted_packages_to_view(view, view_conf, configs, data)
 
 
 
@@ -3402,7 +3505,10 @@ def analyze_things(configs, settings, cache):
         _add_buildroot_to_views(configs, data)
 
         # Unwanted packages
-        # TODO
+        log("")
+        log("=====  Adding Unwanted Packages to Views =====")
+        log("")
+        _add_unwanted_packages_to_views(configs, data)
 
         # Generate combined views for all arches
         log("")
