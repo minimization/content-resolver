@@ -49,6 +49,16 @@ data:
 
   ### OPTIONAL FIELDS ###
 
+  package_placeholders:
+    - srpm_name: pizza-srpm
+      build_dependencies: 
+        - bash
+      rpms:
+        - rpm_name: pizza-package
+          description: what a cool test
+          dependencies:
+            - make
+
   # Architecture-specific packages.
   #
   # (optional field)

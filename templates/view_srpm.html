@@ -10,6 +10,7 @@
 <h2>
     <small class="text-muted">Source Package (SRPM): </small>
     {{srpm.name}}
+    {% if srpm.placeholder %}<span class="text-muted">(placeholder)</span>{% endif %}
     {{pkg_why(srpm)}}
 </h2>
 

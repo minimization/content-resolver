@@ -93,31 +93,9 @@ data:
   groups:
   - core
 
-  # DEPRECATED
-  #
-  # Please use "better_package_placeholders" instead.
-  package_placeholders:
-    package-name:
-      description: This package is not in Fedora (yet), but we want to see it here.
-      requires:
-      - pkg1
-      - pkg2
-      buildrequires:
-      - pkg2
-      - pkg3
-      limit_arches:
-      - x86_64
-      - aarch64
-      srpm: foo-bar-srpm # Not providing "srpm" will not associate this pacakge with any srpm
-    another-package:
-      description: Another one, this time without dependencies.
-      requires: []
-      buildrequires: []
-      limit_arches: []  # empty means all arches
 
-  
   # Add packages to the workload that don't exist (yet) in the repositories.
-  better_package_placeholders:
+  package_placeholders:
 
     # An example of a SRPM called "some-name"
     # that builds two RPMs: "some-name" and "some-name-extras":

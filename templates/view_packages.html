@@ -26,8 +26,11 @@
     </thead>
     <tbody>
         {% for pkg in view_all_arches.pkgs_by_nevr.values() %}
-        <tr class="{{pkg_row_css_class(pkg)}}">
-            <td><a href="view-rpm--{{view_conf.id}}--{{pkg.name}}.html">{{pkg.name}}</a></td>
+        <tr>
+            <td>
+                <a href="view-rpm--{{view_conf.id}}--{{pkg.name}}.html">{{pkg.name}}</a>
+                {% if pkg.placeholder %}<span class="text-muted">(placeholder)</span>{% endif %}
+            </td>
             <td data-order="{{pkg_why_data_order(pkg)}}">{{pkg_why(pkg)}}</td>
             <td>{{pkg.name}}-{{pkg.evr}}</td>
             {% for arch in view_conf.architectures %}
@@ -37,7 +40,10 @@
             <td class="text-muted">no</td>
             {% endif %}
             {% endfor %}
-            <td><a href="view-srpm--{{view_conf.id}}--{{pkg.source_name}}.html">{{pkg.source_name}}</a></td>
+            <td>
+                <a href="view-srpm--{{view_conf.id}}--{{pkg.source_name}}.html">{{pkg.source_name}}</a>
+                {% if pkg.placeholder %}<span class="text-muted">(placeholder)</span>{% endif %}
+            </td>
         </tr>
         {% endfor %}
     </tbody>

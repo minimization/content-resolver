@@ -10,6 +10,7 @@
 <h2>
     <small class="text-muted">Binary Package (RPM): </small>
     {{pkg.name}}
+    {% if pkg.placeholder %}<span class="text-muted">(placeholder)</span>{% endif %}
     {{pkg_why(pkg)}}
 </h2>
 
@@ -50,6 +51,7 @@
                                     <tr>
                                         <td>
                                             <a href="view-rpm--{{view_conf.id}}--{{srpm_name}}.html">{{srpm_name}}</a>
+                                            {% if view_all_arches["pkgs_by_name"][srpm_name].placeholder %}<span class="text-muted">(placeholder)</span>{% endif %}
                                         </td>
                                         <td>
                                             {{pkg_why(view_all_arches["pkgs_by_name"][srpm_name])}}
@@ -92,6 +94,7 @@
                                     <tr>
                                         <td>
                                             <a href="view-rpm--{{view_conf.id}}--{{srpm_name}}.html">{{srpm_name}}</a>
+                                            {% if view_all_arches["pkgs_by_name"][srpm_name].placeholder %}<span class="text-muted">(placeholder)</span>{% endif %}
                                         </td>
                                         <td>
                                             {{pkg_why(view_all_arches["pkgs_by_name"][srpm_name])}}
@@ -144,7 +147,8 @@
                                     %}
                                     <tr>
                                         <td>
-                                            <a href="view-rpm--{{view_conf.id}}--{{srpm_name}}.html">{{srpm_name}}</a>
+                                            <a href="view-srpm--{{view_conf.id}}--{{srpm_name}}.html">{{srpm_name}}</a>
+                                            {% if view_all_arches["source_pkgs_by_name"][srpm_name].placeholder %}<span class="text-muted">(placeholder)</span>{% endif %}
                                         </td>
                                         <td>
                                             {{pkg_why(view_all_arches["source_pkgs_by_name"][srpm_name])}}
@@ -188,7 +192,8 @@
                                     %}
                                     <tr>
                                         <td>
-                                            <a href="view-rpm--{{view_conf.id}}--{{srpm_name}}.html">{{srpm_name}}</a>
+                                            <a href="view-srpm--{{view_conf.id}}--{{srpm_name}}.html">{{srpm_name}}</a>
+                                            {% if view_all_arches["source_pkgs_by_name"][srpm_name].placeholder %}<span class="text-muted">(placeholder)</span>{% endif %}
                                         </td>
                                         <td>
                                             {{pkg_why(view_all_arches["source_pkgs_by_name"][srpm_name])}}
