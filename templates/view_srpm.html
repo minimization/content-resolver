@@ -6,19 +6,19 @@
 
 {% block view_content %}
 
+<a href="view-sources--{{view_conf.id}}.html">⬅ Back to Source Packages</a>
 
 <h2>
     <small class="text-muted">Source Package (SRPM): </small>
     {{srpm.name}}
     {% if srpm.placeholder %}<span class="text-muted">(placeholder)</span>{% endif %}
+    {% if srpm.unwanted_completely_in_list_ids %}<span class="text-danger">(unwanted)</span>{% endif %}
     {{pkg_why(srpm)}}
 </h2>
 
 <br>
 
 {% if not srpm.buildroot_succeeded %}
-
-
 <div class="card border-danger">
     <h5 class="card-header bg-danger text-white">Buildroot resolution failed</h5>
     <div class="card-body">
@@ -40,6 +40,7 @@
 {% endif %}
 
 
+
 <br><b>Binary Packages (RPMs)</b><br>
 
 {% for pkg_name in srpm.pkg_names %}
@@ -48,7 +49,42 @@
 {% endfor %}
 
 
+{% if srpm.unwanted_completely_in_list_ids %}
+<hr>
+<br>
+<div class="card bg-light border-danger">
+    <h4 class="card-header"><span class="text-muted">Why it shouldn't be here - </span>Runtime & Build</h4>
+    <div class="card-body">
 
+        <div class="card border-secondary">
+            <div class="card-body">
+                <h5 class="card-title">Marked as unwanted on {{srpm.unwanted_completely_in_list_ids|count}} lists</h5>
+
+                <div class="card">
+                    <ul class="list-group list-group-flush">
+                        {% for exclusion_list_conf_id in srpm.unwanted_completely_in_list_ids %}
+                        <li class="list-group-item">
+                            <a href="config-unwanted--{{exclusion_list_conf_id}}.html">
+                                {{query.configs.unwanteds[exclusion_list_conf_id].name}}
+                            </a>
+                            <small>
+                                <br>
+                                <span class="text-mutdded">by </span>
+                                <a
+                                    href="maintainer--{{query.configs.unwanteds[exclusion_list_conf_id].maintainer}}.html">{{query.configs.unwanteds[exclusion_list_conf_id].maintainer}}</a>
+                            </small>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>
+
+<br>
+{% endif %}
 
 
 
