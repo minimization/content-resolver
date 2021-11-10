@@ -16,6 +16,29 @@
 
 <br>
 
+{% if not srpm.buildroot_succeeded %}
+
+
+<div class="card border-danger">
+    <h5 class="card-header bg-danger text-white">Buildroot resolution failed</h5>
+    <div class="card-body">
+            {% for arch, errors in srpm.errors.items() %} 
+            {{arch}}:
+            <div class="card bg-light">
+                <div class="card-body">
+                    <pre class="pre-scrollable">
+                        {{errors.message}}
+                    </pre>
+                </div>
+            </div>
+            <br>
+            {% endfor %}
+    </div>
+</div>
+
+<br>
+{% endif %}
+
 
 <br><b>Binary Packages (RPMs)</b><br>
 
