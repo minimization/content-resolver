@@ -2478,7 +2478,7 @@ def _resolve_srpm_using_root_log(srpm_id, arch, koji_session, koji_files_url):
     elif srpm_id.rsplit("-",2)[0] in ["gawk", "xz", "findutils"]:
         return ['cpio', 'diffutils']
 
-    return ["bash", "make", "unzip"]
+    return ["bashBOOOM", "make", "unzip"]
 
     # FIXME # DEBUG # FIXME # DEBUG # FIXME # DEBUG # FIXME # DEBUG # FIXME # DEBUG # FIXME # DEBUG #
     # FIXME # DEBUG # FIXME # DEBUG # FIXME # DEBUG # FIXME # DEBUG # FIXME # DEBUG # FIXME # DEBUG #
@@ -3237,6 +3237,7 @@ def _generate_views_all_arches(configs, data):
                         view_all_arches[key][identifier]["name"] = package["name"]
                         view_all_arches[key][identifier]["placeholder"] = package["placeholder"]
                         view_all_arches[key][identifier]["buildroot_succeeded"] = True
+                        view_all_arches[key][identifier]["errors"] = {}
                         view_all_arches[key][identifier]["pkg_names"] = set()
                         view_all_arches[key][identifier]["pkg_nevrs"] = set()
                         view_all_arches[key][identifier]["arches"] = set()
@@ -3245,6 +3246,7 @@ def _generate_views_all_arches(configs, data):
                     
                     if not data["buildroot"]["srpms"][repo_id][arch][package["id"]]["succeeded"]:
                         view_all_arches[key][identifier]["buildroot_succeeded"] = False
+                        view_all_arches[key][identifier]["errors"][arch] = data["buildroot"]["srpms"][repo_id][arch][package["id"]]["errors"]
                     
                     view_all_arches[key][identifier]["arches"].add(arch)
 
