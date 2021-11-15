@@ -2472,24 +2472,6 @@ def _get_build_deps_from_a_root_log(root_log):
 
 
 def _resolve_srpm_using_root_log(srpm_id, arch, koji_session, koji_files_url):
-
-    # FIXME # DEBUG # FIXME # DEBUG # FIXME # DEBUG # FIXME # DEBUG # FIXME # DEBUG # FIXME # DEBUG #
-    # FIXME # DEBUG # FIXME # DEBUG # FIXME # DEBUG # FIXME # DEBUG # FIXME # DEBUG # FIXME # DEBUG #
-    # FIXME # DEBUG # FIXME # DEBUG # FIXME # DEBUG # FIXME # DEBUG # FIXME # DEBUG # FIXME # DEBUG #
-
-    # Making sure there are 3 passes at least, but that it won't get overwhelmed
-
-    if srpm_id.rsplit("-",2)[0] in ["bash", "make", "unzip"]:
-        return ["gawk", "xz", "findutils"]
-
-    elif srpm_id.rsplit("-",2)[0] in ["gawk", "xz", "findutils"]:
-        return ['cpio', 'diffutils']
-
-    return ["bashBOOOM", "make", "unzip"]
-
-    # FIXME # DEBUG # FIXME # DEBUG # FIXME # DEBUG # FIXME # DEBUG # FIXME # DEBUG # FIXME # DEBUG #
-    # FIXME # DEBUG # FIXME # DEBUG # FIXME # DEBUG # FIXME # DEBUG # FIXME # DEBUG # FIXME # DEBUG #
-    # FIXME # DEBUG # FIXME # DEBUG # FIXME # DEBUG # FIXME # DEBUG # FIXME # DEBUG # FIXME # DEBUG #
     
     koji_pkg_data = koji_session.getRPM("{}.src".format(srpm_id))
     koji_logs = koji_session.getBuildLogs(koji_pkg_data["build_id"])
