@@ -22,17 +22,17 @@
 <div class="card border-danger">
     <h5 class="card-header bg-danger text-white">Buildroot resolution failed</h5>
     <div class="card-body">
-            {% for arch, errors in srpm.errors.items() %} 
-            {{arch}}:
-            <div class="card bg-light">
-                <div class="card-body">
-                    <pre class="pre-scrollable">
+        {% for arch, errors in srpm.errors.items() %}
+        {{arch}}:
+        <div class="card bg-light">
+            <div class="card-body">
+                <pre class="pre-scrollable">
                         {{errors.message}}
                     </pre>
-                </div>
             </div>
-            <br>
-            {% endfor %}
+        </div>
+        <br>
+        {% endfor %}
     </div>
 </div>
 
@@ -40,13 +40,28 @@
 {% endif %}
 
 
+<div class="card bg-light border-secondary">
+    <div class="card-body">
 
-<br><b>Binary Packages (RPMs)</b><br>
+        <div class="card border-secondary">
+            <div class="card-body">
+                <h5 class="card-title">Binary RPMs</h5>
 
-{% for pkg_name in srpm.pkg_names %}
-<a href="view-rpm--{{view_conf.id}}--{{pkg_name}}.html">{{pkg_name}}</a>
-<br>
-{% endfor %}
+
+
+                    <ul class="list-unstyled">
+                        {% for pkg_name in srpm.pkg_names | sort %}
+                        <li>
+                            <a href="view-rpm--{{view_conf.id}}--{{pkg_name}}.html">{{pkg_name}}</a>
+                        </li>
+                        {% endfor %}
+                    </ul>
+
+            </div>
+        </div>
+
+    </div>
+</div>
 
 
 {% if srpm.unwanted_completely_in_list_ids %}
@@ -87,36 +102,19 @@
 {% endif %}
 
 
-
-
-
-
 <br>
 <br>
 <br>
-<br>
-<br>
-<br>
-<br>
-<br>
-<br>
-<br>
-<br>
-<br>
-<br>
-<br>
-<br>
-
+<span class="text-muted">More details will be added soon...</span>
+{# More details TBD
 <hr>
-
 {% for key, value in srpm.items() %}
-
 <b>{{key}}</b>
 <br>
 {{value}}
 <br>
 <br>
-
 {% endfor %}
+#}
 
 {% endblock %}

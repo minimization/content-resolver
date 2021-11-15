@@ -6,6 +6,77 @@
 
 {% include "view_menu.html" %}
 
-Workloads
+
+<table class="table table-striped" id="table_packages">
+    <thead>
+        <tr class="sort_control_row">
+            <th>Workload Name</th>
+            <th>Maintainer</th>
+            <th>Config</th>
+            <th>Status</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for workload_conf_id, workload_conf in view_all_arches.workloads.items() %}
+        <tr>
+            <td>
+                <a href="workload-overview--{{workload_conf_id}}--{{view_conf.repository}}.html">
+                    {{workload_conf.name}}
+                </a>
+            </td>
+            <td>
+                <a href="maintainer--{{workload_conf.maintainer}}.html">
+                    {{ workload_conf.maintainer }}
+                </a>
+            </td>
+            <td>
+                <small><a href="config-workload--{{workload_conf_id}}.html" class="text-monospace">{{workload_conf_id}}.yaml</a></small>
+            </td>
+            <td>
+                {% if workload_conf.succeeded %}
+                <span class="text-success">Success</span>
+                {% else %}
+                <span class="text-danger">Errors</span>
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<script>
+    $(document).ready(function () {
+
+        $('#table_packages').DataTable({
+            paging: false,
+            info: false,
+            initComplete: function () {
+                var input = $('.dataTables_filter input').unbind(),
+                    self = this.api(),
+                    $searchButton = $('<button>')
+                        .text('search')
+                        .click(function () {
+                            self.search(input.val()).draw();
+                        }),
+                    $clearButton = $('<button>')
+                        .text('clear')
+                        .click(function () {
+                            input.val('');
+                            $searchButton.click();
+                        });
+                $(document).keypress(function (event) {
+                    if (event.which == 13) {
+                        $searchButton.click();
+                    }
+                });
+
+                $('.dataTables_filter').append($searchButton, $clearButton);
+            }
+        });
+
+        var loadingDiv = document.getElementById("loading");
+        loadingDiv.parentNode.removeChild(loadingDiv);
+    });
+</script>
 
 {% endblock %}
