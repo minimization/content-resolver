@@ -10,3 +10,5 @@ tmp
 data.json
 pkg_entries.json
 .DS_Store
+actual_output
+actual_configs

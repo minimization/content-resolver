@@ -6,6 +6,56 @@
 
 {% include "view_menu.html" %}
 
-Modules!
+<table id="table_packages" class="table-packages">
+    <thead>
+        <tr class="sort_control_row">
+            <th>Name</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for module_id in view_all_arches.modules %}
+        <tr>
+            <td>
+                {{module.id}}
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<script>
+    $(document).ready(function () {
+
+        $('#table_packages').DataTable({
+            paging: false,
+            info: false,
+            initComplete: function () {
+                var input = $('.dataTables_filter input').unbind(),
+                    self = this.api(),
+                    $searchButton = $('<button>')
+                        .text('search')
+                        .click(function () {
+                            self.search(input.val()).draw();
+                        }),
+                    $clearButton = $('<button>')
+                        .text('clear')
+                        .click(function () {
+                            input.val('');
+                            $searchButton.click();
+                        });
+                $(document).keypress(function (event) {
+                    if (event.which == 13) {
+                        $searchButton.click();
+                    }
+                });
+
+                $('.dataTables_filter').append($searchButton, $clearButton);
+            }
+        });
+
+        var loadingDiv = document.getElementById("loading");
+        loadingDiv.parentNode.removeChild(loadingDiv);
+    });
+</script>
 
 {% endblock %}

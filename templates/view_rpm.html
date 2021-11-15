@@ -18,11 +18,48 @@
 
 <br>
 
+<div class="card bg-light border-secondary">
+    <div class="card-body">
 
-<br><b>Source Package (SRPM)</b><br>
+        <div class="row">
+            <div class="col-6">
+                <div class="card border-secondary">
+                    <div class="card-body">
+                        <h5 class="card-title">Specific NEVRAs</h5>
 
-<a href="view-srpm--{{view_conf.id}}--{{pkg.source_name}}.html">{{pkg.source_name}}</a>
-<br>
+                        <div class="card">
+
+                            <table class="table-packages table-packages-muted">
+
+                                <tbody>
+                                    {% for srpm_nevr in pkg.nevrs | sort %}
+                                    <tr>
+                                        <td>
+                                            {{srpm_nevr}}
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+            <div class="col-6">
+                <div class="card border-secondary">
+                    <div class="card-body">
+                        <h5 class="card-title">Source Package (SRPM)</h5>
+                        <a href="view-srpm--{{view_conf.id}}--{{pkg.source_name}}.html">{{pkg.source_name}}</a>
+                        
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
 
 <br>
 
@@ -356,35 +393,5 @@
 
 <br>
 
-<hr>
-
-
-
-<br>
-<br>
-<br>
-<br>
-<br>
-<br>
-<br>
-<br>
-<br>
-<br>
-<br>
-<br>
-<br>
-<br>
-<br>
-
-<hr>
-{% for key, value in pkg.items() %}
-
-<b>{{key}}</b>
-<br>
-{{value}}
-<br>
-<br>
-
-{% endfor %}
 
 {% endblock %}

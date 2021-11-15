@@ -462,6 +462,7 @@ def _load_config_workload(document_id, document, settings):
                     config["package_placeholders"]["srpms"][srpm] = {}
                     config["package_placeholders"]["srpms"][srpm]["name"] = srpm
                     config["package_placeholders"]["srpms"][srpm]["buildrequires"] = pkg_buildrequires
+                    config["package_placeholders"]["srpms"][srpm]["limit_arches"] = limit_arches
 
         
         #
@@ -3177,6 +3178,27 @@ def _generate_views_all_arches(configs, data):
 
             view_all_arches["modules"] = {}
 
+            view_all_arches["numbers"] = {}
+            view_all_arches["numbers"]["pkgs"] = {}
+            view_all_arches["numbers"]["pkgs"]["runtime"] = 0
+            view_all_arches["numbers"]["pkgs"]["env"] = 0
+            view_all_arches["numbers"]["pkgs"]["req"] = 0
+            view_all_arches["numbers"]["pkgs"]["dep"] = 0
+            view_all_arches["numbers"]["pkgs"]["build"] = 0
+            view_all_arches["numbers"]["pkgs"]["build_base"] = 0
+            view_all_arches["numbers"]["pkgs"]["build_level_1"] = 0
+            view_all_arches["numbers"]["pkgs"]["build_level_2_plus"] = 0
+            view_all_arches["numbers"]["srpms"] = {}
+            view_all_arches["numbers"]["srpms"]["runtime"] = 0
+            view_all_arches["numbers"]["srpms"]["env"] = 0
+            view_all_arches["numbers"]["srpms"]["req"] = 0
+            view_all_arches["numbers"]["srpms"]["dep"] = 0
+            view_all_arches["numbers"]["srpms"]["build"] = 0
+            view_all_arches["numbers"]["srpms"]["build_base"] = 0
+            view_all_arches["numbers"]["srpms"]["build_level_1"] = 0
+            view_all_arches["numbers"]["srpms"]["build_level_2_plus"] = 0
+
+
             for arch in view_conf["architectures"]:
                 view_id = "{view_conf_id}:{arch}".format(
                     view_conf_id=view_conf_id,
@@ -3195,7 +3217,13 @@ def _generate_views_all_arches(configs, data):
                         view_all_arches["workloads"][workload_conf_id] = {}
                         view_all_arches["workloads"][workload_conf_id]["workload_conf_id"] = workload_conf_id
                         view_all_arches["workloads"][workload_conf_id]["name"] = workload_conf["name"]
+                        view_all_arches["workloads"][workload_conf_id]["maintainer"] = workload_conf["maintainer"]
+                        view_all_arches["workloads"][workload_conf_id]["succeeded"] = True
                         # ...
+                    
+                    if not workload["succeeded"]:
+                        view_all_arches["workloads"][workload_conf_id]["succeeded"] = False
+
 
                 # Binary Packages
                 for package in view["pkgs"].values():
@@ -3234,6 +3262,7 @@ def _generate_views_all_arches(configs, data):
                         view_all_arches[key][identifier]["evr"] = package["evr"]
                         view_all_arches[key][identifier]["source_name"] = package["source_name"]
                         view_all_arches[key][identifier]["arches"] = set()
+                        view_all_arches[key][identifier]["category"] = None
 
                         _init_pkg_or_srpm_relations_fields(view_all_arches[key][identifier], type="rpm")
                     
@@ -3258,6 +3287,7 @@ def _generate_views_all_arches(configs, data):
                         view_all_arches[key][identifier]["pkg_names"] = set()
                         view_all_arches[key][identifier]["pkg_nevrs"] = set()
                         view_all_arches[key][identifier]["arches"] = set()
+                        view_all_arches[key][identifier]["category"] = None
 
                         _init_pkg_or_srpm_relations_fields(view_all_arches[key][identifier])
                     
@@ -3294,6 +3324,63 @@ def _generate_views_all_arches(configs, data):
                         view_all_arches["modules"][module_id]["id"] = module_id
                         # ...
             
+
+            # RPMs
+            for pkg in view_all_arches["pkgs_by_nevr"].values():
+                category = None
+                if pkg["in_workload_ids_env"]:
+                    category = "env"
+                elif pkg["in_workload_ids_req"]:
+                    category = "req"
+                elif pkg["in_workload_ids_dep"]:
+                    category = "dep"
+                elif pkg["in_buildroot_of_srpm_id_env"]:
+                    category = "build_base"
+                elif pkg["in_buildroot_of_srpm_id_req"] or pkg["in_buildroot_of_srpm_id_dep"]:
+                    if pkg["level_number"] == 1:
+                        category = "build_level_1"
+                    elif pkg["level_number"] > 1:
+                        category = "build_level_2_plus"
+                
+                view_all_arches["numbers"]["pkgs"][category] += 1
+            
+            view_all_arches["numbers"]["pkgs"]["runtime"] = view_all_arches["numbers"]["pkgs"]["env"] + view_all_arches["numbers"]["pkgs"]["req"] + view_all_arches["numbers"]["pkgs"]["dep"]
+            view_all_arches["numbers"]["pkgs"]["build"] = view_all_arches["numbers"]["pkgs"]["build_base"] + view_all_arches["numbers"]["pkgs"]["build_level_1"] + view_all_arches["numbers"]["pkgs"]["build_level_2_plus"]
+            
+            # SRPMs
+            for pkg in view_all_arches["source_pkgs_by_name"].values():
+                category = None
+                if pkg["in_workload_ids_env"]:
+                    category = "env"
+                elif pkg["in_workload_ids_req"]:
+                    category = "req"
+                elif pkg["in_workload_ids_dep"]:
+                    category = "dep"
+                elif pkg["in_buildroot_of_srpm_id_env"]:
+                    category = "build_base"
+                elif pkg["in_buildroot_of_srpm_id_req"] or pkg["in_buildroot_of_srpm_id_dep"]:
+                    if pkg["level_number"] == 1:
+                        category = "build_level_1"
+                    elif pkg["level_number"] > 1:
+                        category = "build_level_2_plus"
+                
+                view_all_arches["numbers"]["srpms"][category] += 1
+            
+            view_all_arches["numbers"]["srpms"]["runtime"] = \
+                view_all_arches["numbers"]["srpms"]["env"] + \
+                view_all_arches["numbers"]["srpms"]["req"] + \
+                view_all_arches["numbers"]["srpms"]["dep"]
+
+            view_all_arches["numbers"]["srpms"]["build"] = \
+                view_all_arches["numbers"]["srpms"]["build_base"] + \
+                view_all_arches["numbers"]["srpms"]["build_level_1"] + \
+                view_all_arches["numbers"]["srpms"]["build_level_2_plus"]
+
+
+
+
+
+            # Done
             views_all_arches[view_conf_id] = view_all_arches
     
     return views_all_arches
