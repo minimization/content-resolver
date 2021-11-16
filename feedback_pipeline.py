@@ -59,6 +59,9 @@ class RepoDownloadError(Exception):
 class BuildGroupAnalysisError(Exception):
     pass
 
+class KojiRootLogError(Exception):
+    pass
+
 
 def log(msg):
     print(msg, file=sys.stderr)
@@ -2472,7 +2475,8 @@ def _get_build_deps_from_a_root_log(root_log):
 
 
 def _resolve_srpm_using_root_log(srpm_id, arch, koji_session, koji_files_url):
-    
+
+    log("    Talking to Koji API...")
     koji_pkg_data = koji_session.getRPM("{}.src".format(srpm_id))
     koji_logs = koji_session.getBuildLogs(koji_pkg_data["build_id"])
 
@@ -2488,13 +2492,29 @@ def _resolve_srpm_using_root_log(srpm_id, arch, koji_session, koji_files_url):
         koji_log_path=koji_log_path
     )
 
-    with urllib.request.urlopen(root_log_url) as response:
-        root_log_data = response.read()
-        root_log_contents = root_log_data.decode('utf-8')
+    log("    Downloading the root.log file...")
+    # This sometimes hangs, so I'm giving it a timeout and
+    # a few extra tries before totally giving up!
+    MAX_TRIES = 10
+    attempts = 0
+    success = False
+    while attempts < MAX_TRIES:
+        try:
+            with urllib.request.urlopen(root_log_url, timeout=20) as response:
+                root_log_data = response.read()
+                root_log_contents = root_log_data.decode('utf-8')
+            success = True
+            break
+        except:
+            attempts +=1
+            log("    Error getting the root log... retrying...")
+    if not success:
+        raise KojiRootLogError("Could not get a root.log file")
 
-    
+    log("    Parsing the root.log file...")
     directly_required_pkg_names = _get_build_deps_from_a_root_log(root_log_contents)
 
+    log("    Done!")
     return directly_required_pkg_names
 
 
@@ -2750,7 +2770,8 @@ def _analyze_srpm_buildroots(tmp_dnf_cachedir, tmp_installroots, configs, data, 
                 # freed when done!
                 with concurrent.futures.ProcessPoolExecutor(max_workers=1) as executor:
                     fake_workload = executor.submit(_analyze_workload, tmp_dnf_cachedir, tmp_installroots, fake_workload_conf, fake_env_conf, configs["repos"][repo_id], arch).result()
-                
+                #fake_workload = _analyze_workload(tmp_dnf_cachedir, tmp_installroots, fake_workload_conf, fake_env_conf, configs["repos"][repo_id], arch)
+
                 # Save the buildroot data
                 buildroot["srpms"][repo_id][arch][srpm_id]["succeeded"] = fake_workload["succeeded"]
                 buildroot["srpms"][repo_id][arch][srpm_id]["pkg_relations"] = fake_workload["pkg_relations"]
