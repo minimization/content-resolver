@@ -5,6 +5,7 @@ out
 installs-cache.json
 __pycache__
 output
+output.bak
 cache*
 tmp
 data.json
