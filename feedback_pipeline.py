@@ -2524,8 +2524,34 @@ class Analyzer():
                     state += 1
                     
                 else:
-                    pkg_name = file_line.split()[2]
-                    required_pkgs.append(pkg_name)
+                    # I need to deal with the following thing...
+                    #
+                    # DEBUG util.py:446:   gobject-introspection-devel     aarch64 1.70.0-1.fc36              build 1.1 M
+                    # DEBUG util.py:446:   graphene-devel                  aarch64 1.10.6-3.fc35              build 159 k
+                    # DEBUG util.py:446:   gstreamer1-plugins-bad-free-devel
+                    # DEBUG util.py:446:                                   aarch64 1.19.2-1.fc36              build 244 k
+                    # DEBUG util.py:446:   json-glib-devel                 aarch64 1.6.6-1.fc36               build 173 k
+                    # DEBUG util.py:446:   libXcomposite-devel             aarch64 0.4.5-6.fc35               build  16 k  
+                    #
+                    # The "gstreamer1-plugins-bad-free-devel" package name is too long to fit in the column,
+                    # so it gets split on two lines.
+                    #
+                    # Which if I take the usual file_line.split()[2] I get the correct name,
+                    # but the next line gives me "aarch64" as a package name which is wrong.
+                    #
+                    # So the usual line has file_line.split() == 8
+                    # The one with the long package name has file_line.split() == 3
+                    # and the one following it has file_line.split() == 7
+
+                    if len(file_line.split()) == 8 or len(file_line.split()) == 3:
+                        pkg_name = file_line.split()[2]
+                        required_pkgs.append(pkg_name)
+
+                    elif len(file_line.split()) == 7:
+                        continue
+
+                    else:
+                        raise KojiRootLogError
             
 
             # 4/
