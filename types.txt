@@ -145,6 +145,8 @@ configs["views"][view_conf_id]["maintainer"]
 configs["views"][view_conf_id]["type"]
 configs["views"][view_conf_id]["labels"]
 configs["views"][view_conf_id]["repository"]
+configs["views"][view_conf_id]["buildroot_strategy"]
+
 
 
 data["views_all_arches"][view_conf_id]["id"]

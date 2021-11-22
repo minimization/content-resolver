@@ -4,6 +4,7 @@ import argparse, yaml, tempfile, os, subprocess, json, jinja2, datetime, copy, r
 import concurrent.futures
 import rpm_showme as showme
 from functools import lru_cache
+import multiprocessing
 
 
 # Features of this new release
@@ -60,6 +61,9 @@ class BuildGroupAnalysisError(Exception):
     pass
 
 class KojiRootLogError(Exception):
+    pass
+
+class AnalysisError(Exception):
     pass
 
 
@@ -1097,577 +1101,167 @@ def get_configs(settings):
     return configs
 
 
+class Analyzer():
 
-###############################################################################
-### Analyzing stuff! ##########################################################
-###############################################################################
+    ###############################################################################
+    ### Analyzing stuff! ##########################################################
+    ###############################################################################
 
-# Configs:
-#   TYPE:           KEY:          ID:
-# - repo            repos         repo_id
-# - env_conf        envs          env_id
-# - workload_conf   workloads     workload_id
-# - label           labels        label_id
-# - conf_view       views         view_id
-#
-# Data:
-#   TYPE:         KEY:                 ID:
-# - pkg           pkgs/repo_id/arch    NEVR
-# - env           envs                 env_id:repo_id:arch_id
-# - workload      workloads            workload_id:env_id:repo_id:arch_id
-# - view          views                view_id:repo_id:arch_id
-#
-# tmp contents:
-# - dnf_cachedir-{repo}-{arch}
-# - dnf_generic_installroot-{repo}-{arch}
-# - dnf_env_installroot-{env_conf}-{repo}-{arch}
-#
-#
+    # Configs:
+    #   TYPE:           KEY:          ID:
+    # - repo            repos         repo_id
+    # - env_conf        envs          env_id
+    # - workload_conf   workloads     workload_id
+    # - label           labels        label_id
+    # - conf_view       views         view_id
+    #
+    # Data:
+    #   TYPE:         KEY:                 ID:
+    # - pkg           pkgs/repo_id/arch    NEVR
+    # - env           envs                 env_id:repo_id:arch_id
+    # - workload      workloads            workload_id:env_id:repo_id:arch_id
+    # - view          views                view_id:repo_id:arch_id
+    #
+    # tmp contents:
+    # - dnf_cachedir-{repo}-{arch}
+    # - dnf_generic_installroot-{repo}-{arch}
+    # - dnf_env_installroot-{env_conf}-{repo}-{arch}
+    #
+    #
 
-global_dnf_repo_cache = {}
-def _load_repo_cached(base, repo, arch):
-    repo_id = repo["id"]
+    def __init__(self, configs, settings):   
+        self.configs = configs
+        self.settings = settings
 
-    exists = True
+        self.global_dnf_repo_cache = {}
+        self.data = {}
+        self.cache = {}
+
+        self.cache["root_log_deps"] = {}
+        self.cache["root_log_deps"]["current"] = {}
+        self.cache["root_log_deps"]["next"] = {}
+
+        try:
+            self.cache["root_log_deps"]["current"] = load_data(self.settings["root_log_deps_cache_path"])
+        except FileNotFoundError:
+            pass
+
     
-    if repo_id not in global_dnf_repo_cache:
-        exists = False
-        global_dnf_repo_cache[repo_id] = {}
+    def _load_repo_cached(self, base, repo, arch):
+        repo_id = repo["id"]
 
-    elif arch not in global_dnf_repo_cache[repo_id]:
-        exists = False
-    
-    if exists:
-        log("  Loading repos from cache...")
-
-        for repo in global_dnf_repo_cache[repo_id][arch]:
-            base.repos.add(repo)
-
-    else:
-        log("  Loading repos using DNF...")
-
-        for repo_name, repo_data in repo["source"]["repos"].items():
-            if repo_data["limit_arches"]:
-                if arch not in repo_data["limit_arches"]:
-                    log("  Skipping {} on {}".format(repo_name, arch))
-                    continue
-            log("  Including {}".format(repo_name))
-
-            additional_repo = dnf.repo.Repo(
-                name=repo_name,
-                parent_conf=base.conf
-            )
-            additional_repo.baseurl = repo_data["baseurl"]
-            additional_repo.priority = repo_data["priority"]
-            base.repos.add(additional_repo)
-
-        # Additional repository (if configured)
-        #if repo["source"]["additional_repository"]:
-        #    additional_repo = dnf.repo.Repo(name="additional-repository",parent_conf=base.conf)
-        #    additional_repo.baseurl = [repo["source"]["additional_repository"]]
-        #    additional_repo.priority = 1
-        #    base.repos.add(additional_repo)
-
-        # All other system repos
-        #base.read_all_repos()
-
-        global_dnf_repo_cache[repo_id][arch] = []
-        for repo in base.repos.iter_enabled():
-            global_dnf_repo_cache[repo_id][arch].append(repo)
-    
-    
-
-
-def _analyze_pkgs(tmp_dnf_cachedir, tmp_installroots, repo, arch):
-    log("Analyzing pkgs for {repo_name} ({repo_id}) {arch}".format(
-            repo_name=repo["name"],
-            repo_id=repo["id"],
-            arch=arch
-        ))
-    
-    with dnf.Base() as base:
-
-        # Local DNF cache
-        cachedir_name = "dnf_cachedir-{repo}-{arch}".format(
-            repo=repo["id"],
-            arch=arch
-        )
-        base.conf.cachedir = os.path.join(tmp_dnf_cachedir, cachedir_name)
-
-        # Generic installroot
-        root_name = "dnf_generic_installroot-{repo}-{arch}".format(
-            repo=repo["id"],
-            arch=arch
-        )
-        base.conf.installroot = os.path.join(tmp_installroots, root_name)
-
-        # Architecture
-        base.conf.arch = arch
-        base.conf.ignorearch = True
-
-        # Releasever
-        base.conf.substitutions['releasever'] = repo["source"]["releasever"]
-
-        for repo_name, repo_data in repo["source"]["repos"].items():
-            if repo_data["limit_arches"]:
-                if arch not in repo_data["limit_arches"]:
-                    log("  Skipping {} on {}".format(repo_name, arch))
-                    continue
-            log("  Including {}".format(repo_name))
-
-            additional_repo = dnf.repo.Repo(
-                name=repo_name,
-                parent_conf=base.conf
-            )
-            additional_repo.baseurl = repo_data["baseurl"]
-            additional_repo.priority = repo_data["priority"]
-            base.repos.add(additional_repo)
-
-        # Additional repository (if configured)
-        #if repo["source"]["additional_repository"]:
-        #    additional_repo = dnf.repo.Repo(name="additional-repository",parent_conf=base.conf)
-        #    additional_repo.baseurl = [repo["source"]["additional_repository"]]
-        #    additional_repo.priority = 1
-        #    base.repos.add(additional_repo)
-
-        # Load repos
-        log("  Loading repos...")
-        #base.read_all_repos()
-
-
-        # At this stage, I need to get all packages from the repo listed.
-        # That also includes modular packages. Modular packages in non-enabled
-        # streams would be normally hidden. So I mark all the available repos as
-        # hotfix repos to make all packages visible, including non-enabled streams.
-        for repo in base.repos.all():
-            repo.module_hotfixes = True
-
-        # This sometimes fails, so let's try at least N times
-        # before totally giving up!
-        MAX_TRIES = 10
-        attempts = 0
-        success = False
-        while attempts < MAX_TRIES:
-            try:
-                base.fill_sack(load_system_repo=False)
-                success = True
-                break
-            except dnf.exceptions.RepoError as err:
-                attempts +=1
-                log("  Failed to download repodata. Trying again!")
-        if not success:
-            err = "Failed to download repodata while analyzing repo '{repo_name} ({repo_id}) {arch}".format(
-            repo_name=repo["name"],
-            repo_id=repo["id"],
-            arch=arch
-            )
-            err_log(err)
-            raise RepoDownloadError(err)
-
-        # DNF query
-        query = base.sack.query
-
-        # Get all packages
-        all_pkgs_set = set(query())
-        pkgs = {}
-        for pkg_object in all_pkgs_set:
-            pkg_nevra = "{name}-{evr}.{arch}".format(
-                name=pkg_object.name,
-                evr=pkg_object.evr,
-                arch=pkg_object.arch
-            )
-            pkg_nevr = "{name}-{evr}".format(
-                name=pkg_object.name,
-                evr=pkg_object.evr
-            )
-            pkg = {}
-            pkg["id"] = pkg_nevra
-            pkg["name"] = pkg_object.name
-            pkg["evr"] = pkg_object.evr
-            pkg["nevr"] = pkg_nevr
-            pkg["arch"] = pkg_object.arch
-            pkg["installsize"] = pkg_object.installsize
-            pkg["description"] = pkg_object.description
-            #pkg["provides"] = pkg_object.provides
-            #pkg["requires"] = pkg_object.requires
-            #pkg["recommends"] = pkg_object.recommends
-            #pkg["suggests"] = pkg_object.suggests
-            pkg["summary"] = pkg_object.summary
-            pkg["source_name"] = pkg_object.source_name
-            pkg["sourcerpm"] = pkg_object.sourcerpm
-            pkg["reponame"] = pkg_object.reponame
-
-            pkgs[pkg_nevra] = pkg
+        exists = True
         
-        log("  Done!  ({pkg_count} packages in total)".format(
-            pkg_count=len(pkgs)
-        ))
-        log("")
+        if repo_id not in self.global_dnf_repo_cache:
+            exists = False
+            self.global_dnf_repo_cache[repo_id] = {}
 
-    return pkgs
-
-def _analyze_package_relations(dnf_query, package_placeholders = None):
-    relations = {}
-
-    for pkg in dnf_query:
-        pkg_id = "{name}-{evr}.{arch}".format(
-            name=pkg.name,
-            evr=pkg.evr,
-            arch=pkg.arch
-        )
+        elif arch not in self.global_dnf_repo_cache[repo_id]:
+            exists = False
         
-        required_by = set()
-        recommended_by = set()
-        suggested_by = set()
+        if exists:
+            log("  Loading repos from cache...")
 
-        for dep_pkg in dnf_query.filter(requires=[pkg]):
-            dep_pkg_id = "{name}-{evr}.{arch}".format(
-                name=dep_pkg.name,
-                evr=dep_pkg.evr,
-                arch=dep_pkg.arch
-            )
-            required_by.add(dep_pkg_id)
+            for repo in self.global_dnf_repo_cache[repo_id][arch]:
+                base.repos.add(repo)
 
-        for dep_pkg in dnf_query.filter(recommends=[pkg]):
-            dep_pkg_id = "{name}-{evr}.{arch}".format(
-                name=dep_pkg.name,
-                evr=dep_pkg.evr,
-                arch=dep_pkg.arch
-            )
-            recommended_by.add(dep_pkg_id)
-        
-        for dep_pkg in dnf_query.filter(suggests=[pkg]):
-            dep_pkg_id = "{name}-{evr}.{arch}".format(
-                name=dep_pkg.name,
-                evr=dep_pkg.evr,
-                arch=dep_pkg.arch
-            )
-            suggested_by.add(dep_pkg_id)
-        
-        relations[pkg_id] = {}
-        relations[pkg_id]["required_by"] = sorted(list(required_by))
-        relations[pkg_id]["recommended_by"] = sorted(list(recommended_by))
-        relations[pkg_id]["suggested_by"] = sorted(list(suggested_by))
-        relations[pkg_id]["source_name"] = pkg.source_name
-        relations[pkg_id]["reponame"] = pkg.reponame
+        else:
+            log("  Loading repos using DNF...")
+
+            for repo_name, repo_data in repo["source"]["repos"].items():
+                if repo_data["limit_arches"]:
+                    if arch not in repo_data["limit_arches"]:
+                        log("  Skipping {} on {}".format(repo_name, arch))
+                        continue
+                log("  Including {}".format(repo_name))
+
+                additional_repo = dnf.repo.Repo(
+                    name=repo_name,
+                    parent_conf=base.conf
+                )
+                additional_repo.baseurl = repo_data["baseurl"]
+                additional_repo.priority = repo_data["priority"]
+                base.repos.add(additional_repo)
+
+            # Additional repository (if configured)
+            #if repo["source"]["additional_repository"]:
+            #    additional_repo = dnf.repo.Repo(name="additional-repository",parent_conf=base.conf)
+            #    additional_repo.baseurl = [repo["source"]["additional_repository"]]
+            #    additional_repo.priority = 1
+            #    base.repos.add(additional_repo)
+
+            # All other system repos
+            #base.read_all_repos()
+
+            self.global_dnf_repo_cache[repo_id][arch] = []
+            for repo in base.repos.iter_enabled():
+                self.global_dnf_repo_cache[repo_id][arch].append(repo)
     
-    if package_placeholders:
-        for placeholder_name,placeholder_data in package_placeholders.items():
-            placeholder_id = pkg_placeholder_name_to_id(placeholder_name)
 
-            relations[placeholder_id] = {}
-            relations[placeholder_id]["required_by"] = []
-            relations[placeholder_id]["recommended_by"] = []
-            relations[placeholder_id]["suggested_by"] = []
-            relations[placeholder_id]["reponame"] = None
+    def _analyze_pkgs(self, repo, arch):
+        log("Analyzing pkgs for {repo_name} ({repo_id}) {arch}".format(
+                repo_name=repo["name"],
+                repo_id=repo["id"],
+                arch=arch
+            ))
         
-        for placeholder_name,placeholder_data in package_placeholders.items():
-            placeholder_id = pkg_placeholder_name_to_id(placeholder_name)
-            for placeholder_dependency_name in placeholder_data["requires"]:
-                for pkg_id in relations:
-                    pkg_name = pkg_id_to_name(pkg_id)
-                    if pkg_name == placeholder_dependency_name:
-                        relations[pkg_id]["required_by"].append(placeholder_id)
-    
-    return relations
+        with dnf.Base() as base:
 
-def _analyze_env(tmp_dnf_cachedir, tmp_installroots, env_conf, repo, arch):
-    env = {}
-    
-    env["env_conf_id"] = env_conf["id"]
-    env["pkg_ids"] = []
-    env["repo_id"] = repo["id"]
-    env["arch"] = arch
-
-    env["pkg_relations"] = []
-
-    env["errors"] = {}
-    env["errors"]["non_existing_pkgs"] = []
-
-    env["succeeded"] = True
-
-    with dnf.Base() as base:
-
-        # Local DNF cache
-        cachedir_name = "dnf_cachedir-{repo}-{arch}".format(
-            repo=repo["id"],
-            arch=arch
-        )
-        base.conf.cachedir = os.path.join(tmp_dnf_cachedir, cachedir_name)
-
-        # Environment installroot
-        root_name = "dnf_env_installroot-{env_conf}-{repo}-{arch}".format(
-            env_conf=env_conf["id"],
-            repo=repo["id"],
-            arch=arch
-        )
-        base.conf.installroot = os.path.join(tmp_installroots, root_name)
-
-        # Architecture
-        base.conf.arch = arch
-        base.conf.ignorearch = True
-
-        # Releasever
-        base.conf.substitutions['releasever'] = repo["source"]["releasever"]
-
-        # Additional DNF Settings
-        base.conf.tsflags.append('justdb')
-        base.conf.tsflags.append('noscripts')
-
-        # Environment config
-        if "include-weak-deps" not in env_conf["options"]:
-            base.conf.install_weak_deps = False
-        if "include-docs" not in env_conf["options"]:
-            base.conf.tsflags.append('nodocs')
-
-        # Load repos
-        #log("  Loading repos...")
-        #base.read_all_repos()
-        _load_repo_cached(base, repo, arch)
-
-        # This sometimes fails, so let's try at least N times
-        # before totally giving up!
-        MAX_TRIES = 10
-        attempts = 0
-        success = False
-        while attempts < MAX_TRIES:
-            try:
-                base.fill_sack(load_system_repo=False)
-                success = True
-                break
-            except dnf.exceptions.RepoError as err:
-                attempts +=1
-                log("  Failed to download repodata. Trying again!")
-        if not success:
-            err = "Failed to download repodata while analyzing environment '{env_conf}' from '{repo}' {arch}:".format(
-                env_conf=env_conf["id"],
+            # Local DNF cache
+            cachedir_name = "dnf_cachedir-{repo}-{arch}".format(
                 repo=repo["id"],
                 arch=arch
             )
-            err_log(err)
-            raise RepoDownloadError(err)
+            base.conf.cachedir = os.path.join(self.tmp_dnf_cachedir, cachedir_name)
 
-
-        # Packages
-        log("  Adding packages...")
-        for pkg in env_conf["packages"]:
-            try:
-                base.install(pkg)
-            except dnf.exceptions.MarkingError:
-                env["errors"]["non_existing_pkgs"].append(pkg)
-                continue
-        
-        # Groups
-        log("  Adding groups...")
-        if env_conf["groups"]:
-            base.read_comps(arch_filter=True)
-        for grp_spec in env_conf["groups"]:
-            group = base.comps.group_by_pattern(grp_spec)
-            if not group:
-                env["errors"]["non_existing_pkgs"].append(grp_spec)
-                continue
-            base.group_install(group.id, ['mandatory', 'default'])
-
-        # Architecture-specific packages
-        for pkg in env_conf["arch_packages"][arch]:
-            try:
-                base.install(pkg)
-            except dnf.exceptions.MarkingError:
-                env["errors"]["non_existing_pkgs"].append(pkg)
-                continue
-        
-        # Resolve dependencies
-        log("  Resolving dependencies...")
-        try:
-            base.resolve()
-        except dnf.exceptions.DepsolveError as err:
-            err_log("Failed to analyze environment '{env_conf}' from '{repo}' {arch}:".format(
-                    env_conf=env_conf["id"],
-                    repo=repo["id"],
-                    arch=arch
-                ))
-            err_log("  - {err}".format(err=err))
-            env["succeeded"] = False
-            env["errors"]["message"] = str(err)
-            return env
-
-        # Write the result into RPMDB.
-        # The transaction needs us to download all the packages. :(
-        # So let's do that to make it happy.
-        log("  Downloading packages...")
-        base.download_packages(base.transaction.install_set)
-        log("  Running DNF transaction, writing RPMDB...")
-        try:
-            base.do_transaction()
-        except (dnf.exceptions.TransactionCheckError, dnf.exceptions.Error) as err:
-            err_log("Failed to analyze environment '{env_conf}' from '{repo}' {arch}:".format(
-                    env_conf=env_conf["id"],
-                    repo=repo["id"],
-                    arch=arch
-                ))
-            err_log("  - {err}".format(err=err))
-            env["succeeded"] = False
-            env["errors"]["message"] = str(err)
-            return env
-
-        # DNF Query
-        log("  Creating a DNF Query object...")
-        query = base.sack.query().filterm(pkg=base.transaction.install_set)
-
-        for pkg in query:
-            pkg_id = "{name}-{evr}.{arch}".format(
-                name=pkg.name,
-                evr=pkg.evr,
-                arch=pkg.arch
+            # Generic installroot
+            root_name = "dnf_generic_installroot-{repo}-{arch}".format(
+                repo=repo["id"],
+                arch=arch
             )
-            env["pkg_ids"].append(pkg_id)
-        
-        env["pkg_relations"] = _analyze_package_relations(query)
+            base.conf.installroot = os.path.join(self.tmp_installroots, root_name)
 
-        log("  Done!  ({pkg_count} packages in total)".format(
-            pkg_count=len(env["pkg_ids"])
-        ))
-        log("")
-    
-    return env
+            # Architecture
+            base.conf.arch = arch
+            base.conf.ignorearch = True
 
+            # Releasever
+            base.conf.substitutions['releasever'] = repo["source"]["releasever"]
 
-def _analyze_envs(tmp_dnf_cachedir, tmp_installroots, configs):
-    envs = {}
+            for repo_name, repo_data in repo["source"]["repos"].items():
+                if repo_data["limit_arches"]:
+                    if arch not in repo_data["limit_arches"]:
+                        log("  Skipping {} on {}".format(repo_name, arch))
+                        continue
+                log("  Including {}".format(repo_name))
 
-    # Look at all env configs...
-    for env_conf_id, env_conf in configs["envs"].items():
-        # For each of those, look at all repos it lists...
-        for repo_id in env_conf["repositories"]:
-            # And for each of the repo, look at all arches it supports.
-            repo = configs["repos"][repo_id]
-            for arch in repo["source"]["architectures"]:
-                # Now it has
-                #    all env confs *
-                #    repos each config lists *
-                #    archeas each repo supports
-                # Analyze all of that!
-                log("Analyzing {env_name} ({env_id}) from {repo_name} ({repo}) {arch}...".format(
-                    env_name=env_conf["name"],
-                    env_id=env_conf_id,
-                    repo_name=repo["name"],
-                    repo=repo_id,
-                    arch=arch
-                ))
-
-                env_id = "{env_conf_id}:{repo_id}:{arch}".format(
-                    env_conf_id=env_conf_id,
-                    repo_id=repo_id,
-                    arch=arch
+                additional_repo = dnf.repo.Repo(
+                    name=repo_name,
+                    parent_conf=base.conf
                 )
-                envs[env_id] = _analyze_env(tmp_dnf_cachedir, tmp_installroots, env_conf, repo, arch)
-                
-    
-    return envs
+                additional_repo.baseurl = repo_data["baseurl"]
+                additional_repo.priority = repo_data["priority"]
+                base.repos.add(additional_repo)
+
+            # Additional repository (if configured)
+            #if repo["source"]["additional_repository"]:
+            #    additional_repo = dnf.repo.Repo(name="additional-repository",parent_conf=base.conf)
+            #    additional_repo.baseurl = [repo["source"]["additional_repository"]]
+            #    additional_repo.priority = 1
+            #    base.repos.add(additional_repo)
+
+            # Load repos
+            log("  Loading repos...")
+            #base.read_all_repos()
 
 
-def _return_failed_workload_env_err(workload_conf, env_conf, repo, arch):
-    workload = {}
+            # At this stage, I need to get all packages from the repo listed.
+            # That also includes modular packages. Modular packages in non-enabled
+            # streams would be normally hidden. So I mark all the available repos as
+            # hotfix repos to make all packages visible, including non-enabled streams.
+            for repo in base.repos.all():
+                repo.module_hotfixes = True
 
-    workload["workload_conf_id"] = workload_conf["id"]
-    workload["env_conf_id"] = env_conf["id"]
-    workload["repo_id"] = repo["id"]
-    workload["arch"] = arch
-
-    workload["pkg_env_ids"] = []
-    workload["pkg_added_ids"] = []
-    workload["pkg_placeholder_ids"] = []
-
-    workload["pkg_relations"] = []
-
-    workload["errors"] = {}
-    workload["errors"]["non_existing_pkgs"] = []
-    workload["succeeded"] = False
-    workload["env_succeeded"] = False
-
-    workload["errors"]["message"] = """
-    Failed to analyze this workload because of an error while analyzing the environment.
-
-    Please see the associated environment results for a detailed error message.
-    """
-
-    return workload
-
-
-def _analyze_workload(tmp_dnf_cachedir, tmp_installroots, workload_conf, env_conf, repo, arch):
-    workload = {}
-
-    workload["workload_conf_id"] = workload_conf["id"]
-    workload["env_conf_id"] = env_conf["id"]
-    workload["repo_id"] = repo["id"]
-    workload["arch"] = arch
-
-    workload["pkg_env_ids"] = []
-    workload["pkg_added_ids"] = []
-    workload["pkg_placeholder_ids"] = []
-    workload["srpm_placeholder_names"] = []
-
-    workload["enabled_modules"] = []
-
-    workload["pkg_relations"] = []
-
-    workload["errors"] = {}
-    workload["errors"]["non_existing_pkgs"] = []
-    workload["errors"]["non_existing_placeholder_deps"] = []
-
-    workload["succeeded"] = True
-    workload["env_succeeded"] = True
-
-
-    # Figure out the workload labels
-    # It can only have labels that are in both the workload_conf and the env_conf
-    workload["labels"] = list(set(workload_conf["labels"]) & set(env_conf["labels"]))
-
-    with dnf.Base() as base:
-
-        # Local DNF cache
-        cachedir_name = "dnf_cachedir-{repo}-{arch}".format(
-            repo=repo["id"],
-            arch=arch
-        )
-        base.conf.cachedir = os.path.join(tmp_dnf_cachedir, cachedir_name)
-
-        # Environment installroot
-        # Since we're not writing anything into the installroot,
-        # let's just use the base image's installroot!
-        root_name = "dnf_env_installroot-{env_conf}-{repo}-{arch}".format(
-            env_conf=env_conf["id"],
-            repo=repo["id"],
-            arch=arch
-        )
-        base.conf.installroot = os.path.join(tmp_installroots, root_name)
-
-        # Architecture
-        base.conf.arch = arch
-        base.conf.ignorearch = True
-
-        # Releasever
-        base.conf.substitutions['releasever'] = repo["source"]["releasever"]
-
-        # Environment config
-        if "include-weak-deps" not in workload_conf["options"]:
-            base.conf.install_weak_deps = False
-        if "include-docs" not in workload_conf["options"]:
-            base.conf.tsflags.append('nodocs')
-
-        # Load repos
-        #log("  Loading repos...")
-        #base.read_all_repos()
-        _load_repo_cached(base, repo, arch)
-
-        # Now I need to load the local RPMDB.
-        # However, if the environment is empty, it wasn't created, so I need to treat
-        # it differently. So let's check!
-        if len(env_conf["packages"]) or len(env_conf["arch_packages"][arch]):
-            # It's not empty! Load local data.
-            base.fill_sack(load_system_repo=True)
-        else:
-            # It's empty. Treat it like we're using an empty installroot.
             # This sometimes fails, so let's try at least N times
             # before totally giving up!
             MAX_TRIES = 10
@@ -1682,271 +1276,326 @@ def _analyze_workload(tmp_dnf_cachedir, tmp_installroots, workload_conf, env_con
                     attempts +=1
                     log("  Failed to download repodata. Trying again!")
             if not success:
-                err = "Failed to download repodata while analyzing workload '{workload_id} on '{env_id}' from '{repo}' {arch}...".format(
-                        workload_id=workload_conf_id,
-                        env_id=env_conf_id,
-                        repo_name=repo["name"],
-                        repo=repo_id,
-                        arch=arch)
+                err = "Failed to download repodata while analyzing repo '{repo_name} ({repo_id}) {arch}".format(
+                repo_name=repo["name"],
+                repo_id=repo["id"],
+                arch=arch
+                )
                 err_log(err)
                 raise RepoDownloadError(err)
+
+            # DNF query
+            query = base.sack.query
+
+            # Get all packages
+            all_pkgs_set = set(query())
+            pkgs = {}
+            for pkg_object in all_pkgs_set:
+                pkg_nevra = "{name}-{evr}.{arch}".format(
+                    name=pkg_object.name,
+                    evr=pkg_object.evr,
+                    arch=pkg_object.arch
+                )
+                pkg_nevr = "{name}-{evr}".format(
+                    name=pkg_object.name,
+                    evr=pkg_object.evr
+                )
+                pkg = {}
+                pkg["id"] = pkg_nevra
+                pkg["name"] = pkg_object.name
+                pkg["evr"] = pkg_object.evr
+                pkg["nevr"] = pkg_nevr
+                pkg["arch"] = pkg_object.arch
+                pkg["installsize"] = pkg_object.installsize
+                pkg["description"] = pkg_object.description
+                #pkg["provides"] = pkg_object.provides
+                #pkg["requires"] = pkg_object.requires
+                #pkg["recommends"] = pkg_object.recommends
+                #pkg["suggests"] = pkg_object.suggests
+                pkg["summary"] = pkg_object.summary
+                pkg["source_name"] = pkg_object.source_name
+                pkg["sourcerpm"] = pkg_object.sourcerpm
+                pkg["reponame"] = pkg_object.reponame
+
+                pkgs[pkg_nevra] = pkg
+            
+            log("  Done!  ({pkg_count} packages in total)".format(
+                pkg_count=len(pkgs)
+            ))
+            log("")
+
+        return pkgs
+
+    def _analyze_package_relations(self, dnf_query, package_placeholders = None):
+        relations = {}
+
+        for pkg in dnf_query:
+            pkg_id = "{name}-{evr}.{arch}".format(
+                name=pkg.name,
+                evr=pkg.evr,
+                arch=pkg.arch
+            )
+            
+            required_by = set()
+            recommended_by = set()
+            suggested_by = set()
+
+            for dep_pkg in dnf_query.filter(requires=[pkg]):
+                dep_pkg_id = "{name}-{evr}.{arch}".format(
+                    name=dep_pkg.name,
+                    evr=dep_pkg.evr,
+                    arch=dep_pkg.arch
+                )
+                required_by.add(dep_pkg_id)
+
+            for dep_pkg in dnf_query.filter(recommends=[pkg]):
+                dep_pkg_id = "{name}-{evr}.{arch}".format(
+                    name=dep_pkg.name,
+                    evr=dep_pkg.evr,
+                    arch=dep_pkg.arch
+                )
+                recommended_by.add(dep_pkg_id)
+            
+            for dep_pkg in dnf_query.filter(suggests=[pkg]):
+                dep_pkg_id = "{name}-{evr}.{arch}".format(
+                    name=dep_pkg.name,
+                    evr=dep_pkg.evr,
+                    arch=dep_pkg.arch
+                )
+                suggested_by.add(dep_pkg_id)
+            
+            relations[pkg_id] = {}
+            relations[pkg_id]["required_by"] = sorted(list(required_by))
+            relations[pkg_id]["recommended_by"] = sorted(list(recommended_by))
+            relations[pkg_id]["suggested_by"] = sorted(list(suggested_by))
+            relations[pkg_id]["source_name"] = pkg.source_name
+            relations[pkg_id]["reponame"] = pkg.reponame
         
-        # Disabling modules
-        if workload_conf["modules_disable"]:
-            try:
-                log("  Disabling modules...")
-                module_base = dnf.module.module_base.ModuleBase(base)
-                module_base.disable(workload_conf["modules_disable"])
-            except dnf.exceptions.MarkingErrors as err:
-                workload["succeeded"] = False
-                workload["errors"]["message"] = str(err)
-                log("  Failed!  (Error message will be on the workload results page.")
-                log("")
-                return workload
+        if package_placeholders:
+            for placeholder_name,placeholder_data in package_placeholders.items():
+                placeholder_id = pkg_placeholder_name_to_id(placeholder_name)
+
+                relations[placeholder_id] = {}
+                relations[placeholder_id]["required_by"] = []
+                relations[placeholder_id]["recommended_by"] = []
+                relations[placeholder_id]["suggested_by"] = []
+                relations[placeholder_id]["reponame"] = None
+            
+            for placeholder_name,placeholder_data in package_placeholders.items():
+                placeholder_id = pkg_placeholder_name_to_id(placeholder_name)
+                for placeholder_dependency_name in placeholder_data["requires"]:
+                    for pkg_id in relations:
+                        pkg_name = pkg_id_to_name(pkg_id)
+                        if pkg_name == placeholder_dependency_name:
+                            relations[pkg_id]["required_by"].append(placeholder_id)
+        
+        return relations
 
 
-        # Enabling modules
-        if workload_conf["modules_enable"]:
-            try:
-                log("  Enabling modules...")
-                module_base = dnf.module.module_base.ModuleBase(base)
-                module_base.enable(workload_conf["modules_enable"])
-            except dnf.exceptions.MarkingErrors as err:
-                workload["succeeded"] = False
-                workload["errors"]["message"] = str(err)
-                log("  Failed!  (Error message will be on the workload results page.")
-                log("")
-                return workload
+    def _analyze_env_without_leaking(self, env_conf, repo, arch):
+
+        # DNF leaks memory and file descriptors :/
+        # 
+        # So, this workaround runs it in a subprocess that should have its resources
+        # freed when done!
+
+        queue_result = multiprocessing.Queue()
+        process = multiprocessing.Process(target=self._analyze_env_process, args=(queue_result, env_conf, repo, arch))
+        process.start()
+        process.join()
+
+        # This basically means there was an exception in the processing and the process crashed
+        if queue_result.empty():
+            raise AnalysisError
         
-        # Get a list of enabled modules
-        # The official DNF API doesn't support it. I got this from the DNF folks
-        # (thanks!) as a solution, but just keeping it in a generic try/except
-        # as it's not an official API. 
-        enabled_modules = set()
-        try:
-            all_modules = base._moduleContainer.getModulePackages()
-            for module in all_modules:
-                if base._moduleContainer.isEnabled(module):
-                    module_name = module.getName()
-                    module_stream = module.getStream()
-                    module_nsv = "{module_name}:{module_stream}".format(
-                        module_name=module_name,
-                        module_stream=module_stream
-                    )
-                    enabled_modules.add(module_nsv)
-        except:
-            log("  Something went wrong with getting a list of enabled modules. (This uses non-API DNF calls. Skipping.)")
-            enabled_modules = set()
-        workload["enabled_modules"] = list(enabled_modules)
+        env = queue_result.get()
+
+        return env
 
 
-        # Packages
-        log("  Adding packages...")
-        for pkg in workload_conf["packages"]:
-            try:
-                base.install(pkg)
-            except dnf.exceptions.MarkingError:
-                workload["errors"]["non_existing_pkgs"].append(pkg)
-                continue
-        
-        # Groups
-        log("  Adding groups...")
-        if workload_conf["groups"]:
-            base.read_comps(arch_filter=True)
-        for grp_spec in workload_conf["groups"]:
-            group = base.comps.group_by_pattern(grp_spec)
-            if not group:
-                workload["errors"]["non_existing_pkgs"].append(grp_spec)
-                continue
-            base.group_install(group.id, ['mandatory', 'default'])
-        
-        
-            # TODO: Mark group packages as required... the following code doesn't work
-            #for pkg in group.packages_iter():
-            #    print(pkg.name)
-            #    workload_conf["packages"].append(pkg.name)
-               
-                
-        
-        # Filter out the relevant package placeholders for this arch
-        package_placeholders = {}
-        for placeholder_name, placeholder_data in workload_conf["package_placeholders"]["pkgs"].items():
-            # If this placeholder is not limited to just a usbset of arches, add it
-            if not placeholder_data["limit_arches"]:
-                package_placeholders[placeholder_name] = placeholder_data
-            # otherwise it is limited. In that case, only add it if the current arch is on its list
-            elif arch in placeholder_data["limit_arches"]:
-                package_placeholders[placeholder_name] = placeholder_data
-        
-        # Same for SRPM placeholders
-        srpm_placeholders = {}
-        for placeholder_name, placeholder_data in workload_conf["package_placeholders"]["srpms"].items():
-            # If this placeholder is not limited to just a usbset of arches, add it
-            if not placeholder_data["limit_arches"]:
-                srpm_placeholders[placeholder_name] = placeholder_data
-            # otherwise it is limited. In that case, only add it if the current arch is on its list
-            elif arch in placeholder_data["limit_arches"]:
-                srpm_placeholders[placeholder_name] = placeholder_data
+    def _analyze_env_process(self, queue_result, env_conf, repo, arch):
 
-        # Dependencies of package placeholders
-        log("  Adding package placeholder dependencies...")
-        for placeholder_name, placeholder_data in package_placeholders.items():
-            for pkg in placeholder_data["requires"]:
+        env = self._analyze_env(env_conf, repo, arch)
+        queue_result.put(env)
+
+
+    def _analyze_env(self, env_conf, repo, arch):
+        env = {}
+        
+        env["env_conf_id"] = env_conf["id"]
+        env["pkg_ids"] = []
+        env["repo_id"] = repo["id"]
+        env["arch"] = arch
+
+        env["pkg_relations"] = []
+
+        env["errors"] = {}
+        env["errors"]["non_existing_pkgs"] = []
+
+        env["succeeded"] = True
+
+        with dnf.Base() as base:
+
+            # Local DNF cache
+            cachedir_name = "dnf_cachedir-{repo}-{arch}".format(
+                repo=repo["id"],
+                arch=arch
+            )
+            base.conf.cachedir = os.path.join(self.tmp_dnf_cachedir, cachedir_name)
+
+            # Environment installroot
+            root_name = "dnf_env_installroot-{env_conf}-{repo}-{arch}".format(
+                env_conf=env_conf["id"],
+                repo=repo["id"],
+                arch=arch
+            )
+            base.conf.installroot = os.path.join(self.tmp_installroots, root_name)
+
+            # Architecture
+            base.conf.arch = arch
+            base.conf.ignorearch = True
+
+            # Releasever
+            base.conf.substitutions['releasever'] = repo["source"]["releasever"]
+
+            # Additional DNF Settings
+            base.conf.tsflags.append('justdb')
+            base.conf.tsflags.append('noscripts')
+
+            # Environment config
+            if "include-weak-deps" not in env_conf["options"]:
+                base.conf.install_weak_deps = False
+            if "include-docs" not in env_conf["options"]:
+                base.conf.tsflags.append('nodocs')
+
+            # Load repos
+            #log("  Loading repos...")
+            #base.read_all_repos()
+            self._load_repo_cached(base, repo, arch)
+
+            # This sometimes fails, so let's try at least N times
+            # before totally giving up!
+            MAX_TRIES = 10
+            attempts = 0
+            success = False
+            while attempts < MAX_TRIES:
+                try:
+                    base.fill_sack(load_system_repo=False)
+                    success = True
+                    break
+                except dnf.exceptions.RepoError as err:
+                    attempts +=1
+                    log("  Failed to download repodata. Trying again!")
+            if not success:
+                err = "Failed to download repodata while analyzing environment '{env_conf}' from '{repo}' {arch}:".format(
+                    env_conf=env_conf["id"],
+                    repo=repo["id"],
+                    arch=arch
+                )
+                err_log(err)
+                raise RepoDownloadError(err)
+
+
+            # Packages
+            log("  Adding packages...")
+            for pkg in env_conf["packages"]:
                 try:
                     base.install(pkg)
                 except dnf.exceptions.MarkingError:
-                    workload["errors"]["non_existing_placeholder_deps"].append(pkg)
+                    env["errors"]["non_existing_pkgs"].append(pkg)
                     continue
+            
+            # Groups
+            log("  Adding groups...")
+            if env_conf["groups"]:
+                base.read_comps(arch_filter=True)
+            for grp_spec in env_conf["groups"]:
+                group = base.comps.group_by_pattern(grp_spec)
+                if not group:
+                    env["errors"]["non_existing_pkgs"].append(grp_spec)
+                    continue
+                base.group_install(group.id, ['mandatory', 'default'])
 
-        # Architecture-specific packages
-        for pkg in workload_conf["arch_packages"][arch]:
+            # Architecture-specific packages
+            for pkg in env_conf["arch_packages"][arch]:
+                try:
+                    base.install(pkg)
+                except dnf.exceptions.MarkingError:
+                    env["errors"]["non_existing_pkgs"].append(pkg)
+                    continue
+            
+            # Resolve dependencies
+            log("  Resolving dependencies...")
             try:
-                base.install(pkg)
-            except dnf.exceptions.MarkingError:
-                workload["errors"]["non_existing_pkgs"].append(pkg)
-                continue
-
-        if workload["errors"]["non_existing_pkgs"] or workload["errors"]["non_existing_placeholder_deps"]:
-            error_message_list = []
-            if workload["errors"]["non_existing_pkgs"]:
-                error_message_list.append("The following required packages are not available:")
-                for pkg_name in workload["errors"]["non_existing_pkgs"]:
-                    pkg_string = "  - {pkg_name}".format(
-                        pkg_name=pkg_name
-                    )
-                    error_message_list.append(pkg_string)
-            if workload["errors"]["non_existing_placeholder_deps"]:
-                error_message_list.append("The following dependencies of package placeholders are not available:")
-                for pkg_name in workload["errors"]["non_existing_placeholder_deps"]:
-                    pkg_string = "  - {pkg_name}".format(
-                        pkg_name=pkg_name
-                    )
-                    error_message_list.append(pkg_string)
-            error_message = "\n".join(error_message_list)
-            workload["succeeded"] = False
-            workload["errors"]["message"] = str(error_message)
-            log("  Failed!  (Error message will be on the workload results page.")
-            log("")
-            return workload
-
-        # Resolve dependencies
-        log("  Resolving dependencies...")
-        try:
-            base.resolve()
-        except dnf.exceptions.DepsolveError as err:
-            workload["succeeded"] = False
-            workload["errors"]["message"] = str(err)
-            log("  Failed!  (Error message will be on the workload results page.")
-            log("")
-            return workload
-
-        # DNF Query
-        log("  Creating a DNF Query object...")
-        query_env = base.sack.query()
-        query_added = base.sack.query().filterm(pkg=base.transaction.install_set)
-        pkgs_env = set(query_env.installed())
-        pkgs_added = set(base.transaction.install_set)
-        pkgs_all = set.union(pkgs_env, pkgs_added)
-        query_all = base.sack.query().filterm(pkg=pkgs_all)
-        
-        for pkg in pkgs_env:
-            pkg_id = "{name}-{evr}.{arch}".format(
-                name=pkg.name,
-                evr=pkg.evr,
-                arch=pkg.arch
-            )
-            workload["pkg_env_ids"].append(pkg_id)
-        
-        for pkg in pkgs_added:
-            pkg_id = "{name}-{evr}.{arch}".format(
-                name=pkg.name,
-                evr=pkg.evr,
-                arch=pkg.arch
-            )
-            workload["pkg_added_ids"].append(pkg_id)
-
-        # No errors so far? That means the analysis has succeeded,
-        # so placeholders can be added to the list as well.
-        # (Failed workloads need to have empty results, that's why)
-        for placeholder_name in package_placeholders:
-            workload["pkg_placeholder_ids"].append(pkg_placeholder_name_to_id(placeholder_name))
-        
-        for srpm_placeholder_name in srpm_placeholders:
-            workload["srpm_placeholder_names"].append(srpm_placeholder_name)
-        
-        workload["pkg_relations"] = _analyze_package_relations(query_all, package_placeholders)
-        
-        pkg_env_count = len(workload["pkg_env_ids"])
-        pkg_added_count = len(workload["pkg_added_ids"])
-        log("  Done!  ({pkg_count} packages in total. That's {pkg_env_count} in the environment, and {pkg_added_count} added.)".format(
-            pkg_count=str(pkg_env_count + pkg_added_count),
-            pkg_env_count=pkg_env_count,
-            pkg_added_count=pkg_added_count
-        ))
-        log("")
-
-    return workload
-
-
-def _analyze_workloads(tmp_dnf_cachedir, tmp_installroots, configs, data):
-    workloads = {}
-
-    # Here, I need to mix and match workloads & envs based on labels
-    workload_env_map = {}
-    # Look at all workload configs...
-    for workload_conf_id, workload_conf in configs["workloads"].items():
-        workload_env_map[workload_conf_id] = set()
-        # ... and all of their labels.
-        for label in workload_conf["labels"]:
-            # And for each label, find all env configs...
-            for env_conf_id, env_conf in configs["envs"].items():
-                # ... that also have the label.
-                if label in env_conf["labels"]:
-                    # And save those.
-                    workload_env_map[workload_conf_id].add(env_conf_id)
-    
-    # Get the total number of workloads
-    number_of_workloads = 0
-    # And now, look at all workload configs...
-    for workload_conf_id, workload_conf in configs["workloads"].items():
-        # ... and for each, look at all env configs it should be analyzed in.
-        for env_conf_id in workload_env_map[workload_conf_id]:
-            # Each of those envs can have multiple repos associated...
-            env_conf = configs["envs"][env_conf_id]
-            for repo_id in env_conf["repositories"]:
-                # ... and each repo probably has multiple architecture.
-                repo = configs["repos"][repo_id]
-                arches = repo["source"]["architectures"]
-                number_of_workloads += len(arches)
-
-    # Analyze the workloads
-    current_workload = 0
-    # And now, look at all workload configs...
-    for workload_conf_id, workload_conf in configs["workloads"].items():
-        # ... and for each, look at all env configs it should be analyzed in.
-        for env_conf_id in workload_env_map[workload_conf_id]:
-            # Each of those envs can have multiple repos associated...
-            env_conf = configs["envs"][env_conf_id]
-            for repo_id in env_conf["repositories"]:
-                # ... and each repo probably has multiple architecture.
-                repo = configs["repos"][repo_id]
-                for arch in repo["source"]["architectures"]:
-
-                    current_workload += 1
-                    log ("[ workload {current} of {total} ]".format(
-                        current=current_workload,
-                        total=number_of_workloads
+                base.resolve()
+            except dnf.exceptions.DepsolveError as err:
+                err_log("Failed to analyze environment '{env_conf}' from '{repo}' {arch}:".format(
+                        env_conf=env_conf["id"],
+                        repo=repo["id"],
+                        arch=arch
                     ))
+                err_log("  - {err}".format(err=err))
+                env["succeeded"] = False
+                env["errors"]["message"] = str(err)
+                return env
 
-                    # And now it has:
-                    #   all workload configs *
-                    #   all envs that match those *
-                    #   all repos of those envs *
-                    #   all arches of those repos.
-                    # That's a lot of stuff! Let's analyze all of that!
-                    log("Analyzing {workload_name} ({workload_id}) on {env_name} ({env_id}) from {repo_name} ({repo}) {arch}...".format(
-                        workload_name=workload_conf["name"],
-                        workload_id=workload_conf_id,
+            # Write the result into RPMDB.
+            # The transaction needs us to download all the packages. :(
+            # So let's do that to make it happy.
+            log("  Downloading packages...")
+            base.download_packages(base.transaction.install_set)
+            log("  Running DNF transaction, writing RPMDB...")
+            try:
+                base.do_transaction()
+            except (dnf.exceptions.TransactionCheckError, dnf.exceptions.Error) as err:
+                err_log("Failed to analyze environment '{env_conf}' from '{repo}' {arch}:".format(
+                        env_conf=env_conf["id"],
+                        repo=repo["id"],
+                        arch=arch
+                    ))
+                err_log("  - {err}".format(err=err))
+                env["succeeded"] = False
+                env["errors"]["message"] = str(err)
+                return env
+
+            # DNF Query
+            log("  Creating a DNF Query object...")
+            query = base.sack.query().filterm(pkg=base.transaction.install_set)
+
+            for pkg in query:
+                pkg_id = "{name}-{evr}.{arch}".format(
+                    name=pkg.name,
+                    evr=pkg.evr,
+                    arch=pkg.arch
+                )
+                env["pkg_ids"].append(pkg_id)
+            
+            env["pkg_relations"] = self._analyze_package_relations(query)
+
+            log("  Done!  ({pkg_count} packages in total)".format(
+                pkg_count=len(env["pkg_ids"])
+            ))
+            log("")
+        
+        return env
+
+
+    def _analyze_envs(self):
+        envs = {}
+
+        # Look at all env configs...
+        for env_conf_id, env_conf in self.configs["envs"].items():
+            # For each of those, look at all repos it lists...
+            for repo_id in env_conf["repositories"]:
+                # And for each of the repo, look at all arches it supports.
+                repo = self.configs["repos"][repo_id]
+                for arch in repo["source"]["architectures"]:
+                    # Now it has
+                    #    all env confs *
+                    #    repos each config lists *
+                    #    archeas each repo supports
+                    # Analyze all of that!
+                    log("Analyzing {env_name} ({env_id}) from {repo_name} ({repo}) {arch}...".format(
                         env_name=env_conf["name"],
                         env_id=env_conf_id,
                         repo_name=repo["name"],
@@ -1954,1176 +1603,1584 @@ def _analyze_workloads(tmp_dnf_cachedir, tmp_installroots, configs, data):
                         arch=arch
                     ))
 
-                    workload_id = "{workload_conf_id}:{env_conf_id}:{repo_id}:{arch}".format(
-                        workload_conf_id=workload_conf_id,
+                    env_id = "{env_conf_id}:{repo_id}:{arch}".format(
                         env_conf_id=env_conf_id,
                         repo_id=repo_id,
                         arch=arch
                     )
-
-                    # Before even started, look if the env succeeded. If not, there's
-                    # no point in doing anything here.
-                    env_id = "{env_conf_id}:{repo_id}:{arch}".format(
-                        env_conf_id=env_conf["id"],
-                        repo_id=repo["id"],
-                        arch=arch
-                    )
-                    env = data["envs"][env_id]
-                    if env["succeeded"]:
-                        # Let's do this! 
-
-                        # DNF leaks memory and file descriptors :/
-                        # 
-                        # So, this workaround runs it in a subprocess that should have its resources
-                        # freed when done!
-                        with concurrent.futures.ProcessPoolExecutor(max_workers=1) as executor:
-                            workloads[workload_id] = executor.submit(_analyze_workload, tmp_dnf_cachedir, tmp_installroots, workload_conf, env_conf, repo, arch).result()
-
-                        #workloads[workload_id] = _analyze_workload(tmp_dnf_cachedir, tmp_installroots, workload_conf, env_conf, repo, arch)
+                    envs[env_id] = self._analyze_env(env_conf, repo, arch)
                     
-                    else:
-                        workloads[workload_id] = _return_failed_workload_env_err(workload_conf, env_conf, repo, arch)
+        self.data["envs"] = envs
 
 
+    def _return_failed_workload_env_err(self, workload_conf, env_conf, repo, arch):
+        workload = {}
 
-    return workloads
+        workload["workload_conf_id"] = workload_conf["id"]
+        workload["env_conf_id"] = env_conf["id"]
+        workload["repo_id"] = repo["id"]
+        workload["arch"] = arch
 
+        workload["pkg_env_ids"] = []
+        workload["pkg_added_ids"] = []
+        workload["pkg_placeholder_ids"] = []
 
+        workload["pkg_relations"] = []
 
-def _init_view_pkg(input_pkg, arch, placeholder=False, level=0):
-    if placeholder:
-        pkg = {
-            "id": pkg_placeholder_name_to_id(input_pkg["name"]),
-            "name": input_pkg["name"],
-            "evr": "000-placeholder",
-            "nevr": pkg_placeholder_name_to_nevr(input_pkg["name"]),
-            "arch": "placeholder",
-            "installsize": 0,
-            "description": input_pkg["description"],
-            "summary": input_pkg["description"],
-            "source_name": input_pkg["srpm"],
-            "sourcerpm": "{}-000-placeholder".format(input_pkg["srpm"]),
-            "q_arch": input_pkg
-        }
+        workload["errors"] = {}
+        workload["errors"]["non_existing_pkgs"] = []
+        workload["succeeded"] = False
+        workload["env_succeeded"] = False
 
-    else:
-        pkg = dict(input_pkg)
+        workload["errors"]["message"] = """
+        Failed to analyze this workload because of an error while analyzing the environment.
 
-    pkg["view_arch"] = arch
+        Please see the associated environment results for a detailed error message.
+        """
 
-    pkg["placeholder"] = placeholder
-
-    pkg["in_workload_ids_all"] = set()
-    pkg["in_workload_ids_req"] = set()
-    pkg["in_workload_ids_dep"] = set()
-    pkg["in_workload_ids_env"] = set()
-
-    pkg["in_buildroot_of_srpm_id_all"] = set()
-    pkg["in_buildroot_of_srpm_id_req"] = set()
-    pkg["in_buildroot_of_srpm_id_dep"] = set()
-    pkg["in_buildroot_of_srpm_id_env"] = set()
-
-    pkg["unwanted_completely_in_list_ids"] = set()
-    pkg["unwanted_buildroot_in_list_ids"] = set()
-
-    pkg["level"] = []
-
-    # Level 0 is runtime
-    pkg["level"].append({
-        "all": pkg["in_workload_ids_all"],
-        "req": pkg["in_workload_ids_req"],
-        "dep": pkg["in_workload_ids_dep"],
-        "env": pkg["in_workload_ids_env"],
-    })
-
-    # Level 1 and higher is buildroot
-    for _ in range(level):
-        pkg["level"].append({
-            "all": set(),
-            "req": set(),
-            "dep": set(),
-            "env": set()
-        })
-
-    pkg["required_by"] = set()
-    pkg["recommended_by"] = set()
-    pkg["suggested_by"] = set()
-
-    return pkg
-
-
-def _init_view_srpm(pkg, level=0):
-
-    srpm_id = pkg["sourcerpm"].rsplit(".src.rpm")[0]
-
-    srpm = {}
-    srpm["id"] = srpm_id
-    srpm["name"] = pkg["source_name"]
-    srpm["reponame"] = pkg["reponame"]
-    srpm["pkg_ids"] = set()
-
-    srpm["placeholder"] = False
-    srpm["placeholder_directly_required_pkg_names"] = []
-
-    srpm["in_workload_ids_all"] = set()
-    srpm["in_workload_ids_req"] = set()
-    srpm["in_workload_ids_dep"] = set()
-    srpm["in_workload_ids_env"] = set()
-
-    srpm["in_buildroot_of_srpm_id_all"] = set()
-    srpm["in_buildroot_of_srpm_id_req"] = set()
-    srpm["in_buildroot_of_srpm_id_dep"] = set()
-    srpm["in_buildroot_of_srpm_id_env"] = set()
-
-    srpm["unwanted_completely_in_list_ids"] = set()
-    srpm["unwanted_buildroot_in_list_ids"] = set()
-
-    srpm["level"] = []
-
-    # Level 0 is runtime
-    srpm["level"].append({
-        "all": srpm["in_workload_ids_all"],
-        "req": srpm["in_workload_ids_req"],
-        "dep": srpm["in_workload_ids_dep"],
-        "env": srpm["in_workload_ids_env"],
-    })
-
-    # Level 1 and higher is buildroot
-    for _ in range(level):
-        srpm["level"].append({
-            "all": set(),
-            "req": set(),
-            "dep": set(),
-            "env": set()
-        })
-
-    return srpm
-
-
-
-def _analyze_view(view_conf, arch, configs, data, views):
-    view_conf_id = view_conf["id"]
-
-    log("Analyzing view: {view_name} ({view_conf_id}) for {arch}".format(
-        view_name=view_conf["name"],
-        view_conf_id=view_conf_id,
-        arch=arch
-    ))
-
-    view_id = "{view_conf_id}:{arch}".format(
-        view_conf_id=view_conf_id,
-        arch=arch
-    )
-
-    repo_id = view_conf["repository"]
-
-    # Setting up the data buckets for this view
-    view = {}
-
-    view["id"] = view_id
-    view["view_conf_id"] = view_conf_id
-    view["arch"] = arch
-
-    view["workload_ids"] = []
-    view["pkgs"] = {}
-    view["source_pkgs"] = {}
-    view["modules"] = {}
-
-    # Workloads
-    for workload_id, workload in data["workloads"].items():
-        if workload["repo_id"] != repo_id:
-            continue
+        return workload
         
-        if workload["arch"] != arch:
-            continue
 
-        if not set(workload["labels"]) & set(view_conf["labels"]):
-            continue
+    def _analyze_workload_without_leaking(self, workload_conf, env_conf, repo, arch):
 
-        view["workload_ids"].append(workload_id)
+        # DNF leaks memory and file descriptors :/
+        # 
+        # So, this workaround runs it in a subprocess that should have its resources
+        # freed when done!
 
-    log("  Includes {} workloads.".format(len(view["workload_ids"])))
+        queue_result = multiprocessing.Queue()
+        process = multiprocessing.Process(target=self._analyze_workload_process, args=(queue_result, workload_conf, env_conf, repo, arch))
+        process.start()
+        process.join()
 
-    # Packages
-    for workload_id in view["workload_ids"]:
-        workload = data["workloads"][workload_id]
-        workload_conf_id = workload["workload_conf_id"]
-        workload_conf = configs["workloads"][workload_conf_id]
-
-        # Packages in the environment
-        for pkg_id in workload["pkg_env_ids"]:
-
-            # Initialise
-            if pkg_id not in view["pkgs"]:
-                pkg = data["pkgs"][repo_id][arch][pkg_id]
-                view["pkgs"][pkg_id] = _init_view_pkg(pkg, arch)
-            
-            # It's in this wokrload
-            view["pkgs"][pkg_id]["in_workload_ids_all"].add(workload_id)
-
-            # And in the environment
-            view["pkgs"][pkg_id]["in_workload_ids_env"].add(workload_id)
-
-            # Is it also required?
-            if view["pkgs"][pkg_id]["name"] in workload_conf["packages"]:
-                view["pkgs"][pkg_id]["in_workload_ids_req"].add(workload_id)
-            elif view["pkgs"][pkg_id]["name"] in workload_conf["arch_packages"][arch]:
-                view["pkgs"][pkg_id]["in_workload_ids_req"].add(workload_id)
-            
-            # pkg_relations
-            view["pkgs"][pkg_id]["required_by"].update(workload["pkg_relations"][pkg_id]["required_by"])
-            view["pkgs"][pkg_id]["recommended_by"].update(workload["pkg_relations"][pkg_id]["recommended_by"])
-            view["pkgs"][pkg_id]["suggested_by"].update(workload["pkg_relations"][pkg_id]["suggested_by"])
-
-        # Packages added by this workload (required or dependency)
-        for pkg_id in workload["pkg_added_ids"]:
-
-            # Initialise
-            if pkg_id not in view["pkgs"]:
-                pkg = data["pkgs"][repo_id][arch][pkg_id]
-                view["pkgs"][pkg_id] = _init_view_pkg(pkg, arch)
-            
-            # It's in this wokrload
-            view["pkgs"][pkg_id]["in_workload_ids_all"].add(workload_id)
-
-            # Is it required?
-            if view["pkgs"][pkg_id]["name"] in workload_conf["packages"]:
-                view["pkgs"][pkg_id]["in_workload_ids_req"].add(workload_id)
-            elif view["pkgs"][pkg_id]["name"] in workload_conf["arch_packages"][arch]:
-                view["pkgs"][pkg_id]["in_workload_ids_req"].add(workload_id)
-            
-            # Or a dependency?
-            else:
-                view["pkgs"][pkg_id]["in_workload_ids_dep"].add(workload_id)
-            
-            # pkg_relations
-            view["pkgs"][pkg_id]["required_by"].update(workload["pkg_relations"][pkg_id]["required_by"])
-            view["pkgs"][pkg_id]["recommended_by"].update(workload["pkg_relations"][pkg_id]["recommended_by"])
-            view["pkgs"][pkg_id]["suggested_by"].update(workload["pkg_relations"][pkg_id]["suggested_by"])
-
-        # And finally the non-existing, imaginary, package placeholders!
-        for pkg_id in workload["pkg_placeholder_ids"]:
-
-            # Initialise
-            if pkg_id not in view["pkgs"]:
-                placeholder = workload_conf["package_placeholders"]["pkgs"][pkg_id_to_name(pkg_id)]
-                view["pkgs"][pkg_id] = _init_view_pkg(placeholder, arch, placeholder=True)
-            
-            # It's in this wokrload
-            view["pkgs"][pkg_id]["in_workload_ids_all"].add(workload_id)
-
-            # Placeholders are by definition required
-            view["pkgs"][pkg_id]["in_workload_ids_req"].add(workload_id)
+        # This basically means there was an exception in the processing and the process crashed
+        if queue_result.empty():
+            raise AnalysisError
         
-        # ... including the SRPM placeholders
-        for srpm_name in workload["srpm_placeholder_names"]:
-            srpm_id = pkg_placeholder_name_to_nevr(srpm_name)
+        workload = queue_result.get()
 
-            # Initialise
-            if srpm_id not in view["source_pkgs"]:
-                sourcerpm = "{}.src.rpm".format(srpm_id)
-                view["source_pkgs"][srpm_id] = _init_view_srpm({"sourcerpm": sourcerpm, "source_name": srpm_name, "reponame": None})
-            
-            # It's a placeholder
-            view["source_pkgs"][srpm_id]["placeholder"] = True
-
-            # Build requires
-            view["source_pkgs"][srpm_id]["placeholder_directly_required_pkg_names"] = workload_conf["package_placeholders"]["srpms"][srpm_name]["buildrequires"]
-        
-        # Oh! And modules
-        for module_id in workload["enabled_modules"]:
-
-            # Initiate
-            if module_id not in view["modules"]:
-                view["modules"][module_id] = {}
-                view["modules"][module_id]["id"] = module_id
-                view["modules"][module_id]["in_workload_ids_all"] = set()
-                view["modules"][module_id]["in_workload_ids_req"] = set()
-                view["modules"][module_id]["in_workload_ids_dep"] = set()
-            
-            # It's in this workload
-            view["modules"][module_id]["in_workload_ids_all"].add(workload_id)
-            
-            # Is it required?
-            if module_id in workload_conf["modules_enable"]:
-                view["modules"][module_id]["in_workload_ids_req"].add(workload_id)
-            else:
-                view["modules"][module_id]["in_workload_ids_dep"].add(workload_id)
+        return workload
 
     
-    # If this is an addon view, remove all packages that are already in the parent view
-    if view_conf["type"] == "addon":
-        base_view_conf_id = view_conf["base_view_id"]
+    def _analyze_workload_process(self, queue_result, workload_conf, env_conf, repo, arch):
 
-        base_view_id = "{base_view_conf_id}:{arch}".format(
-            base_view_conf_id=base_view_conf_id,
+        workload = self._analyze_workload(workload_conf, env_conf, repo, arch)
+        queue_result.put(workload)
+
+
+    def _analyze_workload(self, workload_conf, env_conf, repo, arch):
+
+        workload = {}
+
+        workload["workload_conf_id"] = workload_conf["id"]
+        workload["env_conf_id"] = env_conf["id"]
+        workload["repo_id"] = repo["id"]
+        workload["arch"] = arch
+
+        workload["pkg_env_ids"] = []
+        workload["pkg_added_ids"] = []
+        workload["pkg_placeholder_ids"] = []
+        workload["srpm_placeholder_names"] = []
+
+        workload["enabled_modules"] = []
+
+        workload["pkg_relations"] = []
+
+        workload["errors"] = {}
+        workload["errors"]["non_existing_pkgs"] = []
+        workload["errors"]["non_existing_placeholder_deps"] = []
+
+        workload["succeeded"] = True
+        workload["env_succeeded"] = True
+
+
+        # Figure out the workload labels
+        # It can only have labels that are in both the workload_conf and the env_conf
+        workload["labels"] = list(set(workload_conf["labels"]) & set(env_conf["labels"]))
+
+        with dnf.Base() as base:
+
+            # Local DNF cache
+            cachedir_name = "dnf_cachedir-{repo}-{arch}".format(
+                repo=repo["id"],
+                arch=arch
+            )
+            base.conf.cachedir = os.path.join(self.tmp_dnf_cachedir, cachedir_name)
+
+            # Environment installroot
+            # Since we're not writing anything into the installroot,
+            # let's just use the base image's installroot!
+            root_name = "dnf_env_installroot-{env_conf}-{repo}-{arch}".format(
+                env_conf=env_conf["id"],
+                repo=repo["id"],
+                arch=arch
+            )
+            base.conf.installroot = os.path.join(self.tmp_installroots, root_name)
+
+            # Architecture
+            base.conf.arch = arch
+            base.conf.ignorearch = True
+
+            # Releasever
+            base.conf.substitutions['releasever'] = repo["source"]["releasever"]
+
+            # Environment config
+            if "include-weak-deps" not in workload_conf["options"]:
+                base.conf.install_weak_deps = False
+            if "include-docs" not in workload_conf["options"]:
+                base.conf.tsflags.append('nodocs')
+
+            # Load repos
+            #log("  Loading repos...")
+            #base.read_all_repos()
+            self._load_repo_cached(base, repo, arch)
+
+            # Now I need to load the local RPMDB.
+            # However, if the environment is empty, it wasn't created, so I need to treat
+            # it differently. So let's check!
+            if len(env_conf["packages"]) or len(env_conf["arch_packages"][arch]):
+                # It's not empty! Load local data.
+                base.fill_sack(load_system_repo=True)
+            else:
+                # It's empty. Treat it like we're using an empty installroot.
+                # This sometimes fails, so let's try at least N times
+                # before totally giving up!
+                MAX_TRIES = 10
+                attempts = 0
+                success = False
+                while attempts < MAX_TRIES:
+                    try:
+                        base.fill_sack(load_system_repo=False)
+                        success = True
+                        break
+                    except dnf.exceptions.RepoError as err:
+                        attempts +=1
+                        log("  Failed to download repodata. Trying again!")
+                if not success:
+                    err = "Failed to download repodata while analyzing workload '{workload_id} on '{env_id}' from '{repo}' {arch}...".format(
+                            workload_id=workload_conf_id,
+                            env_id=env_conf_id,
+                            repo_name=repo["name"],
+                            repo=repo_id,
+                            arch=arch)
+                    err_log(err)
+                    raise RepoDownloadError(err)
+            
+            # Disabling modules
+            if workload_conf["modules_disable"]:
+                try:
+                    log("  Disabling modules...")
+                    module_base = dnf.module.module_base.ModuleBase(base)
+                    module_base.disable(workload_conf["modules_disable"])
+                except dnf.exceptions.MarkingErrors as err:
+                    workload["succeeded"] = False
+                    workload["errors"]["message"] = str(err)
+                    log("  Failed!  (Error message will be on the workload results page.")
+                    log("")
+                    return workload
+
+
+            # Enabling modules
+            if workload_conf["modules_enable"]:
+                try:
+                    log("  Enabling modules...")
+                    module_base = dnf.module.module_base.ModuleBase(base)
+                    module_base.enable(workload_conf["modules_enable"])
+                except dnf.exceptions.MarkingErrors as err:
+                    workload["succeeded"] = False
+                    workload["errors"]["message"] = str(err)
+                    log("  Failed!  (Error message will be on the workload results page.")
+                    log("")
+                    return workload
+            
+            # Get a list of enabled modules
+            # The official DNF API doesn't support it. I got this from the DNF folks
+            # (thanks!) as a solution, but just keeping it in a generic try/except
+            # as it's not an official API. 
+            enabled_modules = set()
+            try:
+                all_modules = base._moduleContainer.getModulePackages()
+                for module in all_modules:
+                    if base._moduleContainer.isEnabled(module):
+                        module_name = module.getName()
+                        module_stream = module.getStream()
+                        module_nsv = "{module_name}:{module_stream}".format(
+                            module_name=module_name,
+                            module_stream=module_stream
+                        )
+                        enabled_modules.add(module_nsv)
+            except:
+                log("  Something went wrong with getting a list of enabled modules. (This uses non-API DNF calls. Skipping.)")
+                enabled_modules = set()
+            workload["enabled_modules"] = list(enabled_modules)
+
+
+            # Packages
+            log("  Adding packages...")
+            for pkg in workload_conf["packages"]:
+                try:
+                    base.install(pkg)
+                except dnf.exceptions.MarkingError:
+                    workload["errors"]["non_existing_pkgs"].append(pkg)
+                    continue
+            
+            # Groups
+            log("  Adding groups...")
+            if workload_conf["groups"]:
+                base.read_comps(arch_filter=True)
+            for grp_spec in workload_conf["groups"]:
+                group = base.comps.group_by_pattern(grp_spec)
+                if not group:
+                    workload["errors"]["non_existing_pkgs"].append(grp_spec)
+                    continue
+                base.group_install(group.id, ['mandatory', 'default'])
+            
+            
+                # TODO: Mark group packages as required... the following code doesn't work
+                #for pkg in group.packages_iter():
+                #    print(pkg.name)
+                #    workload_conf["packages"].append(pkg.name)
+                
+                    
+            
+            # Filter out the relevant package placeholders for this arch
+            package_placeholders = {}
+            for placeholder_name, placeholder_data in workload_conf["package_placeholders"]["pkgs"].items():
+                # If this placeholder is not limited to just a usbset of arches, add it
+                if not placeholder_data["limit_arches"]:
+                    package_placeholders[placeholder_name] = placeholder_data
+                # otherwise it is limited. In that case, only add it if the current arch is on its list
+                elif arch in placeholder_data["limit_arches"]:
+                    package_placeholders[placeholder_name] = placeholder_data
+            
+            # Same for SRPM placeholders
+            srpm_placeholders = {}
+            for placeholder_name, placeholder_data in workload_conf["package_placeholders"]["srpms"].items():
+                # If this placeholder is not limited to just a usbset of arches, add it
+                if not placeholder_data["limit_arches"]:
+                    srpm_placeholders[placeholder_name] = placeholder_data
+                # otherwise it is limited. In that case, only add it if the current arch is on its list
+                elif arch in placeholder_data["limit_arches"]:
+                    srpm_placeholders[placeholder_name] = placeholder_data
+
+            # Dependencies of package placeholders
+            log("  Adding package placeholder dependencies...")
+            for placeholder_name, placeholder_data in package_placeholders.items():
+                for pkg in placeholder_data["requires"]:
+                    try:
+                        base.install(pkg)
+                    except dnf.exceptions.MarkingError:
+                        workload["errors"]["non_existing_placeholder_deps"].append(pkg)
+                        continue
+
+            # Architecture-specific packages
+            for pkg in workload_conf["arch_packages"][arch]:
+                try:
+                    base.install(pkg)
+                except dnf.exceptions.MarkingError:
+                    workload["errors"]["non_existing_pkgs"].append(pkg)
+                    continue
+
+            if workload["errors"]["non_existing_pkgs"] or workload["errors"]["non_existing_placeholder_deps"]:
+                error_message_list = []
+                if workload["errors"]["non_existing_pkgs"]:
+                    error_message_list.append("The following required packages are not available:")
+                    for pkg_name in workload["errors"]["non_existing_pkgs"]:
+                        pkg_string = "  - {pkg_name}".format(
+                            pkg_name=pkg_name
+                        )
+                        error_message_list.append(pkg_string)
+                if workload["errors"]["non_existing_placeholder_deps"]:
+                    error_message_list.append("The following dependencies of package placeholders are not available:")
+                    for pkg_name in workload["errors"]["non_existing_placeholder_deps"]:
+                        pkg_string = "  - {pkg_name}".format(
+                            pkg_name=pkg_name
+                        )
+                        error_message_list.append(pkg_string)
+                error_message = "\n".join(error_message_list)
+                workload["succeeded"] = False
+                workload["errors"]["message"] = str(error_message)
+                log("  Failed!  (Error message will be on the workload results page.")
+                log("")
+                return workload
+
+            # Resolve dependencies
+            log("  Resolving dependencies...")
+            try:
+                base.resolve()
+            except dnf.exceptions.DepsolveError as err:
+                workload["succeeded"] = False
+                workload["errors"]["message"] = str(err)
+                log("  Failed!  (Error message will be on the workload results page.")
+                log("")
+                return workload
+
+            # DNF Query
+            log("  Creating a DNF Query object...")
+            query_env = base.sack.query()
+            query_added = base.sack.query().filterm(pkg=base.transaction.install_set)
+            pkgs_env = set(query_env.installed())
+            pkgs_added = set(base.transaction.install_set)
+            pkgs_all = set.union(pkgs_env, pkgs_added)
+            query_all = base.sack.query().filterm(pkg=pkgs_all)
+            
+            for pkg in pkgs_env:
+                pkg_id = "{name}-{evr}.{arch}".format(
+                    name=pkg.name,
+                    evr=pkg.evr,
+                    arch=pkg.arch
+                )
+                workload["pkg_env_ids"].append(pkg_id)
+            
+            for pkg in pkgs_added:
+                pkg_id = "{name}-{evr}.{arch}".format(
+                    name=pkg.name,
+                    evr=pkg.evr,
+                    arch=pkg.arch
+                )
+                workload["pkg_added_ids"].append(pkg_id)
+
+            # No errors so far? That means the analysis has succeeded,
+            # so placeholders can be added to the list as well.
+            # (Failed workloads need to have empty results, that's why)
+            for placeholder_name in package_placeholders:
+                workload["pkg_placeholder_ids"].append(pkg_placeholder_name_to_id(placeholder_name))
+            
+            for srpm_placeholder_name in srpm_placeholders:
+                workload["srpm_placeholder_names"].append(srpm_placeholder_name)
+            
+            workload["pkg_relations"] = self._analyze_package_relations(query_all, package_placeholders)
+            
+            pkg_env_count = len(workload["pkg_env_ids"])
+            pkg_added_count = len(workload["pkg_added_ids"])
+            log("  Done!  ({pkg_count} packages in total. That's {pkg_env_count} in the environment, and {pkg_added_count} added.)".format(
+                pkg_count=str(pkg_env_count + pkg_added_count),
+                pkg_env_count=pkg_env_count,
+                pkg_added_count=pkg_added_count
+            ))
+            log("")
+
+        return workload
+
+    def _analyze_workloads(self):
+        workloads = {}
+
+        # Here, I need to mix and match workloads & envs based on labels
+        workload_env_map = {}
+        # Look at all workload configs...
+        for workload_conf_id, workload_conf in self.configs["workloads"].items():
+            workload_env_map[workload_conf_id] = set()
+            # ... and all of their labels.
+            for label in workload_conf["labels"]:
+                # And for each label, find all env configs...
+                for env_conf_id, env_conf in self.configs["envs"].items():
+                    # ... that also have the label.
+                    if label in env_conf["labels"]:
+                        # And save those.
+                        workload_env_map[workload_conf_id].add(env_conf_id)
+        
+        # Get the total number of workloads
+        number_of_workloads = 0
+        # And now, look at all workload configs...
+        for workload_conf_id, workload_conf in self.configs["workloads"].items():
+            # ... and for each, look at all env configs it should be analyzed in.
+            for env_conf_id in workload_env_map[workload_conf_id]:
+                # Each of those envs can have multiple repos associated...
+                env_conf = self.configs["envs"][env_conf_id]
+                for repo_id in env_conf["repositories"]:
+                    # ... and each repo probably has multiple architecture.
+                    repo = self.configs["repos"][repo_id]
+                    arches = repo["source"]["architectures"]
+                    number_of_workloads += len(arches)
+
+        # Analyze the workloads
+        current_workload = 0
+        # And now, look at all workload configs...
+        for workload_conf_id, workload_conf in self.configs["workloads"].items():
+            # ... and for each, look at all env configs it should be analyzed in.
+            for env_conf_id in workload_env_map[workload_conf_id]:
+                # Each of those envs can have multiple repos associated...
+                env_conf = self.configs["envs"][env_conf_id]
+                for repo_id in env_conf["repositories"]:
+                    # ... and each repo probably has multiple architecture.
+                    repo = self.configs["repos"][repo_id]
+                    for arch in repo["source"]["architectures"]:
+
+                        current_workload += 1
+                        log ("[ workload {current} of {total} ]".format(
+                            current=current_workload,
+                            total=number_of_workloads
+                        ))
+
+                        # And now it has:
+                        #   all workload configs *
+                        #   all envs that match those *
+                        #   all repos of those envs *
+                        #   all arches of those repos.
+                        # That's a lot of stuff! Let's analyze all of that!
+                        log("Analyzing {workload_name} ({workload_id}) on {env_name} ({env_id}) from {repo_name} ({repo}) {arch}...".format(
+                            workload_name=workload_conf["name"],
+                            workload_id=workload_conf_id,
+                            env_name=env_conf["name"],
+                            env_id=env_conf_id,
+                            repo_name=repo["name"],
+                            repo=repo_id,
+                            arch=arch
+                        ))
+
+                        workload_id = "{workload_conf_id}:{env_conf_id}:{repo_id}:{arch}".format(
+                            workload_conf_id=workload_conf_id,
+                            env_conf_id=env_conf_id,
+                            repo_id=repo_id,
+                            arch=arch
+                        )
+
+                        # Before even started, look if the env succeeded. If not, there's
+                        # no point in doing anything here.
+                        env_id = "{env_conf_id}:{repo_id}:{arch}".format(
+                            env_conf_id=env_conf["id"],
+                            repo_id=repo["id"],
+                            arch=arch
+                        )
+                        env = self.data["envs"][env_id]
+                        if env["succeeded"]:
+                            # Let's do this! 
+
+                            workloads[workload_id] = self._analyze_workload(workload_conf, env_conf, repo, arch)
+                        
+                        else:
+                            workloads[workload_id] = self._return_failed_workload_env_err(workload_conf, env_conf, repo, arch)
+
+        self.data["workloads"] = workloads
+
+
+    def _init_view_pkg(self, input_pkg, arch, placeholder=False, level=0):
+        if placeholder:
+            pkg = {
+                "id": pkg_placeholder_name_to_id(input_pkg["name"]),
+                "name": input_pkg["name"],
+                "evr": "000-placeholder",
+                "nevr": pkg_placeholder_name_to_nevr(input_pkg["name"]),
+                "arch": "placeholder",
+                "installsize": 0,
+                "description": input_pkg["description"],
+                "summary": input_pkg["description"],
+                "source_name": input_pkg["srpm"],
+                "sourcerpm": "{}-000-placeholder".format(input_pkg["srpm"]),
+                "q_arch": input_pkg
+            }
+
+        else:
+            pkg = dict(input_pkg)
+
+        pkg["view_arch"] = arch
+
+        pkg["placeholder"] = placeholder
+
+        pkg["in_workload_ids_all"] = set()
+        pkg["in_workload_ids_req"] = set()
+        pkg["in_workload_ids_dep"] = set()
+        pkg["in_workload_ids_env"] = set()
+
+        pkg["in_buildroot_of_srpm_id_all"] = set()
+        pkg["in_buildroot_of_srpm_id_req"] = set()
+        pkg["in_buildroot_of_srpm_id_dep"] = set()
+        pkg["in_buildroot_of_srpm_id_env"] = set()
+
+        pkg["unwanted_completely_in_list_ids"] = set()
+        pkg["unwanted_buildroot_in_list_ids"] = set()
+
+        pkg["level"] = []
+
+        # Level 0 is runtime
+        pkg["level"].append({
+            "all": pkg["in_workload_ids_all"],
+            "req": pkg["in_workload_ids_req"],
+            "dep": pkg["in_workload_ids_dep"],
+            "env": pkg["in_workload_ids_env"],
+        })
+
+        # Level 1 and higher is buildroot
+        for _ in range(level):
+            pkg["level"].append({
+                "all": set(),
+                "req": set(),
+                "dep": set(),
+                "env": set()
+            })
+
+        pkg["required_by"] = set()
+        pkg["recommended_by"] = set()
+        pkg["suggested_by"] = set()
+
+        return pkg
+
+
+    def _init_view_srpm(self, pkg, level=0):
+
+        srpm_id = pkg["sourcerpm"].rsplit(".src.rpm")[0]
+
+        srpm = {}
+        srpm["id"] = srpm_id
+        srpm["name"] = pkg["source_name"]
+        srpm["reponame"] = pkg["reponame"]
+        srpm["pkg_ids"] = set()
+
+        srpm["placeholder"] = False
+        srpm["placeholder_directly_required_pkg_names"] = []
+
+        srpm["in_workload_ids_all"] = set()
+        srpm["in_workload_ids_req"] = set()
+        srpm["in_workload_ids_dep"] = set()
+        srpm["in_workload_ids_env"] = set()
+
+        srpm["in_buildroot_of_srpm_id_all"] = set()
+        srpm["in_buildroot_of_srpm_id_req"] = set()
+        srpm["in_buildroot_of_srpm_id_dep"] = set()
+        srpm["in_buildroot_of_srpm_id_env"] = set()
+
+        srpm["unwanted_completely_in_list_ids"] = set()
+        srpm["unwanted_buildroot_in_list_ids"] = set()
+
+        srpm["level"] = []
+
+        # Level 0 is runtime
+        srpm["level"].append({
+            "all": srpm["in_workload_ids_all"],
+            "req": srpm["in_workload_ids_req"],
+            "dep": srpm["in_workload_ids_dep"],
+            "env": srpm["in_workload_ids_env"],
+        })
+
+        # Level 1 and higher is buildroot
+        for _ in range(level):
+            srpm["level"].append({
+                "all": set(),
+                "req": set(),
+                "dep": set(),
+                "env": set()
+            })
+
+        return srpm
+
+
+    def _analyze_view(self, view_conf, arch, views):
+        view_conf_id = view_conf["id"]
+
+        log("Analyzing view: {view_name} ({view_conf_id}) for {arch}".format(
+            view_name=view_conf["name"],
+            view_conf_id=view_conf_id,
+            arch=arch
+        ))
+
+        view_id = "{view_conf_id}:{arch}".format(
+            view_conf_id=view_conf_id,
             arch=arch
         )
 
-        for base_view_pkg_id in views[base_view_id]["pkgs"]:
-            if base_view_pkg_id in view["pkgs"]:
-                del view["pkgs"][base_view_pkg_id]
+        repo_id = view_conf["repository"]
 
-    # Done with packages!
-    log("  Includes {} packages.".format(len(view["pkgs"])))
-    log("  Includes {} modules.".format(len(view["modules"])))
+        # Setting up the data buckets for this view
+        view = {}
 
-    # But not with source packages, that's an entirely different story!
-    for pkg_id, pkg in view["pkgs"].items():
-        srpm_id = pkg["sourcerpm"].rsplit(".src.rpm")[0]
+        view["id"] = view_id
+        view["view_conf_id"] = view_conf_id
+        view["arch"] = arch
 
-        if srpm_id not in view["source_pkgs"]:
-            view["source_pkgs"][srpm_id] = _init_view_srpm(pkg)
+        view["workload_ids"] = []
+        view["pkgs"] = {}
+        view["source_pkgs"] = {}
+        view["modules"] = {}
 
-        # Include some information from the RPM
-        view["source_pkgs"][srpm_id]["pkg_ids"].add(pkg_id)
-
-        view["source_pkgs"][srpm_id]["in_workload_ids_all"].update(pkg["in_workload_ids_all"])
-        view["source_pkgs"][srpm_id]["in_workload_ids_req"].update(pkg["in_workload_ids_req"])
-        view["source_pkgs"][srpm_id]["in_workload_ids_dep"].update(pkg["in_workload_ids_dep"])
-        view["source_pkgs"][srpm_id]["in_workload_ids_env"].update(pkg["in_workload_ids_env"])
-    
-    log("  Includes {} source packages.".format(len(view["source_pkgs"])))
-
-
-    log("  DONE!")
-    log("")
-
-    return view
-
-
-def _analyze_views(configs, data):
-
-    views = {}
-
-    # First, analyse the standard views
-    for view_conf_id in configs["views"]:
-        view_conf = configs["views"][view_conf_id]
-
-        if view_conf["type"] == "compose":
-            for arch in view_conf["architectures"]:
-                view = _analyze_view(view_conf, arch, configs, data, views)
-                view_id = view["id"]
-
-                views[view_id] = view
-    
-    # Second, analyse the addon views
-    # This is important as they need the standard views already available
-    for view_conf_id in configs["views"]:
-        view_conf = configs["views"][view_conf_id]
-
-        if view_conf["type"] == "addon":
-            base_view_conf_id = view_conf["base_view_id"]
-            base_view_conf = configs["views"][base_view_conf_id]
-
-            for arch in set(view_conf["architectures"]) & set(base_view_conf["architectures"]):
-                view = _analyze_view(view_conf, arch, configs, data, views)
-                view_id = view["id"]
-
-                views[view_id] = view
-    
-    return views
-
-
-def _populate_buildroot_with_view_srpms(view_conf, arch, configs, data, buildroot):
-    view_conf_id = view_conf["id"]
-
-    log("Initialising buildroot packages of: {view_name} ({view_conf_id}) for {arch}".format(
-        view_name=view_conf["name"],
-        view_conf_id=view_conf_id,
-        arch=arch
-    ))
-
-    view_id = "{view_conf_id}:{arch}".format(
-        view_conf_id=view_conf_id,
-        arch=arch
-    )
-
-    view = data["views"][view_id]
-    repo_id = view_conf["repository"]
-
-    # Initialise the srpms section
-    if repo_id not in buildroot["srpms"]:
-        buildroot["srpms"][repo_id] = {}
-
-    if arch not in buildroot["srpms"][repo_id]:
-        buildroot["srpms"][repo_id][arch] = {}
-
-    # Initialise each srpm
-    for srpm_id, srpm in view["source_pkgs"].items():
-
-        if srpm["placeholder"]:
-            directly_required_pkg_names = srpm["placeholder_directly_required_pkg_names"]
-        
-        else:
-            # This is the same set in both koji_srpms and srpms
-            directly_required_pkg_names = set()
-
-            # Do I need to extract the build dependencies from koji root_logs?
-            # Then also save the srpms in the koji_srpm section
-            if view_conf["buildroot_strategy"] == "root_logs":
-                srpm_reponame = srpm["reponame"]
-                koji_api_url = configs["repos"][repo_id]["source"]["repos"][srpm_reponame]["koji_api_url"]
-                koji_files_url = configs["repos"][repo_id]["source"]["repos"][srpm_reponame]["koji_files_url"]
-                koji_id = url_to_id(koji_api_url)
-
-                # Initialise the koji_srpms section
-                if koji_id not in buildroot["koji_srpms"]:
-                    # SRPMs
-                    buildroot["koji_srpms"][koji_id] = {}
-                    # URLs
-                    buildroot["koji_urls"][koji_id] = {}
-                    buildroot["koji_urls"][koji_id]["api"] = koji_api_url
-                    buildroot["koji_urls"][koji_id]["files"] = koji_files_url
-                
-                if arch not in buildroot["koji_srpms"][koji_id]:
-                    buildroot["koji_srpms"][koji_id][arch] = {}
-
-                # Initialise srpms in the koji_srpms section
-                if srpm_id not in buildroot["koji_srpms"][koji_id][arch]:
-                    buildroot["koji_srpms"][koji_id][arch][srpm_id] = {}
-                    buildroot["koji_srpms"][koji_id][arch][srpm_id]["id"] = srpm_id
-                    buildroot["koji_srpms"][koji_id][arch][srpm_id]["directly_required_pkg_names"] = directly_required_pkg_names
-                else:
-                    directly_required_pkg_names = buildroot["koji_srpms"][koji_id][arch][srpm_id]["directly_required_pkg_names"]
-
-        # Initialise srpms in the srpms section
-        if srpm_id not in buildroot["srpms"][repo_id][arch]:
-            buildroot["srpms"][repo_id][arch][srpm_id] = {}
-            buildroot["srpms"][repo_id][arch][srpm_id]["id"] = srpm_id
-            buildroot["srpms"][repo_id][arch][srpm_id]["directly_required_pkg_names"] = directly_required_pkg_names
-            buildroot["srpms"][repo_id][arch][srpm_id]["pkg_relations"] = {}
-            buildroot["srpms"][repo_id][arch][srpm_id]["pkg_env_ids"] = set()
-            buildroot["srpms"][repo_id][arch][srpm_id]["pkg_added_ids"] = set()
-            buildroot["srpms"][repo_id][arch][srpm_id]["errors"] = {}
-            buildroot["srpms"][repo_id][arch][srpm_id]["errors"]["non_existing_pkgs"] = set()
-            buildroot["srpms"][repo_id][arch][srpm_id]["errors"]["message"] = ""
-            buildroot["srpms"][repo_id][arch][srpm_id]["succeeded"] = False
-            buildroot["srpms"][repo_id][arch][srpm_id]["processed"] = False
-
-
-    log("  DONE!")
-    log("")
-
-
-def _get_build_deps_from_a_root_log(root_log):
-    required_pkgs = []
-
-    # The individual states are nicely described inside the for loop.
-    # They're processed in order
-    state = 0
-    
-    for file_line in root_log.splitlines():
-
-        # 0/
-        # parts of the log I don't really care about
-        if state == 0:
-
-            # The next installation is the build deps!
-            # So I start caring. Next state!
-            if "Executing command: ['/usr/bin/dnf', 'builddep'" in file_line:
-                state += 1
-        
-
-        # 1/
-        # getting the "already installed" packages to the list
-        elif state == 1:
-
-            # "Package already installed" indicates it's directly required,
-            # so save it.
-            if "is already installed." in file_line:
-                pkg_name = file_line.split()[3].rsplit("-",2)[0]
-                required_pkgs.append(pkg_name)
-
-            # That's all! Next state!
-            elif "Dependencies resolved." in file_line:
-                state += 1
-        
-
-        # 2/
-        # going through the log right before the first package name
-        elif state == 2:
-
-            # The next line will be the first package. Next state!
-            if "Installing:" in file_line:
-                state += 1
-        
-
-        # 3/
-        # And now just saving the packages until the "installing dependencies" part
-        # or the "transaction summary" part if there's no dependencies
-        elif state == 3:
+        # Workloads
+        for workload_id, workload in self.data["workloads"].items():
+            if workload["repo_id"] != repo_id:
+                continue
             
-            if "Installing dependencies:" in file_line:
-                state += 1
+            if workload["arch"] != arch:
+                continue
 
-            elif "Transaction Summary" in file_line:
-                state += 1
-                
-            else:
-                pkg_name = file_line.split()[2]
-                required_pkgs.append(pkg_name)
-        
+            if not set(workload["labels"]) & set(view_conf["labels"]):
+                continue
 
-        # 4/
-        # I'm done. So I can break out of the loop.
-        elif state == 4:
-            break
-            
+            view["workload_ids"].append(workload_id)
 
-    return required_pkgs
+        log("  Includes {} workloads.".format(len(view["workload_ids"])))
 
+        # Packages
+        for workload_id in view["workload_ids"]:
+            workload = self.data["workloads"][workload_id]
+            workload_conf_id = workload["workload_conf_id"]
+            workload_conf = self.configs["workloads"][workload_conf_id]
 
-def _resolve_srpm_using_root_log(srpm_id, arch, koji_session, koji_files_url):
-
-    log("    Talking to Koji API...")
-    koji_pkg_data = koji_session.getRPM("{}.src".format(srpm_id))
-    koji_logs = koji_session.getBuildLogs(koji_pkg_data["build_id"])
-
-    koji_log_path = None
-
-    for koji_log in koji_logs:
-        if koji_log["name"] == "root.log":
-            if koji_log["dir"] == arch or koji_log["dir"] == "noarch":
-                koji_log_path = koji_log["path"]
-    
-    root_log_url = "{koji_files_url}/{koji_log_path}".format(
-        koji_files_url=koji_files_url,
-        koji_log_path=koji_log_path
-    )
-
-    log("    Downloading the root.log file...")
-    # This sometimes hangs, so I'm giving it a timeout and
-    # a few extra tries before totally giving up!
-    MAX_TRIES = 10
-    attempts = 0
-    success = False
-    while attempts < MAX_TRIES:
-        try:
-            with urllib.request.urlopen(root_log_url, timeout=20) as response:
-                root_log_data = response.read()
-                root_log_contents = root_log_data.decode('utf-8')
-            success = True
-            break
-        except:
-            attempts +=1
-            log("    Error getting the root log... retrying...")
-    if not success:
-        raise KojiRootLogError("Could not get a root.log file")
-
-    log("    Parsing the root.log file...")
-    directly_required_pkg_names = _get_build_deps_from_a_root_log(root_log_contents)
-
-    log("    Done!")
-    return directly_required_pkg_names
-
-
-def _resolve_srpms_using_root_logs(buildroot, cache_data, next_cache_data, pass_counter):
-    # This function is idempotent!
-    # 
-    # That means it can be run many times without affecting the old results.
-
-    log("== Resolving SRPMs using root logs - pass {} ========".format(pass_counter))
-
-    # Prepare a counter for the log
-    total_srpms_to_resolve = 0
-    for koji_id in buildroot["koji_srpms"]:
-        for arch in buildroot["koji_srpms"][koji_id]:
-            total_srpms_to_resolve += len(buildroot["koji_srpms"][koji_id][arch])
-    srpms_to_resolve_counter = 0
-
-    # I need to keep sessions open to Koji
-    # And because in some cases (in mixed repos) packages
-    # could have been in different koji instances, I need
-    # multiple Koji sesions!
-    koji_sessions = {}
-
-    for koji_id in buildroot["koji_srpms"]:
-        koji_urls = buildroot["koji_urls"][koji_id]
-
-        # If the cache is empty, initialise it
-        if koji_id not in cache_data:
-            cache_data[koji_id] = {}
-        if koji_id not in next_cache_data:
-            next_cache_data[koji_id] = {}
-
-        # Initiate Koji sessions
-        if koji_id not in koji_sessions:
-            koji_sessions[koji_id] = koji.ClientSession(koji_urls["api"])
-
-        for arch in buildroot["koji_srpms"][koji_id]:
-
-            # If the cache is empty, initialise it
-            if arch not in cache_data[koji_id]:
-                cache_data[koji_id][arch] = {}
-            if arch not in next_cache_data[koji_id]:
-                next_cache_data[koji_id][arch] = {}
-            
-
-            for srpm_id, srpm in buildroot["koji_srpms"][koji_id][arch].items():
-                srpms_to_resolve_counter += 1
-            
-                log("")
-                log("[ Buildroot - pass {} - {} of {} ]".format(pass_counter, srpms_to_resolve_counter, total_srpms_to_resolve))
-                log("Koji root_log {srpm_id} {arch}".format(
-                    srpm_id=srpm_id,
-                    arch=arch
-                ))
-                if not srpm["directly_required_pkg_names"]:
-                    if srpm_id in cache_data[koji_id][arch]:
-                        log("  Using Cache!")
-                        directly_required_pkg_names = cache_data[koji_id][arch][srpm_id]
-
-                    elif srpm_id in next_cache_data[koji_id][arch]:
-                        log("  Using Cache!")
-                        directly_required_pkg_names = next_cache_data[koji_id][arch][srpm_id]
-                    
-                    else:
-                        log("  Resolving...")
-                        directly_required_pkg_names = _resolve_srpm_using_root_log(srpm_id, arch, koji_sessions[koji_id], koji_urls["files"])
-                    
-                    next_cache_data[koji_id][arch][srpm_id] = directly_required_pkg_names
-
-                    # Here it's important to add the packages to the already initiated
-                    # set, because its reference is shared between the koji_srpms and the srpm sections
-                    buildroot["koji_srpms"][koji_id][arch][srpm_id]["directly_required_pkg_names"].update(directly_required_pkg_names)
-                else:
-                    log("  Skipping! (already done before)")
-    log("")
-    log("  DONE!")
-    log("")
-
-
-def _analyze_build_groups(tmp_dnf_cachedir, tmp_installroots, configs, data, buildroot):
-
-    log("")
-    log("Analyzing build groups...")
-    log("")
-
-    # Need to analyse build groups for all repo_ids
-    # and arches of buildroot["srpms"]
-    for repo_id in buildroot["srpms"]:
-        buildroot["build_groups"][repo_id] = {}
-
-        for arch in buildroot["srpms"][repo_id]:
-
-            generated_id = "CR-buildroot-base-env-{repo_id}-{arch}".format(
-                repo_id=repo_id,
-                arch=arch
-            )
-
-            # Using the _analyze_env function! 
-            # So I need to reconstruct a fake env_conf
-            fake_env_conf = {}
-            fake_env_conf["id"] = generated_id
-            fake_env_conf["options"] = []
-            if configs["repos"][repo_id]["source"]["base_buildroot_override"]:
-                fake_env_conf["packages"] = configs["repos"][repo_id]["source"]["base_buildroot_override"]
-                fake_env_conf["groups"] = []
-            else:
-                fake_env_conf["packages"] = []
-                fake_env_conf["groups"] = ["build"]
-            fake_env_conf["arch_packages"] = {}
-            fake_env_conf["arch_packages"][arch] = []
-
-            log("Resolving build group: {repo_id} {arch}".format(
-                repo_id=repo_id,
-                arch=arch
-            ))
-            fake_env = _analyze_env(tmp_dnf_cachedir, tmp_installroots, fake_env_conf, configs["repos"][repo_id], arch)
-
-            # If this fails, the buildroot can't be resolved.
-            # Fail the entire content resolver build!
-            if not fake_env["succeeded"]:
-                raise BuildGroupAnalysisError
-
-            buildroot["build_groups"][repo_id][arch] = fake_env
-            buildroot["build_groups"][repo_id][arch]["generated_id"] = generated_id
-
-    log("")
-    log("  DONE!")
-    log("")
-
-
-def _expand_buildroot_srpms(configs, data, buildroot):
-    # This function is idempotent!
-    # 
-    # That means it can be run many times without affecting the old results.
-
-    log("Expanding the SRPM set...")
-
-    counter = 0
-
-    for repo_id in buildroot["srpms"]:
-        for arch in buildroot["srpms"][repo_id]:
-            top_lvl_srpm_ids = set(buildroot["srpms"][repo_id][arch])
-            for top_lvl_srpm_id in top_lvl_srpm_ids:
-                top_lvl_srpm = buildroot["srpms"][repo_id][arch][top_lvl_srpm_id]
-
-                for pkg_id in top_lvl_srpm["pkg_relations"]:
-                    srpm_id = data["pkgs"][repo_id][arch][pkg_id]["sourcerpm"].rsplit(".src.rpm")[0]
-
-                    if srpm_id in buildroot["srpms"][repo_id][arch]:
-                        continue
-
-                    # Adding a new one!
-                    counter += 1
-                    
-                    srpm_reponame = data["pkgs"][repo_id][arch][pkg_id]["reponame"]
-
-                    # This is the same set in both koji_srpms and srpms
-                    directly_required_pkg_names = set()
-
-                    koji_api_url = configs["repos"][repo_id]["source"]["repos"][srpm_reponame]["koji_api_url"]
-                    koji_files_url = configs["repos"][repo_id]["source"]["repos"][srpm_reponame]["koji_files_url"]
-                    koji_id = url_to_id(koji_api_url)
-
-                    # Initialise the srpm in the koji_srpms section
-                    if srpm_id not in buildroot["koji_srpms"][koji_id][arch]:
-                        buildroot["koji_srpms"][koji_id][arch][srpm_id] = {}
-                        buildroot["koji_srpms"][koji_id][arch][srpm_id]["id"] = srpm_id
-                        buildroot["koji_srpms"][koji_id][arch][srpm_id]["directly_required_pkg_names"] = directly_required_pkg_names
-                    else:
-                        directly_required_pkg_names = buildroot["koji_srpms"][koji_id][arch][srpm_id]["directly_required_pkg_names"]
-
-                    # Initialise the srpm in the srpms section
-                    buildroot["srpms"][repo_id][arch][srpm_id] = {}
-                    buildroot["srpms"][repo_id][arch][srpm_id]["id"] = srpm_id
-                    buildroot["srpms"][repo_id][arch][srpm_id]["directly_required_pkg_names"] = directly_required_pkg_names
-                    buildroot["srpms"][repo_id][arch][srpm_id]["pkg_relations"] = {}
-                    buildroot["srpms"][repo_id][arch][srpm_id]["pkg_env_ids"] = set()
-                    buildroot["srpms"][repo_id][arch][srpm_id]["pkg_added_ids"] = set()
-                    buildroot["srpms"][repo_id][arch][srpm_id]["errors"] = {}
-                    buildroot["srpms"][repo_id][arch][srpm_id]["errors"]["non_existing_pkgs"] = set()
-                    buildroot["srpms"][repo_id][arch][srpm_id]["errors"]["message"] = ""
-                    buildroot["srpms"][repo_id][arch][srpm_id]["succeeded"] = False
-                    buildroot["srpms"][repo_id][arch][srpm_id]["processed"] = False
-
-    log("  Found {} new SRPMs!".format(counter))
-    log("  DONE!")
-    log("")
-
-    return counter
-
-
-def _analyze_srpm_buildroots(tmp_dnf_cachedir, tmp_installroots, configs, data, buildroot, pass_counter):
-    # This function is idempotent!
-    # 
-    # That means it can be run many times without affecting the old results.
-
-    log("")
-    log("Analyzing SRPM buildroots...")
-    log("")
-
-    # Prepare a counter for the log
-    total_srpms_to_resolve = 0
-    for repo_id in buildroot["srpms"]:
-        for arch in buildroot["srpms"][repo_id]:
-            for srpm_id, srpm in buildroot["srpms"][repo_id][arch].items():
-                if srpm["processed"]:
-                    continue
-                total_srpms_to_resolve += 1
-    srpms_to_resolve_counter = 0
-
-    for repo_id in buildroot["srpms"]:
-        for arch in buildroot["srpms"][repo_id]:
-            for srpm_id, srpm in buildroot["srpms"][repo_id][arch].items():
-
-                if srpm["processed"]:
-                    continue
-
-                # Using the _analyze_workload function!
-                # So I need to reconstruct a fake workload_conf and a fake env_conf
-                fake_workload_conf = {}
-                fake_workload_conf["labels"] = []
-                fake_workload_conf["id"] = None
-                fake_workload_conf["options"] = []
-                fake_workload_conf["modules_disable"] = []
-                fake_workload_conf["modules_enable"] = []
-                fake_workload_conf["packages"] = srpm["directly_required_pkg_names"]
-                fake_workload_conf["groups"] = []
-                fake_workload_conf["package_placeholders"] = {}
-                fake_workload_conf["package_placeholders"]["pkgs"] = {}
-                fake_workload_conf["package_placeholders"]["srpms"] = {}
-                fake_workload_conf["arch_packages"] = {}
-                fake_workload_conf["arch_packages"][arch] = []
-
-                fake_env_conf = {}
-                fake_env_conf["labels"] = []
-                fake_env_conf["id"] = buildroot["build_groups"][repo_id][arch]["generated_id"]
-                fake_env_conf["packages"] = ["bash"] # This just needs to pass the "if len(packages)" test as True
-                fake_env_conf["arch_packages"] = {}
-                fake_env_conf["arch_packages"][arch] = []
-
-                srpms_to_resolve_counter += 1
-                
-                log("[ Buildroot - pass {} - {} of {} ]".format(pass_counter, srpms_to_resolve_counter, total_srpms_to_resolve))
-                log("Resolving SRPM buildroot: {repo_id} {arch} {srpm_id}".format(
-                    repo_id=repo_id,
-                    arch=arch,
-                    srpm_id=srpm_id
-                ))
-
-                # DNF leaks memory and file descriptors :/
-                # 
-                # So, this workaround runs it in a subprocess that should have its resources
-                # freed when done!
-                with concurrent.futures.ProcessPoolExecutor(max_workers=1) as executor:
-                    fake_workload = executor.submit(_analyze_workload, tmp_dnf_cachedir, tmp_installroots, fake_workload_conf, fake_env_conf, configs["repos"][repo_id], arch).result()
-                #fake_workload = _analyze_workload(tmp_dnf_cachedir, tmp_installroots, fake_workload_conf, fake_env_conf, configs["repos"][repo_id], arch)
-
-                # Save the buildroot data
-                buildroot["srpms"][repo_id][arch][srpm_id]["succeeded"] = fake_workload["succeeded"]
-                buildroot["srpms"][repo_id][arch][srpm_id]["pkg_relations"] = fake_workload["pkg_relations"]
-                buildroot["srpms"][repo_id][arch][srpm_id]["pkg_env_ids"] = fake_workload["pkg_env_ids"]
-                buildroot["srpms"][repo_id][arch][srpm_id]["pkg_added_ids"] = fake_workload["pkg_added_ids"]
-                buildroot["srpms"][repo_id][arch][srpm_id]["errors"] = fake_workload["errors"]
-                buildroot["srpms"][repo_id][arch][srpm_id]["processed"] = True
-
-
-    log("")
-    log("  DONE!")
-    log("")
-
-
-
-
-def _analyze_buildroot(tmp_dnf_cachedir, tmp_installroots, configs, cache, data):
-
-    buildroot = {}
-    buildroot["koji_srpms"] = {}
-    buildroot["koji_urls"] = {}
-    buildroot["srpms"] = {}
-    buildroot["build_groups"] = {}
-
-    # Currently, only "compose" view types are supported.
-    # The "addon" type is not.
-
-    # Get SRPMs from views
-    #
-    # This populates:
-    #   data["buildroot"]["koji_srpms"]...
-    # and also initiates:
-    #   data["buildroot"]["srpms"]...
-    for view_conf_id in configs["views"]:
-        view_conf = configs["views"][view_conf_id]
-
-        if view_conf["type"] == "compose":
-            if view_conf["buildroot_strategy"] == "root_logs":
-                for arch in view_conf["architectures"]:
-                    _populate_buildroot_with_view_srpms(view_conf, arch, configs, data, buildroot)
-
-    # Time to resolve the build groups!
-    # 
-    # This initialises and populates:
-    #   buildroot["build_groups"]
-    _analyze_build_groups(tmp_dnf_cachedir, tmp_installroots, configs, data, buildroot)
-
-    pass_counter = 0
-    while True:
-        pass_counter += 1
-
-        log("")
-        log("== Buildroot resolution - pass {} ========".format(pass_counter))
-        log("")
-        log("")
-        # Get the directly_required_pkg_names from koji root logs
-        # 
-        # Adds stuff to existing:
-        #   data["buildroot"]["koji_srpms"]...
-        # ... which also updates:
-        #   data["buildroot"]["srpms"]...
-        # ... because it's interlinked.
-        _resolve_srpms_using_root_logs(buildroot, cache["root_log_deps"]["current"], cache["root_log_deps"]["next"], pass_counter)
-
-        # And now resolving the actual buildroot
-        _analyze_srpm_buildroots(tmp_dnf_cachedir, tmp_installroots, configs, data, buildroot, pass_counter)
-
-        # Resolving dependencies could have added new SRPMs into the mix that also
-        # need their buildroots resolved! So let's find out if there are any
-        new_srpms_count = _expand_buildroot_srpms(configs, data, buildroot)
-
-        if not new_srpms_count:
-            log("")
-            log("All passes completed!")
-            log("")
-            break
-
-    return buildroot
-
-
-def _add_missing_levels_to_pkg_or_srpm(pkg_or_srpm, level):
-
-    pkg_current_max_level = len(pkg_or_srpm["level"]) - 1
-    for _ in range(level - pkg_current_max_level):
-        pkg_or_srpm["level"].append({
-            "all": set(),
-            "req": set(),
-            "dep": set(),
-            "env": set()
-        })
-
-
-def _add_buildroot_to_view(view_conf, arch, configs, data):
-
-    view_conf_id = view_conf["id"]
-
-    view_id = "{view_conf_id}:{arch}".format(
-        view_conf_id=view_conf_id,
-        arch=arch
-    )
-
-    repo_id = view_conf["repository"]
-
-    view = data["views"][view_id]
-
-
-    log("")
-    log("Adding buildroot to view {}...".format(view_id))
-
-    # Starting with all SRPMs in this view
-    srpm_ids_to_process = set(view["source_pkgs"])
-
-    # Starting on level 1, the first buildroot level
-    # (it's 0 because it gets incremented to 1 immediately after the loop starts)
-    level = 0
-
-    while True:
-        level += 1
-        added_pkg_ids = set()
-
-        log("  Pass {}...".format(level))
-
-        # This is similar to adding workloads in _analyze_view()
-        for buildroot_srpm_id in srpm_ids_to_process:
-            buildroot_srpm = data["buildroot"]["srpms"][repo_id][arch][buildroot_srpm_id]
-
-
-            # Packages in the base buildroot (which would be the environment in workloads)
-            for pkg_id in buildroot_srpm["pkg_env_ids"]:
-                added_pkg_ids.add(pkg_id)
+            # Packages in the environment
+            for pkg_id in workload["pkg_env_ids"]:
 
                 # Initialise
                 if pkg_id not in view["pkgs"]:
-                    pkg = data["pkgs"][repo_id][arch][pkg_id]
-                    view["pkgs"][pkg_id] = _init_view_pkg(pkg, arch, level=level)
+                    pkg = self.data["pkgs"][repo_id][arch][pkg_id]
+                    view["pkgs"][pkg_id] = self._init_view_pkg(pkg, arch)
                 
-                # Add missing levels to the pkg
-                _add_missing_levels_to_pkg_or_srpm(view["pkgs"][pkg_id], level)
+                # It's in this wokrload
+                view["pkgs"][pkg_id]["in_workload_ids_all"].add(workload_id)
 
-                # It's in this buildroot
-                view["pkgs"][pkg_id]["in_buildroot_of_srpm_id_all"].add(buildroot_srpm_id)
-                view["pkgs"][pkg_id]["level"][level]["all"].add(buildroot_srpm_id)
-
-                # And in the base buildroot specifically
-                view["pkgs"][pkg_id]["in_buildroot_of_srpm_id_env"].add(buildroot_srpm_id)
-                view["pkgs"][pkg_id]["level"][level]["env"].add(buildroot_srpm_id)
+                # And in the environment
+                view["pkgs"][pkg_id]["in_workload_ids_env"].add(workload_id)
 
                 # Is it also required?
-                if view["pkgs"][pkg_id]["name"] in buildroot_srpm["directly_required_pkg_names"]:
-                    view["pkgs"][pkg_id]["in_buildroot_of_srpm_id_req"].add(buildroot_srpm_id)
-                    view["pkgs"][pkg_id]["level"][level]["req"].add(buildroot_srpm_id)
+                if view["pkgs"][pkg_id]["name"] in workload_conf["packages"]:
+                    view["pkgs"][pkg_id]["in_workload_ids_req"].add(workload_id)
+                elif view["pkgs"][pkg_id]["name"] in workload_conf["arch_packages"][arch]:
+                    view["pkgs"][pkg_id]["in_workload_ids_req"].add(workload_id)
                 
                 # pkg_relations
-                view["pkgs"][pkg_id]["required_by"].update(buildroot_srpm["pkg_relations"][pkg_id]["required_by"])
-                view["pkgs"][pkg_id]["recommended_by"].update(buildroot_srpm["pkg_relations"][pkg_id]["recommended_by"])
-                view["pkgs"][pkg_id]["suggested_by"].update(buildroot_srpm["pkg_relations"][pkg_id]["suggested_by"])
+                view["pkgs"][pkg_id]["required_by"].update(workload["pkg_relations"][pkg_id]["required_by"])
+                view["pkgs"][pkg_id]["recommended_by"].update(workload["pkg_relations"][pkg_id]["recommended_by"])
+                view["pkgs"][pkg_id]["suggested_by"].update(workload["pkg_relations"][pkg_id]["suggested_by"])
 
-            # Packages needed on top of the base buildroot (required or dependency)
-            for pkg_id in buildroot_srpm["pkg_added_ids"]:
-                added_pkg_ids.add(pkg_id)
+            # Packages added by this workload (required or dependency)
+            for pkg_id in workload["pkg_added_ids"]:
 
                 # Initialise
                 if pkg_id not in view["pkgs"]:
-                    pkg = data["pkgs"][repo_id][arch][pkg_id]
-                    view["pkgs"][pkg_id] = _init_view_pkg(pkg, arch, level=level)
+                    pkg = self.data["pkgs"][repo_id][arch][pkg_id]
+                    view["pkgs"][pkg_id] = self._init_view_pkg(pkg, arch)
                 
-                # Add missing levels to the pkg
-                _add_missing_levels_to_pkg_or_srpm(view["pkgs"][pkg_id], level)
-                
-                # It's in this buildroot
-                view["pkgs"][pkg_id]["in_buildroot_of_srpm_id_all"].add(buildroot_srpm_id)
-                view["pkgs"][pkg_id]["level"][level]["all"].add(buildroot_srpm_id)
+                # It's in this wokrload
+                view["pkgs"][pkg_id]["in_workload_ids_all"].add(workload_id)
 
-                # Is it also required?
-                if view["pkgs"][pkg_id]["name"] in buildroot_srpm["directly_required_pkg_names"]:
-                    view["pkgs"][pkg_id]["in_buildroot_of_srpm_id_req"].add(buildroot_srpm_id)
-                    view["pkgs"][pkg_id]["level"][level]["req"].add(buildroot_srpm_id)
+                # Is it required?
+                if view["pkgs"][pkg_id]["name"] in workload_conf["packages"]:
+                    view["pkgs"][pkg_id]["in_workload_ids_req"].add(workload_id)
+                elif view["pkgs"][pkg_id]["name"] in workload_conf["arch_packages"][arch]:
+                    view["pkgs"][pkg_id]["in_workload_ids_req"].add(workload_id)
                 
                 # Or a dependency?
                 else:
-                    view["pkgs"][pkg_id]["in_buildroot_of_srpm_id_dep"].add(buildroot_srpm_id)
-                    view["pkgs"][pkg_id]["level"][level]["dep"].add(buildroot_srpm_id)
+                    view["pkgs"][pkg_id]["in_workload_ids_dep"].add(workload_id)
                 
                 # pkg_relations
-                view["pkgs"][pkg_id]["required_by"].update(buildroot_srpm["pkg_relations"][pkg_id]["required_by"])
-                view["pkgs"][pkg_id]["recommended_by"].update(buildroot_srpm["pkg_relations"][pkg_id]["recommended_by"])
-                view["pkgs"][pkg_id]["suggested_by"].update(buildroot_srpm["pkg_relations"][pkg_id]["suggested_by"])
-        
-        # Resetting the SRPMs, so only the new ones can be added
-        srpm_ids_to_process = set()
+                view["pkgs"][pkg_id]["required_by"].update(workload["pkg_relations"][pkg_id]["required_by"])
+                view["pkgs"][pkg_id]["recommended_by"].update(workload["pkg_relations"][pkg_id]["recommended_by"])
+                view["pkgs"][pkg_id]["suggested_by"].update(workload["pkg_relations"][pkg_id]["suggested_by"])
 
-        # SRPMs
-        for pkg_id in added_pkg_ids:
-            pkg = view["pkgs"][pkg_id]
+            # And finally the non-existing, imaginary, package placeholders!
+            for pkg_id in workload["pkg_placeholder_ids"]:
+
+                # Initialise
+                if pkg_id not in view["pkgs"]:
+                    placeholder = workload_conf["package_placeholders"]["pkgs"][pkg_id_to_name(pkg_id)]
+                    view["pkgs"][pkg_id] = self._init_view_pkg(placeholder, arch, placeholder=True)
+                
+                # It's in this wokrload
+                view["pkgs"][pkg_id]["in_workload_ids_all"].add(workload_id)
+
+                # Placeholders are by definition required
+                view["pkgs"][pkg_id]["in_workload_ids_req"].add(workload_id)
+            
+            # ... including the SRPM placeholders
+            for srpm_name in workload["srpm_placeholder_names"]:
+                srpm_id = pkg_placeholder_name_to_nevr(srpm_name)
+
+                # Initialise
+                if srpm_id not in view["source_pkgs"]:
+                    sourcerpm = "{}.src.rpm".format(srpm_id)
+                    view["source_pkgs"][srpm_id] = self._init_view_srpm({"sourcerpm": sourcerpm, "source_name": srpm_name, "reponame": None})
+                
+                # It's a placeholder
+                view["source_pkgs"][srpm_id]["placeholder"] = True
+
+                # Build requires
+                view["source_pkgs"][srpm_id]["placeholder_directly_required_pkg_names"] = workload_conf["package_placeholders"]["srpms"][srpm_name]["buildrequires"]
+            
+            # Oh! And modules
+            for module_id in workload["enabled_modules"]:
+
+                # Initiate
+                if module_id not in view["modules"]:
+                    view["modules"][module_id] = {}
+                    view["modules"][module_id]["id"] = module_id
+                    view["modules"][module_id]["in_workload_ids_all"] = set()
+                    view["modules"][module_id]["in_workload_ids_req"] = set()
+                    view["modules"][module_id]["in_workload_ids_dep"] = set()
+                
+                # It's in this workload
+                view["modules"][module_id]["in_workload_ids_all"].add(workload_id)
+                
+                # Is it required?
+                if module_id in workload_conf["modules_enable"]:
+                    view["modules"][module_id]["in_workload_ids_req"].add(workload_id)
+                else:
+                    view["modules"][module_id]["in_workload_ids_dep"].add(workload_id)
+
+        
+        # If this is an addon view, remove all packages that are already in the parent view
+        if view_conf["type"] == "addon":
+            base_view_conf_id = view_conf["base_view_id"]
+
+            base_view_id = "{base_view_conf_id}:{arch}".format(
+                base_view_conf_id=base_view_conf_id,
+                arch=arch
+            )
+
+            for base_view_pkg_id in views[base_view_id]["pkgs"]:
+                if base_view_pkg_id in view["pkgs"]:
+                    del view["pkgs"][base_view_pkg_id]
+
+        # Done with packages!
+        log("  Includes {} packages.".format(len(view["pkgs"])))
+        log("  Includes {} modules.".format(len(view["modules"])))
+
+        # But not with source packages, that's an entirely different story!
+        for pkg_id, pkg in view["pkgs"].items():
             srpm_id = pkg["sourcerpm"].rsplit(".src.rpm")[0]
 
-            # Initialise
             if srpm_id not in view["source_pkgs"]:
-                view["source_pkgs"][srpm_id] = _init_view_srpm(pkg, level=level)
-                srpm_ids_to_process.add(srpm_id)
-                
-            # Add missing levels to the pkg
-            _add_missing_levels_to_pkg_or_srpm(view["source_pkgs"][srpm_id], level)
-
-            view["source_pkgs"][srpm_id]["pkg_ids"].add(pkg_id)
+                view["source_pkgs"][srpm_id] = self._init_view_srpm(pkg)
 
             # Include some information from the RPM
-            view["source_pkgs"][srpm_id]["in_buildroot_of_srpm_id_all"].update(pkg["in_buildroot_of_srpm_id_all"])
-            view["source_pkgs"][srpm_id]["in_buildroot_of_srpm_id_req"].update(pkg["in_buildroot_of_srpm_id_req"])
-            view["source_pkgs"][srpm_id]["in_buildroot_of_srpm_id_dep"].update(pkg["in_buildroot_of_srpm_id_dep"])
-            view["source_pkgs"][srpm_id]["in_buildroot_of_srpm_id_env"].update(pkg["in_buildroot_of_srpm_id_env"])
-            view["source_pkgs"][srpm_id]["level"][level]["all"].update(pkg["level"][level]["all"])
-            view["source_pkgs"][srpm_id]["level"][level]["req"].update(pkg["level"][level]["req"])
-            view["source_pkgs"][srpm_id]["level"][level]["dep"].update(pkg["level"][level]["dep"])
-            view["source_pkgs"][srpm_id]["level"][level]["env"].update(pkg["level"][level]["env"])
+            view["source_pkgs"][srpm_id]["pkg_ids"].add(pkg_id)
 
-        log ("    added {} RPMs".format(len(added_pkg_ids)))
-        log ("    added {} SRPMs".format(len(srpm_ids_to_process)))
-
-        # More iterations needed?
-        if not srpm_ids_to_process:
-            log("  All passes completed!")
-            log("")
-            break
+            view["source_pkgs"][srpm_id]["in_workload_ids_all"].update(pkg["in_workload_ids_all"])
+            view["source_pkgs"][srpm_id]["in_workload_ids_req"].update(pkg["in_workload_ids_req"])
+            view["source_pkgs"][srpm_id]["in_workload_ids_dep"].update(pkg["in_workload_ids_dep"])
+            view["source_pkgs"][srpm_id]["in_workload_ids_env"].update(pkg["in_workload_ids_env"])
+        
+        log("  Includes {} source packages.".format(len(view["source_pkgs"])))
 
 
-def _add_buildroot_to_views(configs, data):
+        log("  DONE!")
+        log("")
 
-    log("")
-    log("Adding Buildroot to views...")
-    log("")
+        return view
 
-    # First, the standard views
-    for view_conf_id in configs["views"]:
-        view_conf = configs["views"][view_conf_id]
 
-        if view_conf["type"] == "compose":
-            if view_conf["buildroot_strategy"] == "root_logs":
+    def _analyze_views(self):
+
+        views = {}
+
+        # First, analyse the standard views
+        for view_conf_id in self.configs["views"]:
+            view_conf = self.configs["views"][view_conf_id]
+
+            if view_conf["type"] == "compose":
                 for arch in view_conf["architectures"]:
-                    _add_buildroot_to_view(view_conf, arch, configs, data)
+                    view = self._analyze_view(view_conf, arch, views)
+                    view_id = view["id"]
 
-    # And the addon is not supported now
+                    views[view_id] = view
+        
+        # Second, analyse the addon views
+        # This is important as they need the standard views already available
+        for view_conf_id in self.configs["views"]:
+            view_conf = self.configs["views"][view_conf_id]
 
-    log("")
-    log("  DONE!")
-    log("")
+            if view_conf["type"] == "addon":
+                base_view_conf_id = view_conf["base_view_id"]
+                base_view_conf = self.configs["views"][base_view_conf_id]
 
+                for arch in set(view_conf["architectures"]) & set(base_view_conf["architectures"]):
+                    view = self._analyze_view(view_conf, arch, views)
+                    view_id = view["id"]
 
-def _init_pkg_or_srpm_relations_fields(target_pkg, type = None):
-    # I kept them all listed so they're easy to copy
-
-    # Workload IDs
-    target_pkg["in_workload_ids_all"] = set()
-    target_pkg["in_workload_ids_req"] = set()
-    target_pkg["in_workload_ids_dep"] = set()
-    target_pkg["in_workload_ids_env"] = set()
-    
-    # Workload Conf IDs
-    target_pkg["in_workload_conf_ids_all"] = set()
-    target_pkg["in_workload_conf_ids_req"] = set()
-    target_pkg["in_workload_conf_ids_dep"] = set()
-    target_pkg["in_workload_conf_ids_env"] = set()
-
-    # Buildroot SRPM IDs
-    target_pkg["in_buildroot_of_srpm_id_all"] = set()
-    target_pkg["in_buildroot_of_srpm_id_req"] = set()
-    target_pkg["in_buildroot_of_srpm_id_dep"] = set()
-    target_pkg["in_buildroot_of_srpm_id_env"] = set()
-
-    # Buildroot SRPM Names
-    target_pkg["in_buildroot_of_srpm_name_all"] = {} # of set() of srpm_ids
-    target_pkg["in_buildroot_of_srpm_name_req"] = {} # of set() of srpm_ids
-    target_pkg["in_buildroot_of_srpm_name_dep"] = {} # of set() of srpm_ids
-    target_pkg["in_buildroot_of_srpm_name_env"] = {} # of set() of srpm_ids
-
-    # Unwanted
-    target_pkg["unwanted_completely_in_list_ids"] = set()
-    target_pkg["unwanted_buildroot_in_list_ids"] = set()
-
-    # Level number
-    target_pkg["level_number"] = 999
-
-    if type == "rpm":
-
-        # Dependency of RPM NEVRs
-        target_pkg["dependency_of_pkg_nevrs"] = set()
-        target_pkg["hard_dependency_of_pkg_nevrs"] = set()
-        target_pkg["weak_dependency_of_pkg_nevrs"] = set()
-
-        # Dependency of RPM Names
-        target_pkg["dependency_of_pkg_names"] = {} # of set() of nevrs
-        target_pkg["hard_dependency_of_pkg_names"] = {} # of set() of nevrs
-        target_pkg["weak_dependency_of_pkg_names"] = {} # if set() of nevrs
+                    views[view_id] = view
+        
+        self.data["views"] = views
 
 
-    # TODO: add the levels
-    
-    
-def _populate_pkg_or_srpm_relations_fields(target_pkg, source_pkg, type = None, view = None):
+    def _populate_buildroot_with_view_srpms(self, view_conf, arch):
+        view_conf_id = view_conf["id"]
 
-    if type == "rpm" and not view:
-        raise ValueError("This function requires a view when using type = 'rpm'!")
+        log("Initialising buildroot packages of: {view_name} ({view_conf_id}) for {arch}".format(
+            view_name=view_conf["name"],
+            view_conf_id=view_conf_id,
+            arch=arch
+        ))
 
-    # Unwanted
-    target_pkg["unwanted_completely_in_list_ids"].update(source_pkg["unwanted_completely_in_list_ids"])
-    target_pkg["unwanted_buildroot_in_list_ids"].update(source_pkg["unwanted_buildroot_in_list_ids"])
+        view_id = "{view_conf_id}:{arch}".format(
+            view_conf_id=view_conf_id,
+            arch=arch
+        )
 
+        view = self.data["views"][view_id]
+        repo_id = view_conf["repository"]
 
-    # Dependency relationships
-    for list_type in ["all", "req", "dep", "env"]:
-        target_pkg["in_workload_ids_{}".format(list_type)].update(source_pkg["in_workload_ids_{}".format(list_type)])
+        # Initialise the srpms section
+        if repo_id not in self.data["buildroot"]["srpms"]:
+            self.data["buildroot"]["srpms"][repo_id] = {}
 
-        target_pkg["in_buildroot_of_srpm_id_{}".format(list_type)].update(source_pkg["in_buildroot_of_srpm_id_{}".format(list_type)])
+        if arch not in self.data["buildroot"]["srpms"][repo_id]:
+            self.data["buildroot"]["srpms"][repo_id][arch] = {}
 
-        for workload_id in source_pkg["in_workload_ids_{}".format(list_type)]:
-            workload_conf_id = workload_id_to_conf_id(workload_id)
-            target_pkg["in_workload_conf_ids_{}".format(list_type)].add(workload_conf_id)
+        # Initialise each srpm
+        for srpm_id, srpm in view["source_pkgs"].items():
 
-        for srpm_id in source_pkg["in_buildroot_of_srpm_id_{}".format(list_type)]:
-            srpm_name = pkg_id_to_name(srpm_id)
-
-            if srpm_name not in target_pkg["in_buildroot_of_srpm_name_{}".format(list_type)]:
-                target_pkg["in_buildroot_of_srpm_name_{}".format(list_type)][srpm_name] = set()
+            if srpm["placeholder"]:
+                directly_required_pkg_names = srpm["placeholder_directly_required_pkg_names"]
             
-            target_pkg["in_buildroot_of_srpm_name_{}".format(list_type)][srpm_name].add(srpm_id)
+            else:
+                # This is the same set in both koji_srpms and srpms
+                directly_required_pkg_names = set()
+
+                # Do I need to extract the build dependencies from koji root_logs?
+                # Then also save the srpms in the koji_srpm section
+                if view_conf["buildroot_strategy"] == "root_logs":
+                    srpm_reponame = srpm["reponame"]
+                    koji_api_url = self.configs["repos"][repo_id]["source"]["repos"][srpm_reponame]["koji_api_url"]
+                    koji_files_url = self.configs["repos"][repo_id]["source"]["repos"][srpm_reponame]["koji_files_url"]
+                    koji_id = url_to_id(koji_api_url)
+
+                    # Initialise the koji_srpms section
+                    if koji_id not in self.data["buildroot"]["koji_srpms"]:
+                        # SRPMs
+                        self.data["buildroot"]["koji_srpms"][koji_id] = {}
+                        # URLs
+                        self.data["buildroot"]["koji_urls"][koji_id] = {}
+                        self.data["buildroot"]["koji_urls"][koji_id]["api"] = koji_api_url
+                        self.data["buildroot"]["koji_urls"][koji_id]["files"] = koji_files_url
+                    
+                    if arch not in self.data["buildroot"]["koji_srpms"][koji_id]:
+                        self.data["buildroot"]["koji_srpms"][koji_id][arch] = {}
+
+                    # Initialise srpms in the koji_srpms section
+                    if srpm_id not in self.data["buildroot"]["koji_srpms"][koji_id][arch]:
+                        self.data["buildroot"]["koji_srpms"][koji_id][arch][srpm_id] = {}
+                        self.data["buildroot"]["koji_srpms"][koji_id][arch][srpm_id]["id"] = srpm_id
+                        self.data["buildroot"]["koji_srpms"][koji_id][arch][srpm_id]["directly_required_pkg_names"] = directly_required_pkg_names
+                    else:
+                        directly_required_pkg_names = self.data["buildroot"]["koji_srpms"][koji_id][arch][srpm_id]["directly_required_pkg_names"]
+
+            # Initialise srpms in the srpms section
+            if srpm_id not in self.data["buildroot"]["srpms"][repo_id][arch]:
+                self.data["buildroot"]["srpms"][repo_id][arch][srpm_id] = {}
+                self.data["buildroot"]["srpms"][repo_id][arch][srpm_id]["id"] = srpm_id
+                self.data["buildroot"]["srpms"][repo_id][arch][srpm_id]["directly_required_pkg_names"] = directly_required_pkg_names
+                self.data["buildroot"]["srpms"][repo_id][arch][srpm_id]["pkg_relations"] = {}
+                self.data["buildroot"]["srpms"][repo_id][arch][srpm_id]["pkg_env_ids"] = set()
+                self.data["buildroot"]["srpms"][repo_id][arch][srpm_id]["pkg_added_ids"] = set()
+                self.data["buildroot"]["srpms"][repo_id][arch][srpm_id]["errors"] = {}
+                self.data["buildroot"]["srpms"][repo_id][arch][srpm_id]["errors"]["non_existing_pkgs"] = set()
+                self.data["buildroot"]["srpms"][repo_id][arch][srpm_id]["errors"]["message"] = ""
+                self.data["buildroot"]["srpms"][repo_id][arch][srpm_id]["succeeded"] = False
+                self.data["buildroot"]["srpms"][repo_id][arch][srpm_id]["processed"] = False
+
+
+        log("  DONE!")
+        log("")
+
+
+    def _get_build_deps_from_a_root_log(self, root_log):
+        required_pkgs = []
+
+        # The individual states are nicely described inside the for loop.
+        # They're processed in order
+        state = 0
+        
+        for file_line in root_log.splitlines():
+
+            # 0/
+            # parts of the log I don't really care about
+            if state == 0:
+
+                # The next installation is the build deps!
+                # So I start caring. Next state!
+                if "Executing command: ['/usr/bin/dnf', 'builddep'" in file_line:
+                    state += 1
+            
+
+            # 1/
+            # getting the "already installed" packages to the list
+            elif state == 1:
+
+                # "Package already installed" indicates it's directly required,
+                # so save it.
+                if "is already installed." in file_line:
+                    pkg_name = file_line.split()[3].rsplit("-",2)[0]
+                    required_pkgs.append(pkg_name)
+
+                # That's all! Next state!
+                elif "Dependencies resolved." in file_line:
+                    state += 1
+            
+
+            # 2/
+            # going through the log right before the first package name
+            elif state == 2:
+
+                # The next line will be the first package. Next state!
+                if "Installing:" in file_line:
+                    state += 1
+            
+
+            # 3/
+            # And now just saving the packages until the "installing dependencies" part
+            # or the "transaction summary" part if there's no dependencies
+            elif state == 3:
+                
+                if "Installing dependencies:" in file_line:
+                    state += 1
+
+                elif "Transaction Summary" in file_line:
+                    state += 1
+                    
+                else:
+                    pkg_name = file_line.split()[2]
+                    required_pkgs.append(pkg_name)
+            
+
+            # 4/
+            # I'm done. So I can break out of the loop.
+            elif state == 4:
+                break
+                
+
+        return required_pkgs
+
+
+    def _resolve_srpm_using_root_log(self, srpm_id, arch, koji_session, koji_files_url):
+
+        # FIXME # DEBUG # FIXME # DEBUG # FIXME # DEBUG # FIXME # DEBUG # FIXME # DEBUG # FIXME # DEBUG #
+        # FIXME # DEBUG # FIXME # DEBUG # FIXME # DEBUG # FIXME # DEBUG # FIXME # DEBUG # FIXME # DEBUG #
+        # FIXME # DEBUG # FIXME # DEBUG # FIXME # DEBUG # FIXME # DEBUG # FIXME # DEBUG # FIXME # DEBUG #
+
+        # Making sure there are 3 passes at least, but that it won't get overwhelmed
+
+        #if srpm_id.rsplit("-",2)[0] in ["bash", "make", "unzip"]:
+        #    return ["gawk", "xz", "findutils"]
+        #
+        #elif srpm_id.rsplit("-",2)[0] in ["gawk", "xz", "findutils"]:
+        #    return ['cpio', 'diffutils']
+        #
+        #return ["bashBOOOM", "make", "unzip"]
+
+        # FIXME # DEBUG # FIXME # DEBUG # FIXME # DEBUG # FIXME # DEBUG # FIXME # DEBUG # FIXME # DEBUG #
+        # FIXME # DEBUG # FIXME # DEBUG # FIXME # DEBUG # FIXME # DEBUG # FIXME # DEBUG # FIXME # DEBUG #
+        # FIXME # DEBUG # FIXME # DEBUG # FIXME # DEBUG # FIXME # DEBUG # FIXME # DEBUG # FIXME # DEBUG #
+        
+        log("    Talking to Koji API...")
+        koji_pkg_data = koji_session.getRPM("{}.src".format(srpm_id))
+        koji_logs = koji_session.getBuildLogs(koji_pkg_data["build_id"])
+
+        koji_log_path = None
+
+        for koji_log in koji_logs:
+            if koji_log["name"] == "root.log":
+                if koji_log["dir"] == arch or koji_log["dir"] == "noarch":
+                    koji_log_path = koji_log["path"]
+        
+        root_log_url = "{koji_files_url}/{koji_log_path}".format(
+            koji_files_url=koji_files_url,
+            koji_log_path=koji_log_path
+        )
+
+        log("    Downloading the root.log file...")
+        # This sometimes hangs, so I'm giving it a timeout and
+        # a few extra tries before totally giving up!
+        MAX_TRIES = 10
+        attempts = 0
+        success = False
+        while attempts < MAX_TRIES:
+            try:
+                with urllib.request.urlopen(root_log_url, timeout=20) as response:
+                    root_log_data = response.read()
+                    root_log_contents = root_log_data.decode('utf-8')
+                success = True
+                break
+            except:
+                attempts +=1
+                log("    Error getting the root log... retrying...")
+        if not success:
+            raise KojiRootLogError("Could not get a root.log file")
+
+        log("    Parsing the root.log file...")
+        directly_required_pkg_names = self._get_build_deps_from_a_root_log(root_log_contents)
+
+        log("    Done!")
+        return directly_required_pkg_names
+
+
+    def _resolve_srpms_using_root_logs(self, pass_counter):
+        # This function is idempotent!
+        # 
+        # That means it can be run many times without affecting the old results.
+
+        log("== Resolving SRPMs using root logs - pass {} ========".format(pass_counter))
+
+        # Prepare a counter for the log
+        total_srpms_to_resolve = 0
+        for koji_id in self.data["buildroot"]["koji_srpms"]:
+            for arch in self.data["buildroot"]["koji_srpms"][koji_id]:
+                total_srpms_to_resolve += len(self.data["buildroot"]["koji_srpms"][koji_id][arch])
+        srpms_to_resolve_counter = 0
+
+        # I need to keep sessions open to Koji
+        # And because in some cases (in mixed repos) packages
+        # could have been in different koji instances, I need
+        # multiple Koji sesions!
+        koji_sessions = {}
+
+        for koji_id in self.data["buildroot"]["koji_srpms"]:
+            koji_urls = self.data["buildroot"]["koji_urls"][koji_id]
+
+            # If the cache is empty, initialise it
+            if koji_id not in self.cache["root_log_deps"]["current"]:
+                self.cache["root_log_deps"]["current"][koji_id] = {}
+            if koji_id not in self.cache["root_log_deps"]["next"]:
+                self.cache["root_log_deps"]["next"][koji_id] = {}
+
+            # Initiate Koji sessions
+            if koji_id not in koji_sessions:
+                koji_sessions[koji_id] = koji.ClientSession(koji_urls["api"])
+
+            for arch in self.data["buildroot"]["koji_srpms"][koji_id]:
+
+                # If the cache is empty, initialise it
+                if arch not in self.cache["root_log_deps"]["current"][koji_id]:
+                    self.cache["root_log_deps"]["current"][koji_id][arch] = {}
+                if arch not in self.cache["root_log_deps"]["next"][koji_id]:
+                    self.cache["root_log_deps"]["next"][koji_id][arch] = {}
+                
+
+                for srpm_id, srpm in self.data["buildroot"]["koji_srpms"][koji_id][arch].items():
+                    srpms_to_resolve_counter += 1
+                
+                    log("")
+                    log("[ Buildroot - pass {} - {} of {} ]".format(pass_counter, srpms_to_resolve_counter, total_srpms_to_resolve))
+                    log("Koji root_log {srpm_id} {arch}".format(
+                        srpm_id=srpm_id,
+                        arch=arch
+                    ))
+                    if not srpm["directly_required_pkg_names"]:
+                        if srpm_id in self.cache["root_log_deps"]["current"][koji_id][arch]:
+                            log("  Using Cache!")
+                            directly_required_pkg_names = self.cache["root_log_deps"]["current"][koji_id][arch][srpm_id]
+
+                        elif srpm_id in self.cache["root_log_deps"]["next"][koji_id][arch]:
+                            log("  Using Cache!")
+                            directly_required_pkg_names = self.cache["root_log_deps"]["next"][koji_id][arch][srpm_id]
+                        
+                        else:
+                            log("  Resolving...")
+                            directly_required_pkg_names = self._resolve_srpm_using_root_log(srpm_id, arch, koji_sessions[koji_id], koji_urls["files"])
+                        
+                        self.cache["root_log_deps"]["next"][koji_id][arch][srpm_id] = directly_required_pkg_names
+
+                        # Here it's important to add the packages to the already initiated
+                        # set, because its reference is shared between the koji_srpms and the srpm sections
+                        self.data["buildroot"]["koji_srpms"][koji_id][arch][srpm_id]["directly_required_pkg_names"].update(directly_required_pkg_names)
+                    else:
+                        log("  Skipping! (already done before)")
+        log("")
+        log("  DONE!")
+        log("")
+
+
+    def _analyze_build_groups(self):
+
+        log("")
+        log("Analyzing build groups...")
+        log("")
+
+        # Need to analyse build groups for all repo_ids
+        # and arches of buildroot["srpms"]
+        for repo_id in self.data["buildroot"]["srpms"]:
+            self.data["buildroot"]["build_groups"][repo_id] = {}
+
+            for arch in self.data["buildroot"]["srpms"][repo_id]:
+
+                generated_id = "CR-buildroot-base-env-{repo_id}-{arch}".format(
+                    repo_id=repo_id,
+                    arch=arch
+                )
+
+                # Using the _analyze_env function! 
+                # So I need to reconstruct a fake env_conf
+                fake_env_conf = {}
+                fake_env_conf["id"] = generated_id
+                fake_env_conf["options"] = []
+                if self.configs["repos"][repo_id]["source"]["base_buildroot_override"]:
+                    fake_env_conf["packages"] = self.configs["repos"][repo_id]["source"]["base_buildroot_override"]
+                    fake_env_conf["groups"] = []
+                else:
+                    fake_env_conf["packages"] = []
+                    fake_env_conf["groups"] = ["build"]
+                fake_env_conf["arch_packages"] = {}
+                fake_env_conf["arch_packages"][arch] = []
+
+                log("Resolving build group: {repo_id} {arch}".format(
+                    repo_id=repo_id,
+                    arch=arch
+                ))
+                repo = self.configs["repos"][repo_id]
+                fake_env = self._analyze_env(fake_env_conf, repo, arch)
+
+                # If this fails, the buildroot can't be resolved.
+                # Fail the entire content resolver build!
+                if not fake_env["succeeded"]:
+                    raise BuildGroupAnalysisError
+
+                self.data["buildroot"]["build_groups"][repo_id][arch] = fake_env
+                self.data["buildroot"]["build_groups"][repo_id][arch]["generated_id"] = generated_id
+
+        log("")
+        log("  DONE!")
+        log("")
+
+
+    def _expand_buildroot_srpms(self):
+        # This function is idempotent!
+        # 
+        # That means it can be run many times without affecting the old results.
+
+        log("Expanding the SRPM set...")
+
+        counter = 0
+
+        for repo_id in self.data["buildroot"]["srpms"]:
+            for arch in self.data["buildroot"]["srpms"][repo_id]:
+                top_lvl_srpm_ids = set(self.data["buildroot"]["srpms"][repo_id][arch])
+                for top_lvl_srpm_id in top_lvl_srpm_ids:
+                    top_lvl_srpm = self.data["buildroot"]["srpms"][repo_id][arch][top_lvl_srpm_id]
+
+                    for pkg_id in top_lvl_srpm["pkg_relations"]:
+                        srpm_id = self.data["pkgs"][repo_id][arch][pkg_id]["sourcerpm"].rsplit(".src.rpm")[0]
+
+                        if srpm_id in self.data["buildroot"]["srpms"][repo_id][arch]:
+                            continue
+
+                        # Adding a new one!
+                        counter += 1
+                        
+                        srpm_reponame = self.data["pkgs"][repo_id][arch][pkg_id]["reponame"]
+
+                        # This is the same set in both koji_srpms and srpms
+                        directly_required_pkg_names = set()
+
+                        koji_api_url = self.configs["repos"][repo_id]["source"]["repos"][srpm_reponame]["koji_api_url"]
+                        koji_files_url = self.configs["repos"][repo_id]["source"]["repos"][srpm_reponame]["koji_files_url"]
+                        koji_id = url_to_id(koji_api_url)
+
+                        # Initialise the srpm in the koji_srpms section
+                        if srpm_id not in self.data["buildroot"]["koji_srpms"][koji_id][arch]:
+                            self.data["buildroot"]["koji_srpms"][koji_id][arch][srpm_id] = {}
+                            self.data["buildroot"]["koji_srpms"][koji_id][arch][srpm_id]["id"] = srpm_id
+                            self.data["buildroot"]["koji_srpms"][koji_id][arch][srpm_id]["directly_required_pkg_names"] = directly_required_pkg_names
+                        else:
+                            directly_required_pkg_names = self.data["buildroot"]["koji_srpms"][koji_id][arch][srpm_id]["directly_required_pkg_names"]
+
+                        # Initialise the srpm in the srpms section
+                        self.data["buildroot"]["srpms"][repo_id][arch][srpm_id] = {}
+                        self.data["buildroot"]["srpms"][repo_id][arch][srpm_id]["id"] = srpm_id
+                        self.data["buildroot"]["srpms"][repo_id][arch][srpm_id]["directly_required_pkg_names"] = directly_required_pkg_names
+                        self.data["buildroot"]["srpms"][repo_id][arch][srpm_id]["pkg_relations"] = {}
+                        self.data["buildroot"]["srpms"][repo_id][arch][srpm_id]["pkg_env_ids"] = set()
+                        self.data["buildroot"]["srpms"][repo_id][arch][srpm_id]["pkg_added_ids"] = set()
+                        self.data["buildroot"]["srpms"][repo_id][arch][srpm_id]["errors"] = {}
+                        self.data["buildroot"]["srpms"][repo_id][arch][srpm_id]["errors"]["non_existing_pkgs"] = set()
+                        self.data["buildroot"]["srpms"][repo_id][arch][srpm_id]["errors"]["message"] = ""
+                        self.data["buildroot"]["srpms"][repo_id][arch][srpm_id]["succeeded"] = False
+                        self.data["buildroot"]["srpms"][repo_id][arch][srpm_id]["processed"] = False
+
+        log("  Found {} new SRPMs!".format(counter))
+        log("  DONE!")
+        log("")
+
+        return counter
+
+
+    def _analyze_srpm_buildroots(self, pass_counter):
+        # This function is idempotent!
+        # 
+        # That means it can be run many times without affecting the old results.
+
+        log("")
+        log("Analyzing SRPM buildroots...")
+        log("")
+
+        # Prepare a counter for the log
+        total_srpms_to_resolve = 0
+        for repo_id in self.data["buildroot"]["srpms"]:
+            for arch in self.data["buildroot"]["srpms"][repo_id]:
+                for srpm_id, srpm in self.data["buildroot"]["srpms"][repo_id][arch].items():
+                    if srpm["processed"]:
+                        continue
+                    total_srpms_to_resolve += 1
+        srpms_to_resolve_counter = 0
+
+        for repo_id in self.data["buildroot"]["srpms"]:
+            for arch in self.data["buildroot"]["srpms"][repo_id]:
+                for srpm_id, srpm in self.data["buildroot"]["srpms"][repo_id][arch].items():
+
+                    if srpm["processed"]:
+                        continue
+
+                    # Using the _analyze_workload function!
+                    # So I need to reconstruct a fake workload_conf and a fake env_conf
+                    fake_workload_conf = {}
+                    fake_workload_conf["labels"] = []
+                    fake_workload_conf["id"] = None
+                    fake_workload_conf["options"] = []
+                    fake_workload_conf["modules_disable"] = []
+                    fake_workload_conf["modules_enable"] = []
+                    fake_workload_conf["packages"] = srpm["directly_required_pkg_names"]
+                    fake_workload_conf["groups"] = []
+                    fake_workload_conf["package_placeholders"] = {}
+                    fake_workload_conf["package_placeholders"]["pkgs"] = {}
+                    fake_workload_conf["package_placeholders"]["srpms"] = {}
+                    fake_workload_conf["arch_packages"] = {}
+                    fake_workload_conf["arch_packages"][arch] = []
+
+                    fake_env_conf = {}
+                    fake_env_conf["labels"] = []
+                    fake_env_conf["id"] = self.data["buildroot"]["build_groups"][repo_id][arch]["generated_id"]
+                    fake_env_conf["packages"] = ["bash"] # This just needs to pass the "if len(packages)" test as True
+                    fake_env_conf["arch_packages"] = {}
+                    fake_env_conf["arch_packages"][arch] = []
+
+                    srpms_to_resolve_counter += 1
+                    
+                    log("[ Buildroot - pass {} - {} of {} ]".format(pass_counter, srpms_to_resolve_counter, total_srpms_to_resolve))
+                    log("Resolving SRPM buildroot: {repo_id} {arch} {srpm_id}".format(
+                        repo_id=repo_id,
+                        arch=arch,
+                        srpm_id=srpm_id
+                    ))
+                    repo = self.configs["repos"][repo_id]
+
+                    fake_workload = self._analyze_workload(fake_workload_conf, fake_env_conf, repo, arch)
+
+                    # Save the buildroot data
+                    self.data["buildroot"]["srpms"][repo_id][arch][srpm_id]["succeeded"] = fake_workload["succeeded"]
+                    self.data["buildroot"]["srpms"][repo_id][arch][srpm_id]["pkg_relations"] = fake_workload["pkg_relations"]
+                    self.data["buildroot"]["srpms"][repo_id][arch][srpm_id]["pkg_env_ids"] = fake_workload["pkg_env_ids"]
+                    self.data["buildroot"]["srpms"][repo_id][arch][srpm_id]["pkg_added_ids"] = fake_workload["pkg_added_ids"]
+                    self.data["buildroot"]["srpms"][repo_id][arch][srpm_id]["errors"] = fake_workload["errors"]
+                    self.data["buildroot"]["srpms"][repo_id][arch][srpm_id]["processed"] = True
+
+
+        log("")
+        log("  DONE!")
+        log("")
+
+
+    def _analyze_buildroot(self):
+
+        self.data["buildroot"] = {}
+        self.data["buildroot"]["koji_srpms"] = {}
+        self.data["buildroot"]["koji_urls"] = {}
+        self.data["buildroot"]["srpms"] = {}
+        self.data["buildroot"]["build_groups"] = {}
+
+        # Currently, only "compose" view types are supported.
+        # The "addon" type is not.
+
+        # Get SRPMs from views
+        #
+        # This populates:
+        #   data["buildroot"]["koji_srpms"]...
+        # and also initiates:
+        #   data["buildroot"]["srpms"]...
+        for view_conf_id in self.configs["views"]:
+            view_conf = self.configs["views"][view_conf_id]
+
+            if view_conf["type"] == "compose":
+                if view_conf["buildroot_strategy"] == "root_logs":
+                    for arch in view_conf["architectures"]:
+                        self._populate_buildroot_with_view_srpms(view_conf, arch)
+
+        # Time to resolve the build groups!
+        # 
+        # This initialises and populates:
+        #   buildroot["build_groups"]
+        self._analyze_build_groups()
+
+        pass_counter = 0
+        while True:
+            pass_counter += 1
+
+            log("")
+            log("== Buildroot resolution - pass {} ========".format(pass_counter))
+            log("")
+            log("")
+            # Get the directly_required_pkg_names from koji root logs
+            # 
+            # Adds stuff to existing:
+            #   data["buildroot"]["koji_srpms"]...
+            # ... which also updates:
+            #   data["buildroot"]["srpms"]...
+            # ... because it's interlinked.
+            self._resolve_srpms_using_root_logs(pass_counter)
+
+            # And now resolving the actual buildroot
+            self._analyze_srpm_buildroots(pass_counter)
+
+            # Resolving dependencies could have added new SRPMs into the mix that also
+            # need their buildroots resolved! So let's find out if there are any
+            new_srpms_count = self._expand_buildroot_srpms()
+
+            if not new_srpms_count:
+                log("")
+                log("All passes completed!")
+                log("")
+                break
+
+
+    def _add_missing_levels_to_pkg_or_srpm(self, pkg_or_srpm, level):
+
+        pkg_current_max_level = len(pkg_or_srpm["level"]) - 1
+        for _ in range(level - pkg_current_max_level):
+            pkg_or_srpm["level"].append({
+                "all": set(),
+                "req": set(),
+                "dep": set(),
+                "env": set()
+            })
+
+
+    def _add_buildroot_to_view(self, view_conf, arch):
+
+        view_conf_id = view_conf["id"]
+
+        view_id = "{view_conf_id}:{arch}".format(
+            view_conf_id=view_conf_id,
+            arch=arch
+        )
+
+        repo_id = view_conf["repository"]
+
+        view = self.data["views"][view_id]
+
+
+        log("")
+        log("Adding buildroot to view {}...".format(view_id))
+
+        # Starting with all SRPMs in this view
+        srpm_ids_to_process = set(view["source_pkgs"])
+
+        # Starting on level 1, the first buildroot level
+        # (it's 0 because it gets incremented to 1 immediately after the loop starts)
+        level = 0
+
+        while True:
+            level += 1
+            added_pkg_ids = set()
+
+            log("  Pass {}...".format(level))
+
+            # This is similar to adding workloads in _analyze_view()
+            for buildroot_srpm_id in srpm_ids_to_process:
+                buildroot_srpm = self.data["buildroot"]["srpms"][repo_id][arch][buildroot_srpm_id]
+
+
+                # Packages in the base buildroot (which would be the environment in workloads)
+                for pkg_id in buildroot_srpm["pkg_env_ids"]:
+                    added_pkg_ids.add(pkg_id)
+
+                    # Initialise
+                    if pkg_id not in view["pkgs"]:
+                        pkg = self.data["pkgs"][repo_id][arch][pkg_id]
+                        view["pkgs"][pkg_id] = self._init_view_pkg(pkg, arch, level=level)
+                    
+                    # Add missing levels to the pkg
+                    self._add_missing_levels_to_pkg_or_srpm(view["pkgs"][pkg_id], level)
+
+                    # It's in this buildroot
+                    view["pkgs"][pkg_id]["in_buildroot_of_srpm_id_all"].add(buildroot_srpm_id)
+                    view["pkgs"][pkg_id]["level"][level]["all"].add(buildroot_srpm_id)
+
+                    # And in the base buildroot specifically
+                    view["pkgs"][pkg_id]["in_buildroot_of_srpm_id_env"].add(buildroot_srpm_id)
+                    view["pkgs"][pkg_id]["level"][level]["env"].add(buildroot_srpm_id)
+
+                    # Is it also required?
+                    if view["pkgs"][pkg_id]["name"] in buildroot_srpm["directly_required_pkg_names"]:
+                        view["pkgs"][pkg_id]["in_buildroot_of_srpm_id_req"].add(buildroot_srpm_id)
+                        view["pkgs"][pkg_id]["level"][level]["req"].add(buildroot_srpm_id)
+                    
+                    # pkg_relations
+                    view["pkgs"][pkg_id]["required_by"].update(buildroot_srpm["pkg_relations"][pkg_id]["required_by"])
+                    view["pkgs"][pkg_id]["recommended_by"].update(buildroot_srpm["pkg_relations"][pkg_id]["recommended_by"])
+                    view["pkgs"][pkg_id]["suggested_by"].update(buildroot_srpm["pkg_relations"][pkg_id]["suggested_by"])
+
+                # Packages needed on top of the base buildroot (required or dependency)
+                for pkg_id in buildroot_srpm["pkg_added_ids"]:
+                    added_pkg_ids.add(pkg_id)
+
+                    # Initialise
+                    if pkg_id not in view["pkgs"]:
+                        pkg = self.data["pkgs"][repo_id][arch][pkg_id]
+                        view["pkgs"][pkg_id] = self._init_view_pkg(pkg, arch, level=level)
+                    
+                    # Add missing levels to the pkg
+                    self._add_missing_levels_to_pkg_or_srpm(view["pkgs"][pkg_id], level)
+                    
+                    # It's in this buildroot
+                    view["pkgs"][pkg_id]["in_buildroot_of_srpm_id_all"].add(buildroot_srpm_id)
+                    view["pkgs"][pkg_id]["level"][level]["all"].add(buildroot_srpm_id)
+
+                    # Is it also required?
+                    if view["pkgs"][pkg_id]["name"] in buildroot_srpm["directly_required_pkg_names"]:
+                        view["pkgs"][pkg_id]["in_buildroot_of_srpm_id_req"].add(buildroot_srpm_id)
+                        view["pkgs"][pkg_id]["level"][level]["req"].add(buildroot_srpm_id)
+                    
+                    # Or a dependency?
+                    else:
+                        view["pkgs"][pkg_id]["in_buildroot_of_srpm_id_dep"].add(buildroot_srpm_id)
+                        view["pkgs"][pkg_id]["level"][level]["dep"].add(buildroot_srpm_id)
+                    
+                    # pkg_relations
+                    view["pkgs"][pkg_id]["required_by"].update(buildroot_srpm["pkg_relations"][pkg_id]["required_by"])
+                    view["pkgs"][pkg_id]["recommended_by"].update(buildroot_srpm["pkg_relations"][pkg_id]["recommended_by"])
+                    view["pkgs"][pkg_id]["suggested_by"].update(buildroot_srpm["pkg_relations"][pkg_id]["suggested_by"])
+            
+            # Resetting the SRPMs, so only the new ones can be added
+            srpm_ids_to_process = set()
+
+            # SRPMs
+            for pkg_id in added_pkg_ids:
+                pkg = view["pkgs"][pkg_id]
+                srpm_id = pkg["sourcerpm"].rsplit(".src.rpm")[0]
+
+                # Initialise
+                if srpm_id not in view["source_pkgs"]:
+                    view["source_pkgs"][srpm_id] = self._init_view_srpm(pkg, level=level)
+                    srpm_ids_to_process.add(srpm_id)
+                    
+                # Add missing levels to the pkg
+                self._add_missing_levels_to_pkg_or_srpm(view["source_pkgs"][srpm_id], level)
+
+                view["source_pkgs"][srpm_id]["pkg_ids"].add(pkg_id)
+
+                # Include some information from the RPM
+                view["source_pkgs"][srpm_id]["in_buildroot_of_srpm_id_all"].update(pkg["in_buildroot_of_srpm_id_all"])
+                view["source_pkgs"][srpm_id]["in_buildroot_of_srpm_id_req"].update(pkg["in_buildroot_of_srpm_id_req"])
+                view["source_pkgs"][srpm_id]["in_buildroot_of_srpm_id_dep"].update(pkg["in_buildroot_of_srpm_id_dep"])
+                view["source_pkgs"][srpm_id]["in_buildroot_of_srpm_id_env"].update(pkg["in_buildroot_of_srpm_id_env"])
+                view["source_pkgs"][srpm_id]["level"][level]["all"].update(pkg["level"][level]["all"])
+                view["source_pkgs"][srpm_id]["level"][level]["req"].update(pkg["level"][level]["req"])
+                view["source_pkgs"][srpm_id]["level"][level]["dep"].update(pkg["level"][level]["dep"])
+                view["source_pkgs"][srpm_id]["level"][level]["env"].update(pkg["level"][level]["env"])
+
+            log ("    added {} RPMs".format(len(added_pkg_ids)))
+            log ("    added {} SRPMs".format(len(srpm_ids_to_process)))
+
+            # More iterations needed?
+            if not srpm_ids_to_process:
+                log("  All passes completed!")
+                log("")
+                break
+
+
+    def _add_buildroot_to_views(self):
+
+        log("")
+        log("Adding Buildroot to views...")
+        log("")
+
+        # First, the standard views
+        for view_conf_id in self.configs["views"]:
+            view_conf = self.configs["views"][view_conf_id]
+
+            if view_conf["type"] == "compose":
+                if view_conf["buildroot_strategy"] == "root_logs":
+                    for arch in view_conf["architectures"]:
+                        self._add_buildroot_to_view(view_conf, arch)
+
+        # And the addon is not supported now
+
+        log("")
+        log("  DONE!")
+        log("")
+
+
+    def _init_pkg_or_srpm_relations_fields(self, target_pkg, type = None):
+        # I kept them all listed so they're easy to copy
+
+        # Workload IDs
+        target_pkg["in_workload_ids_all"] = set()
+        target_pkg["in_workload_ids_req"] = set()
+        target_pkg["in_workload_ids_dep"] = set()
+        target_pkg["in_workload_ids_env"] = set()
+        
+        # Workload Conf IDs
+        target_pkg["in_workload_conf_ids_all"] = set()
+        target_pkg["in_workload_conf_ids_req"] = set()
+        target_pkg["in_workload_conf_ids_dep"] = set()
+        target_pkg["in_workload_conf_ids_env"] = set()
+
+        # Buildroot SRPM IDs
+        target_pkg["in_buildroot_of_srpm_id_all"] = set()
+        target_pkg["in_buildroot_of_srpm_id_req"] = set()
+        target_pkg["in_buildroot_of_srpm_id_dep"] = set()
+        target_pkg["in_buildroot_of_srpm_id_env"] = set()
+
+        # Buildroot SRPM Names
+        target_pkg["in_buildroot_of_srpm_name_all"] = {} # of set() of srpm_ids
+        target_pkg["in_buildroot_of_srpm_name_req"] = {} # of set() of srpm_ids
+        target_pkg["in_buildroot_of_srpm_name_dep"] = {} # of set() of srpm_ids
+        target_pkg["in_buildroot_of_srpm_name_env"] = {} # of set() of srpm_ids
+
+        # Unwanted
+        target_pkg["unwanted_completely_in_list_ids"] = set()
+        target_pkg["unwanted_buildroot_in_list_ids"] = set()
+
+        # Level number
+        target_pkg["level_number"] = 999
+
+        if type == "rpm":
+
+            # Dependency of RPM NEVRs
+            target_pkg["dependency_of_pkg_nevrs"] = set()
+            target_pkg["hard_dependency_of_pkg_nevrs"] = set()
+            target_pkg["weak_dependency_of_pkg_nevrs"] = set()
+
+            # Dependency of RPM Names
+            target_pkg["dependency_of_pkg_names"] = {} # of set() of nevrs
+            target_pkg["hard_dependency_of_pkg_names"] = {} # of set() of nevrs
+            target_pkg["weak_dependency_of_pkg_names"] = {} # if set() of nevrs
+
+
+        # TODO: add the levels
+        
     
-    level_number = 0
-    for level in source_pkg["level"]:
-        if level["all"]:
-            if level_number < target_pkg["level_number"]:
-                target_pkg["level_number"] = level_number
-        level_number += 1
-    
-    if type == "rpm":
-        # Hard dependency of
-        for pkg_id in source_pkg["required_by"]:
-            pkg_name = pkg_id_to_name(pkg_id)
+    def _populate_pkg_or_srpm_relations_fields(self, target_pkg, source_pkg, type = None, view = None):
 
-            pkg = view["pkgs"][pkg_id]
-            pkg_nevr = "{name}-{evr}".format(
-                name=pkg["name"],
-                evr=pkg["evr"]
-            )
-            target_pkg["hard_dependency_of_pkg_nevrs"].add(pkg_nevr)
+        if type == "rpm" and not view:
+            raise ValueError("This function requires a view when using type = 'rpm'!")
 
-            if pkg_name not in target_pkg["hard_dependency_of_pkg_names"]:
-                target_pkg["hard_dependency_of_pkg_names"][pkg_name] = set()
-            target_pkg["hard_dependency_of_pkg_names"][pkg_name].add(pkg_nevr)
+        # Unwanted
+        target_pkg["unwanted_completely_in_list_ids"].update(source_pkg["unwanted_completely_in_list_ids"])
+        target_pkg["unwanted_buildroot_in_list_ids"].update(source_pkg["unwanted_buildroot_in_list_ids"])
 
-        # Weak dependency of
-        for list_type in ["recommended", "suggested"]:
-            for pkg_id in source_pkg["{}_by".format(list_type)]:
+
+        # Dependency relationships
+        for list_type in ["all", "req", "dep", "env"]:
+            target_pkg["in_workload_ids_{}".format(list_type)].update(source_pkg["in_workload_ids_{}".format(list_type)])
+
+            target_pkg["in_buildroot_of_srpm_id_{}".format(list_type)].update(source_pkg["in_buildroot_of_srpm_id_{}".format(list_type)])
+
+            for workload_id in source_pkg["in_workload_ids_{}".format(list_type)]:
+                workload_conf_id = workload_id_to_conf_id(workload_id)
+                target_pkg["in_workload_conf_ids_{}".format(list_type)].add(workload_conf_id)
+
+            for srpm_id in source_pkg["in_buildroot_of_srpm_id_{}".format(list_type)]:
+                srpm_name = pkg_id_to_name(srpm_id)
+
+                if srpm_name not in target_pkg["in_buildroot_of_srpm_name_{}".format(list_type)]:
+                    target_pkg["in_buildroot_of_srpm_name_{}".format(list_type)][srpm_name] = set()
+                
+                target_pkg["in_buildroot_of_srpm_name_{}".format(list_type)][srpm_name].add(srpm_id)
+        
+        level_number = 0
+        for level in source_pkg["level"]:
+            if level["all"]:
+                if level_number < target_pkg["level_number"]:
+                    target_pkg["level_number"] = level_number
+            level_number += 1
+        
+        if type == "rpm":
+            # Hard dependency of
+            for pkg_id in source_pkg["required_by"]:
                 pkg_name = pkg_id_to_name(pkg_id)
 
                 pkg = view["pkgs"][pkg_id]
@@ -3131,483 +3188,506 @@ def _populate_pkg_or_srpm_relations_fields(target_pkg, source_pkg, type = None, 
                     name=pkg["name"],
                     evr=pkg["evr"]
                 )
-                target_pkg["weak_dependency_of_pkg_nevrs"].add(pkg_nevr)
+                target_pkg["hard_dependency_of_pkg_nevrs"].add(pkg_nevr)
 
-                if pkg_name not in target_pkg["weak_dependency_of_pkg_names"]:
-                    target_pkg["weak_dependency_of_pkg_names"][pkg_name] = set()
-                target_pkg["weak_dependency_of_pkg_names"][pkg_name].add(pkg_nevr)
-        
-        # All types of dependency
-        target_pkg["dependency_of_pkg_nevrs"].update(target_pkg["hard_dependency_of_pkg_nevrs"])
-        target_pkg["dependency_of_pkg_nevrs"].update(target_pkg["weak_dependency_of_pkg_nevrs"])
+                if pkg_name not in target_pkg["hard_dependency_of_pkg_names"]:
+                    target_pkg["hard_dependency_of_pkg_names"][pkg_name] = set()
+                target_pkg["hard_dependency_of_pkg_names"][pkg_name].add(pkg_nevr)
 
-        for pkg_name, pkg_nevrs in target_pkg["hard_dependency_of_pkg_names"].items():
-            if pkg_name not in target_pkg["dependency_of_pkg_names"]:
-                target_pkg["dependency_of_pkg_names"][pkg_name] = set()
-            
-            target_pkg["dependency_of_pkg_names"][pkg_name].update(pkg_nevrs)
+            # Weak dependency of
+            for list_type in ["recommended", "suggested"]:
+                for pkg_id in source_pkg["{}_by".format(list_type)]:
+                    pkg_name = pkg_id_to_name(pkg_id)
 
-        for pkg_name, pkg_nevrs in target_pkg["weak_dependency_of_pkg_names"].items():
-            if pkg_name not in target_pkg["dependency_of_pkg_names"]:
-                target_pkg["dependency_of_pkg_names"][pkg_name] = set()
-            
-            target_pkg["dependency_of_pkg_names"][pkg_name].update(pkg_nevrs)
-
-        
-
-    # TODO: add the levels
-
-
-def _generate_views_all_arches(configs, data):
-
-    views_all_arches = {}
-
-    for view_conf_id, view_conf in configs["views"].items():
-
-        if view_conf["type"] == "compose":
-
-            repo_id = view_conf["repository"]
-
-            view_all_arches = {}
-
-            view_all_arches["id"] = view_conf_id
-
-            view_all_arches["workloads"] = {}
-
-            view_all_arches["pkgs_by_name"] = {}
-            view_all_arches["pkgs_by_nevr"] = {}
-
-            view_all_arches["source_pkgs_by_name"] = {}
-
-            view_all_arches["modules"] = {}
-
-            view_all_arches["numbers"] = {}
-            view_all_arches["numbers"]["pkgs"] = {}
-            view_all_arches["numbers"]["pkgs"]["runtime"] = 0
-            view_all_arches["numbers"]["pkgs"]["env"] = 0
-            view_all_arches["numbers"]["pkgs"]["req"] = 0
-            view_all_arches["numbers"]["pkgs"]["dep"] = 0
-            view_all_arches["numbers"]["pkgs"]["build"] = 0
-            view_all_arches["numbers"]["pkgs"]["build_base"] = 0
-            view_all_arches["numbers"]["pkgs"]["build_level_1"] = 0
-            view_all_arches["numbers"]["pkgs"]["build_level_2_plus"] = 0
-            view_all_arches["numbers"]["srpms"] = {}
-            view_all_arches["numbers"]["srpms"]["runtime"] = 0
-            view_all_arches["numbers"]["srpms"]["env"] = 0
-            view_all_arches["numbers"]["srpms"]["req"] = 0
-            view_all_arches["numbers"]["srpms"]["dep"] = 0
-            view_all_arches["numbers"]["srpms"]["build"] = 0
-            view_all_arches["numbers"]["srpms"]["build_base"] = 0
-            view_all_arches["numbers"]["srpms"]["build_level_1"] = 0
-            view_all_arches["numbers"]["srpms"]["build_level_2_plus"] = 0
-
-
-            for arch in view_conf["architectures"]:
-                view_id = "{view_conf_id}:{arch}".format(
-                    view_conf_id=view_conf_id,
-                    arch=arch
-                )
-
-                view = data["views"][view_id]
-
-                # Workloads
-                for workload_id in view["workload_ids"]:
-                    workload = data["workloads"][workload_id]
-                    workload_conf_id = workload["workload_conf_id"]
-                    workload_conf = configs["workloads"][workload_conf_id]
-
-                    if workload_conf_id not in view_all_arches["workloads"]:
-                        view_all_arches["workloads"][workload_conf_id] = {}
-                        view_all_arches["workloads"][workload_conf_id]["workload_conf_id"] = workload_conf_id
-                        view_all_arches["workloads"][workload_conf_id]["name"] = workload_conf["name"]
-                        view_all_arches["workloads"][workload_conf_id]["maintainer"] = workload_conf["maintainer"]
-                        view_all_arches["workloads"][workload_conf_id]["succeeded"] = True
-                        # ...
-                    
-                    if not workload["succeeded"]:
-                        view_all_arches["workloads"][workload_conf_id]["succeeded"] = False
-
-
-                # Binary Packages
-                for package in view["pkgs"].values():
-
-                    # Binary Packages by name
-                    key = "pkgs_by_name"
-                    identifier = package["name"]
-
-                    # Init
-                    if identifier not in view_all_arches[key]:
-                        view_all_arches[key][identifier] = {}
-                        view_all_arches[key][identifier]["name"] = package["name"]
-                        view_all_arches[key][identifier]["placeholder"] = package["placeholder"]
-                        view_all_arches[key][identifier]["source_name"] = package["source_name"]
-                        view_all_arches[key][identifier]["nevrs"] = {}
-                        view_all_arches[key][identifier]["arches"] = set()
-
-                        _init_pkg_or_srpm_relations_fields(view_all_arches[key][identifier], type="rpm")
-
-                    if package["nevr"] not in view_all_arches[key][identifier]["nevrs"]:
-                        view_all_arches[key][identifier]["nevrs"][package["nevr"]] = set()
-                    view_all_arches[key][identifier]["nevrs"][package["nevr"]].add(arch)
-
-                    view_all_arches[key][identifier]["arches"].add(arch)
-
-                    _populate_pkg_or_srpm_relations_fields(view_all_arches[key][identifier], package, type="rpm", view=view)
-
-                    # Binary Packages by nevr
-                    key = "pkgs_by_nevr"
-                    identifier = package["nevr"]
-
-                    if identifier not in view_all_arches[key]:
-                        view_all_arches[key][identifier] = {}
-                        view_all_arches[key][identifier]["name"] = package["name"]
-                        view_all_arches[key][identifier]["placeholder"] = package["placeholder"]
-                        view_all_arches[key][identifier]["evr"] = package["evr"]
-                        view_all_arches[key][identifier]["source_name"] = package["source_name"]
-                        view_all_arches[key][identifier]["arches"] = set()
-                        view_all_arches[key][identifier]["category"] = None
-
-                        _init_pkg_or_srpm_relations_fields(view_all_arches[key][identifier], type="rpm")
-                    
-                    view_all_arches[key][identifier]["arches"].add(arch)
-
-                    _populate_pkg_or_srpm_relations_fields(view_all_arches[key][identifier], package, type="rpm", view=view)
-
-                
-                # Source Packages
-                for package in view["source_pkgs"].values():
-
-                    # Source Packages by name
-                    key = "source_pkgs_by_name"
-                    identifier = package["name"]
-
-                    if identifier not in view_all_arches[key]:
-                        view_all_arches[key][identifier] = {}
-                        view_all_arches[key][identifier]["name"] = package["name"]
-                        view_all_arches[key][identifier]["placeholder"] = package["placeholder"]
-                        view_all_arches[key][identifier]["buildroot_succeeded"] = True
-                        view_all_arches[key][identifier]["errors"] = {}
-                        view_all_arches[key][identifier]["pkg_names"] = set()
-                        view_all_arches[key][identifier]["pkg_nevrs"] = set()
-                        view_all_arches[key][identifier]["arches"] = set()
-                        view_all_arches[key][identifier]["category"] = None
-
-                        _init_pkg_or_srpm_relations_fields(view_all_arches[key][identifier])
-                    
-                    if not data["buildroot"]["srpms"][repo_id][arch][package["id"]]["succeeded"]:
-                        view_all_arches[key][identifier]["buildroot_succeeded"] = False
-                        view_all_arches[key][identifier]["errors"][arch] = data["buildroot"]["srpms"][repo_id][arch][package["id"]]["errors"]
-                    
-                    view_all_arches[key][identifier]["arches"].add(arch)
-
-                    _populate_pkg_or_srpm_relations_fields(view_all_arches[key][identifier], package, type="srpm")
-                
-
-                # Add binary packages to source packages
-                for pkg_id, pkg in view["pkgs"].items():
-
-                    source_name = pkg["source_name"]
-
-                    # Add package names
-                    view_all_arches["source_pkgs_by_name"][source_name]["pkg_names"].add(pkg["name"])
-
-                    # Add package nevrs
+                    pkg = view["pkgs"][pkg_id]
                     pkg_nevr = "{name}-{evr}".format(
                         name=pkg["name"],
                         evr=pkg["evr"]
                     )
-                    view_all_arches["source_pkgs_by_name"][source_name]["pkg_nevrs"].add(pkg_nevr)
-                                        
+                    target_pkg["weak_dependency_of_pkg_nevrs"].add(pkg_nevr)
+
+                    if pkg_name not in target_pkg["weak_dependency_of_pkg_names"]:
+                        target_pkg["weak_dependency_of_pkg_names"][pkg_name] = set()
+                    target_pkg["weak_dependency_of_pkg_names"][pkg_name].add(pkg_nevr)
+            
+            # All types of dependency
+            target_pkg["dependency_of_pkg_nevrs"].update(target_pkg["hard_dependency_of_pkg_nevrs"])
+            target_pkg["dependency_of_pkg_nevrs"].update(target_pkg["weak_dependency_of_pkg_nevrs"])
+
+            for pkg_name, pkg_nevrs in target_pkg["hard_dependency_of_pkg_names"].items():
+                if pkg_name not in target_pkg["dependency_of_pkg_names"]:
+                    target_pkg["dependency_of_pkg_names"][pkg_name] = set()
                 
-                # Modules
-                for module_id, module in view["modules"].items():
+                target_pkg["dependency_of_pkg_names"][pkg_name].update(pkg_nevrs)
 
-                    if module_id not in view_all_arches["modules"]:
-                        view_all_arches["modules"][module_id] = {}
-                        view_all_arches["modules"][module_id]["id"] = module_id
-                        # ...
-            
-
-            # RPMs
-            for pkg in view_all_arches["pkgs_by_nevr"].values():
-                category = None
-                if pkg["in_workload_ids_env"]:
-                    category = "env"
-                elif pkg["in_workload_ids_req"]:
-                    category = "req"
-                elif pkg["in_workload_ids_dep"]:
-                    category = "dep"
-                elif pkg["in_buildroot_of_srpm_id_env"]:
-                    category = "build_base"
-                elif pkg["in_buildroot_of_srpm_id_req"] or pkg["in_buildroot_of_srpm_id_dep"]:
-                    if pkg["level_number"] == 1:
-                        category = "build_level_1"
-                    elif pkg["level_number"] > 1:
-                        category = "build_level_2_plus"
+            for pkg_name, pkg_nevrs in target_pkg["weak_dependency_of_pkg_names"].items():
+                if pkg_name not in target_pkg["dependency_of_pkg_names"]:
+                    target_pkg["dependency_of_pkg_names"][pkg_name] = set()
                 
-                view_all_arches["numbers"]["pkgs"][category] += 1
+                target_pkg["dependency_of_pkg_names"][pkg_name].update(pkg_nevrs)
+
             
-            view_all_arches["numbers"]["pkgs"]["runtime"] = view_all_arches["numbers"]["pkgs"]["env"] + view_all_arches["numbers"]["pkgs"]["req"] + view_all_arches["numbers"]["pkgs"]["dep"]
-            view_all_arches["numbers"]["pkgs"]["build"] = view_all_arches["numbers"]["pkgs"]["build_base"] + view_all_arches["numbers"]["pkgs"]["build_level_1"] + view_all_arches["numbers"]["pkgs"]["build_level_2_plus"]
-            
-            # SRPMs
-            for pkg in view_all_arches["source_pkgs_by_name"].values():
-                category = None
-                if pkg["in_workload_ids_env"]:
-                    category = "env"
-                elif pkg["in_workload_ids_req"]:
-                    category = "req"
-                elif pkg["in_workload_ids_dep"]:
-                    category = "dep"
-                elif pkg["in_buildroot_of_srpm_id_env"]:
-                    category = "build_base"
-                elif pkg["in_buildroot_of_srpm_id_req"] or pkg["in_buildroot_of_srpm_id_dep"]:
-                    if pkg["level_number"] == 1:
-                        category = "build_level_1"
-                    elif pkg["level_number"] > 1:
-                        category = "build_level_2_plus"
-                
-                view_all_arches["numbers"]["srpms"][category] += 1
-            
-            view_all_arches["numbers"]["srpms"]["runtime"] = \
-                view_all_arches["numbers"]["srpms"]["env"] + \
-                view_all_arches["numbers"]["srpms"]["req"] + \
-                view_all_arches["numbers"]["srpms"]["dep"]
 
-            view_all_arches["numbers"]["srpms"]["build"] = \
-                view_all_arches["numbers"]["srpms"]["build_base"] + \
-                view_all_arches["numbers"]["srpms"]["build_level_1"] + \
-                view_all_arches["numbers"]["srpms"]["build_level_2_plus"]
+        # TODO: add the levels
 
 
+    def _generate_views_all_arches(self):
+
+        views_all_arches = {}
+
+        for view_conf_id, view_conf in self.configs["views"].items():
+
+            if view_conf["type"] == "compose":
+
+                repo_id = view_conf["repository"]
+
+                view_all_arches = {}
+
+                view_all_arches["id"] = view_conf_id
+                view_all_arches["has_buildroot"] = False
+                if view_conf["buildroot_strategy"] == "root_logs":
+                    view_all_arches["has_buildroot"] = True
+
+                view_all_arches["workloads"] = {}
+
+                view_all_arches["pkgs_by_name"] = {}
+                view_all_arches["pkgs_by_nevr"] = {}
+
+                view_all_arches["source_pkgs_by_name"] = {}
+
+                view_all_arches["modules"] = {}
+
+                view_all_arches["numbers"] = {}
+                view_all_arches["numbers"]["pkgs"] = {}
+                view_all_arches["numbers"]["pkgs"]["runtime"] = 0
+                view_all_arches["numbers"]["pkgs"]["env"] = 0
+                view_all_arches["numbers"]["pkgs"]["req"] = 0
+                view_all_arches["numbers"]["pkgs"]["dep"] = 0
+                view_all_arches["numbers"]["pkgs"]["build"] = 0
+                view_all_arches["numbers"]["pkgs"]["build_base"] = 0
+                view_all_arches["numbers"]["pkgs"]["build_level_1"] = 0
+                view_all_arches["numbers"]["pkgs"]["build_level_2_plus"] = 0
+                view_all_arches["numbers"]["srpms"] = {}
+                view_all_arches["numbers"]["srpms"]["runtime"] = 0
+                view_all_arches["numbers"]["srpms"]["env"] = 0
+                view_all_arches["numbers"]["srpms"]["req"] = 0
+                view_all_arches["numbers"]["srpms"]["dep"] = 0
+                view_all_arches["numbers"]["srpms"]["build"] = 0
+                view_all_arches["numbers"]["srpms"]["build_base"] = 0
+                view_all_arches["numbers"]["srpms"]["build_level_1"] = 0
+                view_all_arches["numbers"]["srpms"]["build_level_2_plus"] = 0
 
 
-
-            # Done
-            views_all_arches[view_conf_id] = view_all_arches
-    
-    return views_all_arches
-
-
-def _add_unwanted_packages_to_view(view, view_conf, configs, data):
-
-    arch = view["arch"]
-
-    # Find exclusion lists mathing this view's label(s)
-    unwanted_conf_ids = set()
-    for view_label in view_conf["labels"]:
-        for unwanted_conf_id, unwanted in configs["unwanteds"].items():
-            for unwanted_label in unwanted["labels"]:
-                if view_label == unwanted_label:
-                    unwanted_conf_ids.add(unwanted_conf_id)
-    
-    # Dicts
-    pkgs_unwanted_buildroot = {}
-    pkgs_unwanted_completely = {}
-    srpms_unwanted_buildroot = {}
-    srpms_unwanted_completely = {}
-
-    # Populate the dicts
-    for unwanted_conf_id in unwanted_conf_ids:
-        unwanted_conf = configs["unwanteds"][unwanted_conf_id]
-
-        # Pkgs
-        for pkg_name in unwanted_conf["unwanted_packages"]:
-            if pkg_name not in pkgs_unwanted_completely:
-                pkgs_unwanted_completely[pkg_name] = set()
-            pkgs_unwanted_completely[pkg_name].add(unwanted_conf_id)
-
-        # Arch Pkgs
-        for pkg_name in unwanted_conf["unwanted_arch_packages"][arch]:
-            if pkg_name not in pkgs_unwanted_completely:
-                pkgs_unwanted_completely[pkg_name] = set()
-            pkgs_unwanted_completely[pkg_name].add(unwanted_conf_id)
-
-        # SRPMs
-        for pkg_source_name in unwanted_conf["unwanted_source_packages"]:
-            if pkg_source_name not in srpms_unwanted_completely:
-                srpms_unwanted_completely[pkg_source_name] = set()
-            srpms_unwanted_completely[pkg_source_name].add(unwanted_conf_id)
-
-    # Add it to the packages
-    for pkg_id, pkg in view["pkgs"].items():
-        pkg_name = pkg["name"]
-        srpm_name = pkg["source_name"]
-
-        if pkg_name in pkgs_unwanted_completely:
-            list_ids = pkgs_unwanted_completely[pkg_name]
-            view["pkgs"][pkg_id]["unwanted_completely_in_list_ids"].update(list_ids)
-
-        if srpm_name in srpms_unwanted_completely:
-            list_ids = srpms_unwanted_completely[srpm_name]
-            view["pkgs"][pkg_id]["unwanted_completely_in_list_ids"].update(list_ids)
-    
-    # Add it to the srpms
-    for srpm_id, srpm in view["source_pkgs"].items():
-        srpm_name = srpm["name"]
-
-        if srpm_name in srpms_unwanted_completely:
-            list_ids = srpms_unwanted_completely[srpm_name]
-            view["source_pkgs"][srpm_id]["unwanted_completely_in_list_ids"].update(list_ids)
-
-
-def _add_unwanted_packages_to_views(configs, data):
-
-    log("")
-    log("Adding Unwanted Packages to views...")
-    log("")
-
-    # First, the standard views
-    for view_conf_id in configs["views"]:
-        view_conf = configs["views"][view_conf_id]
-
-        if view_conf["type"] == "compose":
-            if view_conf["buildroot_strategy"] == "root_logs":
                 for arch in view_conf["architectures"]:
-
                     view_id = "{view_conf_id}:{arch}".format(
                         view_conf_id=view_conf_id,
                         arch=arch
                     )
 
-                    view = data["views"][view_id]
+                    view = self.data["views"][view_id]
 
-                    _add_unwanted_packages_to_view(view, view_conf, configs, data)
+                    # Workloads
+                    for workload_id in view["workload_ids"]:
+                        workload = self.data["workloads"][workload_id]
+                        workload_conf_id = workload["workload_conf_id"]
+                        workload_conf = self.configs["workloads"][workload_conf_id]
+
+                        if workload_conf_id not in view_all_arches["workloads"]:
+                            view_all_arches["workloads"][workload_conf_id] = {}
+                            view_all_arches["workloads"][workload_conf_id]["workload_conf_id"] = workload_conf_id
+                            view_all_arches["workloads"][workload_conf_id]["name"] = workload_conf["name"]
+                            view_all_arches["workloads"][workload_conf_id]["maintainer"] = workload_conf["maintainer"]
+                            view_all_arches["workloads"][workload_conf_id]["succeeded"] = True
+                            # ...
+                        
+                        if not workload["succeeded"]:
+                            view_all_arches["workloads"][workload_conf_id]["succeeded"] = False
 
 
+                    # Binary Packages
+                    for package in view["pkgs"].values():
 
-def analyze_things(configs, settings, cache):
-    log("")
-    log("###############################################################################")
-    log("### Analyzing stuff! ##########################################################")
-    log("###############################################################################")
-    log("")
+                        # Binary Packages by name
+                        key = "pkgs_by_name"
+                        identifier = package["name"]
 
-    data = {}
+                        # Init
+                        if identifier not in view_all_arches[key]:
+                            view_all_arches[key][identifier] = {}
+                            view_all_arches[key][identifier]["name"] = package["name"]
+                            view_all_arches[key][identifier]["placeholder"] = package["placeholder"]
+                            view_all_arches[key][identifier]["source_name"] = package["source_name"]
+                            view_all_arches[key][identifier]["nevrs"] = {}
+                            view_all_arches[key][identifier]["arches"] = set()
 
-    data["pkgs"] = {}
-    data["envs"] = {}
-    data["workloads"] = {}
-    data["views"] = {}
+                            self._init_pkg_or_srpm_relations_fields(view_all_arches[key][identifier], type="rpm")
 
-    with tempfile.TemporaryDirectory() as tmp:
+                        if package["nevr"] not in view_all_arches[key][identifier]["nevrs"]:
+                            view_all_arches[key][identifier]["nevrs"][package["nevr"]] = set()
+                        view_all_arches[key][identifier]["nevrs"][package["nevr"]].add(arch)
 
-        if settings["dnf_cache_dir_override"]:
-            tmp_dnf_cachedir = settings["dnf_cache_dir_override"]
-        else:
-            tmp_dnf_cachedir = os.path.join(tmp, "dnf_cachedir")
-        tmp_installroots = os.path.join(tmp, "installroots")
+                        view_all_arches[key][identifier]["arches"].add(arch)
 
-        # List of supported arches
-        all_arches = settings["allowed_arches"]
+                        self._populate_pkg_or_srpm_relations_fields(view_all_arches[key][identifier], package, type="rpm", view=view)
 
-        # Packages
-        log("")
-        log("=====  Analyzing Repos & Packages =====")
-        log("")
-        data["repos"] = {}
-        for _,repo in configs["repos"].items():
-            repo_id = repo["id"]
-            data["pkgs"][repo_id] = {}
-            data["repos"][repo_id] = {}
-            for arch in repo["source"]["architectures"]:
-                data["pkgs"][repo_id][arch] = _analyze_pkgs(tmp_dnf_cachedir, tmp_installroots, repo, arch)
-            
-            # Reading the optional composeinfo
-            data["repos"][repo_id]["compose_date"] = None
-            data["repos"][repo_id]["compose_days_ago"] = 0
-            if repo["source"]["composeinfo"]:
-                # At this point, this is all I can do. Hate me or not, it gets us
-                # what we need and won't brake anything in case things go badly. 
-                try:
-                    with urllib.request.urlopen(repo["source"]["composeinfo"]) as response:
-                        composeinfo_raw_response = response.read()
+                        # Binary Packages by nevr
+                        key = "pkgs_by_nevr"
+                        identifier = package["nevr"]
 
-                    composeinfo_data = json.loads(composeinfo_raw_response)
-                    data["repos"][repo_id]["composeinfo"] = composeinfo_data
+                        if identifier not in view_all_arches[key]:
+                            view_all_arches[key][identifier] = {}
+                            view_all_arches[key][identifier]["name"] = package["name"]
+                            view_all_arches[key][identifier]["placeholder"] = package["placeholder"]
+                            view_all_arches[key][identifier]["evr"] = package["evr"]
+                            view_all_arches[key][identifier]["source_name"] = package["source_name"]
+                            view_all_arches[key][identifier]["arches"] = set()
+                            view_all_arches[key][identifier]["category"] = None
 
-                    compose_date = datetime.datetime.strptime(composeinfo_data["payload"]["compose"]["date"], "%Y%m%d").date()
-                    data["repos"][repo_id]["compose_date"] = compose_date.strftime("%Y-%m-%d")
+                            self._init_pkg_or_srpm_relations_fields(view_all_arches[key][identifier], type="rpm")
+                        
+                        view_all_arches[key][identifier]["arches"].add(arch)
 
-                    date_now = datetime.datetime.now().date()
-                    data["repos"][repo_id]["compose_days_ago"] = (date_now - compose_date).days
+                        self._populate_pkg_or_srpm_relations_fields(view_all_arches[key][identifier], package, type="rpm", view=view)
 
-                except:
-                    pass
+                    
+                    # Source Packages
+                    for package in view["source_pkgs"].values():
 
+                        # Source Packages by name
+                        key = "source_pkgs_by_name"
+                        identifier = package["name"]
+
+                        if identifier not in view_all_arches[key]:
+                            view_all_arches[key][identifier] = {}
+                            view_all_arches[key][identifier]["name"] = package["name"]
+                            view_all_arches[key][identifier]["placeholder"] = package["placeholder"]
+                            if view_all_arches["has_buildroot"]:
+                                view_all_arches[key][identifier]["buildroot_succeeded"] = True
+                            view_all_arches[key][identifier]["errors"] = {}
+                            view_all_arches[key][identifier]["pkg_names"] = set()
+                            view_all_arches[key][identifier]["pkg_nevrs"] = set()
+                            view_all_arches[key][identifier]["arches"] = set()
+                            view_all_arches[key][identifier]["category"] = None
+
+                            self._init_pkg_or_srpm_relations_fields(view_all_arches[key][identifier])
+                        
+
+                        if view_all_arches["has_buildroot"]:
+                            if not self.data["buildroot"]["srpms"][repo_id][arch][package["id"]]["succeeded"]:
+                                view_all_arches[key][identifier]["buildroot_succeeded"] = False
+                                view_all_arches[key][identifier]["errors"][arch] = self.data["buildroot"]["srpms"][repo_id][arch][package["id"]]["errors"]
+                        
+                        view_all_arches[key][identifier]["arches"].add(arch)
+
+                        self._populate_pkg_or_srpm_relations_fields(view_all_arches[key][identifier], package, type="srpm")
+                    
+
+                    # Add binary packages to source packages
+                    for pkg_id, pkg in view["pkgs"].items():
+
+                        source_name = pkg["source_name"]
+
+                        # Add package names
+                        view_all_arches["source_pkgs_by_name"][source_name]["pkg_names"].add(pkg["name"])
+
+                        # Add package nevrs
+                        pkg_nevr = "{name}-{evr}".format(
+                            name=pkg["name"],
+                            evr=pkg["evr"]
+                        )
+                        view_all_arches["source_pkgs_by_name"][source_name]["pkg_nevrs"].add(pkg_nevr)
+                                            
+                    
+                    # Modules
+                    for module_id, module in view["modules"].items():
+
+                        if module_id not in view_all_arches["modules"]:
+                            view_all_arches["modules"][module_id] = {}
+                            view_all_arches["modules"][module_id]["id"] = module_id
+                            # ...
                 
 
-        # Environments
-        log("")
-        log("=====  Analyzing Environments =====")
-        log("")
-        data["envs"] = _analyze_envs(tmp_dnf_cachedir, tmp_installroots, configs)
+                # RPMs
+                for pkg in view_all_arches["pkgs_by_nevr"].values():
+                    category = None
+                    if pkg["in_workload_ids_env"]:
+                        category = "env"
+                    elif pkg["in_workload_ids_req"]:
+                        category = "req"
+                    elif pkg["in_workload_ids_dep"]:
+                        category = "dep"
+                    elif pkg["in_buildroot_of_srpm_id_env"]:
+                        category = "build_base"
+                    elif pkg["in_buildroot_of_srpm_id_req"] or pkg["in_buildroot_of_srpm_id_dep"]:
+                        if pkg["level_number"] == 1:
+                            category = "build_level_1"
+                        elif pkg["level_number"] > 1:
+                            category = "build_level_2_plus"
+                    
+                    view_all_arches["numbers"]["pkgs"][category] += 1
+                
+                view_all_arches["numbers"]["pkgs"]["runtime"] = view_all_arches["numbers"]["pkgs"]["env"] + view_all_arches["numbers"]["pkgs"]["req"] + view_all_arches["numbers"]["pkgs"]["dep"]
+                view_all_arches["numbers"]["pkgs"]["build"] = view_all_arches["numbers"]["pkgs"]["build_base"] + view_all_arches["numbers"]["pkgs"]["build_level_1"] + view_all_arches["numbers"]["pkgs"]["build_level_2_plus"]
+                
+                # SRPMs
+                for pkg in view_all_arches["source_pkgs_by_name"].values():
+                    category = None
+                    if pkg["in_workload_ids_env"]:
+                        category = "env"
+                    elif pkg["in_workload_ids_req"]:
+                        category = "req"
+                    elif pkg["in_workload_ids_dep"]:
+                        category = "dep"
+                    elif pkg["in_buildroot_of_srpm_id_env"]:
+                        category = "build_base"
+                    elif pkg["in_buildroot_of_srpm_id_req"] or pkg["in_buildroot_of_srpm_id_dep"]:
+                        if pkg["level_number"] == 1:
+                            category = "build_level_1"
+                        elif pkg["level_number"] > 1:
+                            category = "build_level_2_plus"
+                    
+                    view_all_arches["numbers"]["srpms"][category] += 1
+                
+                view_all_arches["numbers"]["srpms"]["runtime"] = \
+                    view_all_arches["numbers"]["srpms"]["env"] + \
+                    view_all_arches["numbers"]["srpms"]["req"] + \
+                    view_all_arches["numbers"]["srpms"]["dep"]
 
-        # Workloads
-        log("")
-        log("=====  Analyzing Workloads =====")
-        log("")
-        data["workloads"] = _analyze_workloads(tmp_dnf_cachedir, tmp_installroots, configs, data)
+                view_all_arches["numbers"]["srpms"]["build"] = \
+                    view_all_arches["numbers"]["srpms"]["build_base"] + \
+                    view_all_arches["numbers"]["srpms"]["build_level_1"] + \
+                    view_all_arches["numbers"]["srpms"]["build_level_2_plus"]
 
-        # Views
-        #
-        # This creates:
-        #    data["views"][view_id]["id"]
-        #    data["views"][view_id]["view_conf_id"]
-        #    data["views"][view_id]["arch"]
-        #    data["views"][view_id]["workload_ids"]
-        #    data["views"][view_id]["pkgs"]
-        #    data["views"][view_id]["source_pkgs"]
-        #    data["views"][view_id]["modules"]
-        #
-        log("")
-        log("=====  Analyzing Views =====")
-        log("")
-        data["views"] = _analyze_views(configs, data)
 
-        # Buildroot
-        # This is partially similar to workloads, because it's resolving
-        # the full dependency tree of the direct build dependencies of SRPMs
-        #
-        # So compared to workloads:
-        #   direct build dependencies are like required packages in workloads
-        #   the dependencies are like dependencies in workloads
-        #   the "build" group is like environments in workloads
-        #
-        # This completely creates:
-        #   data["buildroot"]["koji_srpms"][koji_id][arch][srpm_id]...
-        #   data["buildroot"]["srpms"][repo_id][arch][srpm_id]...
-        # 
-        log("")
-        log("=====  Analyzing Buildroot =====")
-        log("")
-        data["buildroot"] = _analyze_buildroot(tmp_dnf_cachedir, tmp_installroots, configs, cache, data)
 
-        # Add buildroot packages to views
-        # 
-        # Further extends the following with buildroot packages:
-        #   data["views"][view_id]["pkgs"]
-        #   data["views"][view_id]["source_pkgs"]
-        #
-        log("")
-        log("=====  Adding Buildroot to Views =====")
-        log("")
-        _add_buildroot_to_views(configs, data)
 
-        # Unwanted packages
-        log("")
-        log("=====  Adding Unwanted Packages to Views =====")
-        log("")
-        _add_unwanted_packages_to_views(configs, data)
 
-        # Generate combined views for all arches
-        log("")
-        log("=====  Generating views_all_arches =====")
-        log("")
-        data["views_all_arches"] = _generate_views_all_arches(configs, data)
+                # Done
+                views_all_arches[view_conf_id] = view_all_arches
         
+        self.data["views_all_arches"] = views_all_arches
 
-    return data
+
+    def _add_unwanted_packages_to_view(self, view, view_conf):
+
+        arch = view["arch"]
+
+        # Find exclusion lists mathing this view's label(s)
+        unwanted_conf_ids = set()
+        for view_label in view_conf["labels"]:
+            for unwanted_conf_id, unwanted in self.configs["unwanteds"].items():
+                for unwanted_label in unwanted["labels"]:
+                    if view_label == unwanted_label:
+                        unwanted_conf_ids.add(unwanted_conf_id)
+        
+        # Dicts
+        pkgs_unwanted_buildroot = {}
+        pkgs_unwanted_completely = {}
+        srpms_unwanted_buildroot = {}
+        srpms_unwanted_completely = {}
+
+        # Populate the dicts
+        for unwanted_conf_id in unwanted_conf_ids:
+            unwanted_conf = self.configs["unwanteds"][unwanted_conf_id]
+
+            # Pkgs
+            for pkg_name in unwanted_conf["unwanted_packages"]:
+                if pkg_name not in pkgs_unwanted_completely:
+                    pkgs_unwanted_completely[pkg_name] = set()
+                pkgs_unwanted_completely[pkg_name].add(unwanted_conf_id)
+
+            # Arch Pkgs
+            for pkg_name in unwanted_conf["unwanted_arch_packages"][arch]:
+                if pkg_name not in pkgs_unwanted_completely:
+                    pkgs_unwanted_completely[pkg_name] = set()
+                pkgs_unwanted_completely[pkg_name].add(unwanted_conf_id)
+
+            # SRPMs
+            for pkg_source_name in unwanted_conf["unwanted_source_packages"]:
+                if pkg_source_name not in srpms_unwanted_completely:
+                    srpms_unwanted_completely[pkg_source_name] = set()
+                srpms_unwanted_completely[pkg_source_name].add(unwanted_conf_id)
+
+        # Add it to the packages
+        for pkg_id, pkg in view["pkgs"].items():
+            pkg_name = pkg["name"]
+            srpm_name = pkg["source_name"]
+
+            if pkg_name in pkgs_unwanted_completely:
+                list_ids = pkgs_unwanted_completely[pkg_name]
+                view["pkgs"][pkg_id]["unwanted_completely_in_list_ids"].update(list_ids)
+
+            if srpm_name in srpms_unwanted_completely:
+                list_ids = srpms_unwanted_completely[srpm_name]
+                view["pkgs"][pkg_id]["unwanted_completely_in_list_ids"].update(list_ids)
+        
+        # Add it to the srpms
+        for srpm_id, srpm in view["source_pkgs"].items():
+            srpm_name = srpm["name"]
+
+            if srpm_name in srpms_unwanted_completely:
+                list_ids = srpms_unwanted_completely[srpm_name]
+                view["source_pkgs"][srpm_id]["unwanted_completely_in_list_ids"].update(list_ids)
+
+
+    def _add_unwanted_packages_to_views(self):
+
+        log("")
+        log("Adding Unwanted Packages to views...")
+        log("")
+
+        # First, the standard views
+        for view_conf_id in self.configs["views"]:
+            view_conf = self.configs["views"][view_conf_id]
+
+            if view_conf["type"] == "compose":
+                if view_conf["buildroot_strategy"] == "root_logs":
+                    for arch in view_conf["architectures"]:
+
+                        view_id = "{view_conf_id}:{arch}".format(
+                            view_conf_id=view_conf_id,
+                            arch=arch
+                        )
+
+                        view = self.data["views"][view_id]
+
+                        self._add_unwanted_packages_to_view(view, view_conf)
+
+
+    def analyze_things(self):
+        log("")
+        log("###############################################################################")
+        log("### Analyzing stuff! ##########################################################")
+        log("###############################################################################")
+        log("")
+
+        self.data["pkgs"] = {}
+        self.data["envs"] = {}
+        self.data["workloads"] = {}
+        self.data["views"] = {}
+
+        with tempfile.TemporaryDirectory() as tmp:
+
+            if self.settings["dnf_cache_dir_override"]:
+                self.tmp_dnf_cachedir = self.settings["dnf_cache_dir_override"]
+            else:
+                self.tmp_dnf_cachedir = os.path.join(tmp, "dnf_cachedir")
+            self.tmp_installroots = os.path.join(tmp, "installroots")
+
+            # List of supported arches
+            all_arches = self.settings["allowed_arches"]
+
+            # Packages
+            log("")
+            log("=====  Analyzing Repos & Packages =====")
+            log("")
+            self.data["repos"] = {}
+            for _,repo in self.configs["repos"].items():
+                repo_id = repo["id"]
+                self.data["pkgs"][repo_id] = {}
+                self.data["repos"][repo_id] = {}
+                for arch in repo["source"]["architectures"]:
+                    self.data["pkgs"][repo_id][arch] = self._analyze_pkgs(repo, arch)
+                
+                # Reading the optional composeinfo
+                self.data["repos"][repo_id]["compose_date"] = None
+                self.data["repos"][repo_id]["compose_days_ago"] = 0
+                if repo["source"]["composeinfo"]:
+                    # At this point, this is all I can do. Hate me or not, it gets us
+                    # what we need and won't brake anything in case things go badly. 
+                    try:
+                        with urllib.request.urlopen(repo["source"]["composeinfo"]) as response:
+                            composeinfo_raw_response = response.read()
+
+                        composeinfo_data = json.loads(composeinfo_raw_response)
+                        self.data["repos"][repo_id]["composeinfo"] = composeinfo_data
+
+                        compose_date = datetime.datetime.strptime(composeinfo_data["payload"]["compose"]["date"], "%Y%m%d").date()
+                        self.data["repos"][repo_id]["compose_date"] = compose_date.strftime("%Y-%m-%d")
+
+                        date_now = datetime.datetime.now().date()
+                        self.data["repos"][repo_id]["compose_days_ago"] = (date_now - compose_date).days
+
+                    except:
+                        pass
+
+                    
+
+            # Environments
+            log("")
+            log("=====  Analyzing Environments =====")
+            log("")
+            self._analyze_envs()
+
+            # Workloads
+            log("")
+            log("=====  Analyzing Workloads =====")
+            log("")
+            self._analyze_workloads()
+
+            # Views
+            #
+            # This creates:
+            #    data["views"][view_id]["id"]
+            #    data["views"][view_id]["view_conf_id"]
+            #    data["views"][view_id]["arch"]
+            #    data["views"][view_id]["workload_ids"]
+            #    data["views"][view_id]["pkgs"]
+            #    data["views"][view_id]["source_pkgs"]
+            #    data["views"][view_id]["modules"]
+            #
+            log("")
+            log("=====  Analyzing Views =====")
+            log("")
+            self._analyze_views()
+
+            # Buildroot
+            # This is partially similar to workloads, because it's resolving
+            # the full dependency tree of the direct build dependencies of SRPMs
+            #
+            # So compared to workloads:
+            #   direct build dependencies are like required packages in workloads
+            #   the dependencies are like dependencies in workloads
+            #   the "build" group is like environments in workloads
+            #
+            # This completely creates:
+            #   data["buildroot"]["koji_srpms"][koji_id][arch][srpm_id]...
+            #   data["buildroot"]["srpms"][repo_id][arch][srpm_id]...
+            # 
+            log("")
+            log("=====  Analyzing Buildroot =====")
+            log("")
+            self._analyze_buildroot()
+
+            # Add buildroot packages to views
+            # 
+            # Further extends the following with buildroot packages:
+            #   data["views"][view_id]["pkgs"]
+            #   data["views"][view_id]["source_pkgs"]
+            #
+            log("")
+            log("=====  Adding Buildroot to Views =====")
+            log("")
+            self._add_buildroot_to_views()
+
+            # Unwanted packages
+            log("")
+            log("=====  Adding Unwanted Packages to Views =====")
+            log("")
+            self._add_unwanted_packages_to_views()
+
+            # Generate combined views for all arches
+            log("")
+            log("=====  Generating views_all_arches =====")
+            log("")
+            self. _generate_views_all_arches()
+
+
+            # Finally, save the cache for next time
+            dump_data(self.settings["root_log_deps_cache_path"], self.cache["root_log_deps"]["next"])
+            
+
+        return self.data
 
 
 ###############################################################################
@@ -7356,20 +7436,7 @@ def main():
 
     settings = load_settings()
 
-    # Cache speeds things up and saves unnecessary calls to Koji
-    cache = {}
-
-    # As a good trade off between space, simplicity, and speed,
-    # only the last Content Resolver run is saved in a cache.
-    # So a new cache gets innitiated
-    cache["root_log_deps"] = {}
-    cache["root_log_deps"]["current"] = {}
-    cache["root_log_deps"]["next"] = {}
-
-    try:
-        cache["root_log_deps"]["current"] = load_data(settings["root_log_deps_cache_path"])
-    except FileNotFoundError:
-        pass
+    
 
 
     if settings["use_cache"]:
@@ -7377,14 +7444,15 @@ def main():
         data = load_data("cache_data.json")
     else:
         configs = get_configs(settings)
-        data = analyze_things(configs, settings, cache)
+        analyzer = Analyzer(configs, settings)
+        data = analyzer.analyze_things()
 
         dump_data("cache_settings.json", settings)
         dump_data("cache_configs.json", configs)
         dump_data("cache_data.json", data)
 
     
-    dump_data(settings["root_log_deps_cache_path"], cache["root_log_deps"]["next"])
+    
 
     settings["global_refresh_time_started"] = datetime.datetime.now().strftime("%-d %B %Y %H:%M UTC")
 
