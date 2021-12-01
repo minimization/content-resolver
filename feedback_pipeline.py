@@ -2547,13 +2547,34 @@ class Analyzer():
                     # So the usual line has file_line.split() == 8
                     # The one with the long package name has file_line.split() == 3
                     # and the one following it has file_line.split() == 7
+                    # 
+                    # One more thing... long release!
+                    #
+                    # DEBUG util.py:446:   qrencode-devel               aarch64 4.0.2-8.fc35                  build  13 k
+                    # DEBUG util.py:446:   systemtap-sdt-devel          aarch64 4.6~pre16291338gf2c14776-1.fc36
+                    # DEBUG util.py:446:                                                                      build  71 k
+                    # DEBUG util.py:446:   tpm2-tss-devel               aarch64 3.1.0-4.fc36                  build 315 k
+                    #
+                    # So the good one here is file_line.split() == 5.
+                    # And the following is also file_line.split() == 5. Fun!
+                    # 
+                    # So if it ends with B, k, M, G it's the wrong line, so skip, otherwise take the package name.
+                    #
+                    # I can also anticipate both get long... that would mean I need to skip file_line.split() == 4.
 
                     if len(file_line.split()) == 8 or len(file_line.split()) == 3:
                         pkg_name = file_line.split()[2]
                         required_pkgs.append(pkg_name)
 
-                    elif len(file_line.split()) == 7:
+                    elif len(file_line.split()) == 7 or len(file_line.split()) == 4:
                         continue
+
+                    elif len(file_line.split()) == 5:
+                        if file_line.split()[4] in ["B", "k", "M", "G"]:
+                            continue
+                        else:
+                            pkg_name = file_line.split()[2]
+                            required_pkgs.append(pkg_name)
 
                     else:
                         raise KojiRootLogError
@@ -2576,13 +2597,13 @@ class Analyzer():
 
         # Making sure there are 3 passes at least, but that it won't get overwhelmed
 
-        #if srpm_id.rsplit("-",2)[0] in ["bash", "make", "unzip"]:
-        #    return ["gawk", "xz", "findutils"]
-        #
-        #elif srpm_id.rsplit("-",2)[0] in ["gawk", "xz", "findutils"]:
-        #    return ['cpio', 'diffutils']
-        #
-        #return ["bash", "make", "unzip"]
+        if srpm_id.rsplit("-",2)[0] in ["bash", "make", "unzip"]:
+            return ["gawk", "xz", "findutils"]
+        
+        elif srpm_id.rsplit("-",2)[0] in ["gawk", "xz", "findutils"]:
+            return ['cpio', 'diffutils']
+
+        return ["bash", "make", "unzip"]
 
         # FIXME # DEBUG # FIXME # DEBUG # FIXME # DEBUG # FIXME # DEBUG # FIXME # DEBUG # FIXME # DEBUG #
         # FIXME # DEBUG # FIXME # DEBUG # FIXME # DEBUG # FIXME # DEBUG # FIXME # DEBUG # FIXME # DEBUG #
