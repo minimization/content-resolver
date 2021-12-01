@@ -20,16 +20,24 @@
                             <div class="col-6">
                                 <h6>{{ view_all_arches.numbers.pkgs.runtime }} Runtime RPMs</h6>
 
-                                <span class="badge badge-warning">{{ view_all_arches.numbers.pkgs.env }} <small>Environment</small></span> <br>
-                                <span class="badge badge-success">{{ view_all_arches.numbers.pkgs.req }} <small>Required</small></span> <br>
-                                <span class="badge badge-secondary">{{ view_all_arches.numbers.pkgs.dep }} <small>Dependency</small></span> <br>
+                                <span class="badge badge-warning">{{ view_all_arches.numbers.pkgs.env }}
+                                    <small>Environment</small></span> <br>
+                                <span class="badge badge-success">{{ view_all_arches.numbers.pkgs.req }}
+                                    <small>Required</small></span> <br>
+                                <span class="badge badge-secondary">{{ view_all_arches.numbers.pkgs.dep }}
+                                    <small>Dependency</small></span> <br>
                             </div>
                             <div class="col-6">
                                 <h6>{{ view_all_arches.numbers.pkgs.build }} Buildroot-only RPMs</h6>
 
-                                <span class="badge badge-secondary" style="background-color: #a39e87">{{ view_all_arches.numbers.pkgs.build_base }} <small>Base Buildroot</small></span> <br>
-                                <span class="badge badge-secondary" style="background-color: #999">{{ view_all_arches.numbers.pkgs.build_level_1 }} <small>Buildroot level 1</small></span> <br>
-                                <span class="badge badge-secondary" style="background-color: #999">{{ view_all_arches.numbers.pkgs.build_level_2_plus }} <small>Buildroot level 2+</small></span> <br>
+                                <span class="badge badge-secondary" style="background-color: #a39e87">{{
+                                    view_all_arches.numbers.pkgs.build_base }} <small>Base Buildroot</small></span> <br>
+                                <span class="badge badge-secondary" style="background-color: #999">{{
+                                    view_all_arches.numbers.pkgs.build_level_1 }} <small>Buildroot level
+                                        1</small></span> <br>
+                                <span class="badge badge-secondary" style="background-color: #999">{{
+                                    view_all_arches.numbers.pkgs.build_level_2_plus }} <small>Buildroot level
+                                        2+</small></span> <br>
                             </div>
                         </div>
 
@@ -39,25 +47,59 @@
             <div class="col-6">
                 <div class="card border-secondary">
                     <div class="card-body">
-                        <h5 class="card-title">{{ view_all_arches.source_pkgs_by_name | count }} Source Packages (SRPMs)</h5>
+                        <h5 class="card-title">{{ view_all_arches.source_pkgs_by_name | count }} Source Packages (SRPMs)
+                        </h5>
                         <hr>
                         <div class="row">
                             <div class="col-6">
                                 <h6>{{ view_all_arches.numbers.srpms.runtime }} Runtime SRPMs</h6>
 
-                                <span class="badge badge-warning">{{ view_all_arches.numbers.srpms.env }} <small>Environment</small></span> <br>
-                                <span class="badge badge-success">{{ view_all_arches.numbers.srpms.req }} <small>Required</small></span> <br>
-                                <span class="badge badge-secondary">{{ view_all_arches.numbers.srpms.dep }} <small>Dependency</small></span> <br>
+                                <span class="badge badge-warning">{{ view_all_arches.numbers.srpms.env }}
+                                    <small>Environment</small></span> <br>
+                                <span class="badge badge-success">{{ view_all_arches.numbers.srpms.req }}
+                                    <small>Required</small></span> <br>
+                                <span class="badge badge-secondary">{{ view_all_arches.numbers.srpms.dep }}
+                                    <small>Dependency</small></span> <br>
                             </div>
                             <div class="col-6">
                                 <h6>{{ view_all_arches.numbers.srpms.build }} Buildroot-only SRPMs</h6>
 
-                                <span class="badge badge-secondary" style="background-color: #a39e87">{{ view_all_arches.numbers.srpms.build_base }} <small>Base Buildroot</small></span> <br>
-                                <span class="badge badge-secondary" style="background-color: #999">{{ view_all_arches.numbers.srpms.build_level_1 }} <small>Buildroot level 1</small></span> <br>
-                                <span class="badge badge-secondary" style="background-color: #999">{{ view_all_arches.numbers.srpms.build_level_2_plus }} <small>Buildroot level 2+</small></span> <br>
+                                <span class="badge badge-secondary" style="background-color: #a39e87">{{
+                                    view_all_arches.numbers.srpms.build_base }} <small>Base Buildroot</small></span>
+                                <br>
+                                <span class="badge badge-secondary" style="background-color: #999">{{
+                                    view_all_arches.numbers.srpms.build_level_1 }} <small>Buildroot level
+                                        1</small></span> <br>
+                                <span class="badge badge-secondary" style="background-color: #999">{{
+                                    view_all_arches.numbers.srpms.build_level_2_plus }} <small>Buildroot level
+                                        2+</small></span> <br>
                             </div>
                         </div>
 
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-12">
+                <br>
+                <div class="card">
+                    <div class="card-body">
+                        <small>
+                            <h5 class="text-muted card-title">Legend</h5>
+                            <span class="badge badge-warning">Environment</span> - Packages pre-installed in every
+                            workload.
+                            <br>
+                            <span class="badge badge-success">Required</span> - Packages explicitly required in the <a
+                                href="view-workloads--{{view_conf.id}}.html">workloads</a>.
+                                <br>
+                            <span class="badge badge-secondary">Dependency</span> — Runtime dependencies.
+                            <br>
+                            <span class="badge badge-secondary" style="background-color: #a39e87">Base Buildroot</span> - Packages always present in the buildroot. Typicall the 'build' group.
+                            <br>
+                            <span class="badge badge-secondary" style="background-color: #999">Buildroot level 1</span> - Packages needed to build all the above.
+                            <br>
+                            <span class="badge badge-secondary" style="background-color: #999">Buildroot level 2+</span> - Packages needed to build all the above. Basially just build dependencies of build dependencies. There's multiple levels, each only present to build the previous level.
+                        </small>
                     </div>
                 </div>
             </div>

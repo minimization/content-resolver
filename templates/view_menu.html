@@ -17,6 +17,16 @@
     <li class="nav-item">
         <a class="nav-link {{view_menu_active_workloads}}" href="view-workloads--{{view_conf.id}}.html">Workloads</a>
     </li>
+    <li class="nav-item">
+        <a class="nav-link {{view_menu_active_errors}}" href="view-errors--{{view_conf.id}}.html">
+            Error Log
+            {% if view_all_arches.everything_succeeded %}
+            <span class="text-success badge badge-light">All Good</span>
+            {% else %}
+            <span class="text-danger badge badge-light">Some Errors</span>
+            {% endif %}
+        </a>
+    </li>
 </ul>
 
 <!--hr>
