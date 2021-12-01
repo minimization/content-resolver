@@ -180,13 +180,13 @@ def _load_config_repo_v2(document_id, document, settings):
         for arch_raw in document["data"]["source"]["architectures"]:
             arch = str(arch_raw)
             if arch not in settings["allowed_arches"]:
-                err_log("Warning: {file}.yaml lists an invalid architecture: {arch}. Ignoring.".format(
+                log("  Warning: {file}.yaml lists an unsupported architecture: {arch}. Moving on...".format(
                     file=document_id,
                     arch=arch))
                 continue
             config["source"]["architectures"].append(str(arch))
     except KeyError:
-        raise ConfigError("Error: {file} is invalid.".format(file=document_id))
+        raise ConfigError("'{file}.yaml' - There's something wrong with the mandatory fields. Sorry I don't have more specific info.".format(file=document_id))
     
 
     for id, repo_data in document["data"]["source"]["repos"].items():
@@ -200,7 +200,7 @@ def _load_config_repo_v2(document_id, document, settings):
         try:
             config["source"]["repos"][id]["baseurl"] = repo_data["baseurl"]
         except KeyError:
-            raise ConfigError("Error: {file} is invalid. Repo {id} doesn't list baseurl".format(
+            raise ConfigError("'{file}.yaml' - is invalid. Repo {id} doesn't list baseurl.".format(
                 file=yml_file,
                 id=id))
         config["source"]["repos"][id]["priority"] = priority
@@ -249,7 +249,7 @@ def _load_config_env(document_id, document, settings):
             config["labels"].append(str(repo))
 
     except KeyError:
-        raise ConfigError("Error: {file} is invalid.".format(file=document_id))
+        raise ConfigError("'{file}.yaml' - There's something wrong with the mandatory fields. Sorry I don't have more specific info.".format(file=document_id))
 
     # Step 2: Optional fields
 
@@ -260,7 +260,7 @@ def _load_config_env(document_id, document, settings):
     if "arch_packages" in document["data"]:
         for arch, pkgs in document["data"]["arch_packages"].items():
             if arch not in settings["allowed_arches"]:
-                err_log("Warning: {file}.yaml lists an invalid architecture: {arch}. Ignoring.".format(
+                log("  Warning: {file}.yaml lists an unsupported architecture: {arch}. Moving on...".format(
                     file=document_id,
                     arch=arch
                 ))
@@ -307,7 +307,7 @@ def _load_config_workload(document_id, document, settings):
             config["labels"].append(str(repo))
 
     except KeyError:
-        raise ConfigError("Error: {file} is invalid.".format(file=document_id))
+        raise ConfigError("'{file}.yaml' - There's something wrong with the mandatory fields. Sorry I don't have more specific info.".format(file=document_id))
 
     # Step 2: Optional fields
 
@@ -320,9 +320,10 @@ def _load_config_workload(document_id, document, settings):
         for pkg in document["data"]["packages"]:
             config["packages"].append(str(pkg))
     except (TypeError, KeyError):
-        err_log("Warning: {file} has an empty 'packages' field defined which is invalid. Moving on...".format(
-            file=document_id
-        ))
+        pass # Because it's now valid
+        #log("  Warning: {file} has an empty 'packages' field defined which is invalid. Moving on...".format(
+        #    file=document_id
+        #))
 
     # Architecture-specific packages.
     config["arch_packages"] = {}
@@ -331,7 +332,7 @@ def _load_config_workload(document_id, document, settings):
     if "arch_packages" in document["data"]:
         for arch, pkgs in document["data"]["arch_packages"].items():
             if arch not in settings["allowed_arches"]:
-                err_log("Error: {file}.yaml lists an invalid architecture: {arch}. Ignoring.".format(
+                log("  Warning: {file}.yaml lists an unsupported architecture: {arch}. Moving on...".format(
                     file=document_id,
                     arch=arch
                 ))
@@ -342,7 +343,7 @@ def _load_config_workload(document_id, document, settings):
                     pkg = str(pkg_raw)
                     config["arch_packages"][arch].append(pkg)
             except TypeError:
-                err_log("Warning: {file} has an empty 'arch_packages/{arch}' field defined which is invalid. Moving on...".format(
+                log("  Warning: {file} has an empty 'arch_packages/{arch}' field defined which is invalid. Moving on...".format(
                     file=document_id,
                     arch=arch
                 ))
@@ -415,7 +416,7 @@ def _load_config_label(document_id, document, settings):
         config["maintainer"] = str(document["data"]["maintainer"])
 
     except KeyError:
-        raise ConfigError("Error: {file} is invalid.".format(file=yml_file))
+        raise ConfigError("'{file}.yaml' - There's something wrong with the mandatory fields. Sorry I don't have more specific info.".format(file=document_id))
 
     # Step 2: Optional fields
     # none here
@@ -451,7 +452,7 @@ def _load_config_compose_view(document_id, document, settings):
         config["repository"] = str(document["data"]["repository"])
 
     except KeyError:
-        raise ConfigError("Error: {document_id}.yml is invalid.".format(document_id=document_id))
+        raise ConfigError("'{file}.yaml' - There's something wrong with the mandatory fields. Sorry I don't have more specific info.".format(file=document_id))
 
     # Step 2: Optional fields
     
@@ -474,7 +475,7 @@ def _load_config_compose_view(document_id, document, settings):
     if "unwanted_arch_packages" in document["data"]:
         for arch, pkgs in document["data"]["unwanted_arch_packages"].items():
             if arch not in settings["allowed_arches"]:
-                err_log("Error: {file}.yaml lists an invalid architecture: {arch}. Ignoring.".format(
+                log("  Warning: {file}.yaml lists an unsupported architecture: {arch}. Moving on...".format(
                     file=document_id,
                     arch=arch
                 ))
@@ -520,7 +521,7 @@ def _load_config_addon_view(document_id, document, settings):
         config["base_view_id"] = str(document["data"]["base_view_id"])
 
     except KeyError:
-        raise ConfigError("Error: {document_id}.yml is invalid.".format(document_id=document_id))
+        raise ConfigError("'{file}.yaml' - There's something wrong with the mandatory fields. Sorry I don't have more specific info.".format(file=document_id))
     
     # Step 2: Optional fields
 
@@ -537,7 +538,7 @@ def _load_config_addon_view(document_id, document, settings):
     if "unwanted_arch_packages" in document["data"]:
         for arch, pkgs in document["data"]["unwanted_arch_packages"].items():
             if arch not in settings["allowed_arches"]:
-                err_log("Error: {file}.yaml lists an invalid architecture: {arch}. Ignoring.".format(
+                log("  Warning: {file}.yaml lists an unsupported architecture: {arch}. Moving on...".format(
                     file=document_id,
                     arch=arch
                 ))
@@ -581,7 +582,7 @@ def _load_config_unwanted(document_id, document, settings):
             config["labels"].append(str(repo))
     
     except KeyError:
-        raise ConfigError("Error: {document_id}.yml is invalid.".format(document_id=document_id))
+        raise ConfigError("'{file}.yaml' - There's something wrong with the mandatory fields. Sorry I don't have more specific info.".format(file=document_id))
     
     # Step 2: Optional fields
 
@@ -598,7 +599,7 @@ def _load_config_unwanted(document_id, document, settings):
     if "unwanted_arch_packages" in document["data"]:
         for arch, pkgs in document["data"]["unwanted_arch_packages"].items():
             if arch not in settings["allowed_arches"]:
-                err_log("Error: {file}.yaml lists an invalid architecture: {arch}. Ignoring.".format(
+                log("  Warning: {file}.yaml lists an unsupported architecture: {arch}. Moving on...".format(
                     file=document_id,
                     arch=arch
                 ))
@@ -620,7 +621,7 @@ def _load_config_unwanted(document_id, document, settings):
     if "unwanted_arch_source_packages" in document["data"]:
         for arch, pkgs in document["data"]["unwanted_arch_source_packages"].items():
             if arch not in settings["allowed_arches"]:
-                err_log("Error: {file}.yaml lists an invalid architecture: {arch}. Ignoring.".format(
+                log("  Warning: {file}.yaml lists an unsupported architecture: {arch}. Moving on...".format(
                     file=document_id,
                     arch=arch
                 ))
@@ -645,7 +646,7 @@ def _load_config_buildroot(document_id, document, settings):
         config["view_id"] = str(document["data"]["view_id"])
 
     except KeyError:
-        raise ConfigError("Error: {file} is invalid.".format(file=yml_file))
+        raise ConfigError("'{file}.yaml' - There's something wrong with the mandatory fields. Sorry I don't have more specific info.".format(file=document_id))
 
     # Step 2: Optional fields
     config["base_buildroot"] = {}
@@ -654,7 +655,7 @@ def _load_config_buildroot(document_id, document, settings):
     if "base_buildroot" in document["data"]:
         for arch, pkgs in document["data"]["base_buildroot"].items():
             if arch not in settings["allowed_arches"]:
-                err_log("Error: {file}.yaml lists an invalid architecture: {arch}. Ignoring.".format(
+                log("  Warning: {file}.yaml lists an unsupported architecture: {arch}. Moving on...".format(
                     file=document_id,
                     arch=arch
                 ))
@@ -670,7 +671,7 @@ def _load_config_buildroot(document_id, document, settings):
     if "source_packages" in document["data"]:
         for arch, srpms_dict in document["data"]["source_packages"].items():
             if arch not in settings["allowed_arches"]:
-                err_log("Error: {file}.yaml lists an invalid architecture: {arch}. Ignoring.".format(
+                log("  Warning: {file}.yaml lists an unsupported architecture: {arch}. Moving on...".format(
                     file=document_id,
                     arch=arch
                 ))
@@ -684,7 +685,7 @@ def _load_config_buildroot(document_id, document, settings):
                         for pkg_raw in srpm_data["requires"]:
                             requires.append(str(pkg_raw))
                     except TypeError:
-                        err_log("Warning: {file} has an empty 'requires' field defined which is invalid. Moving on...".format(
+                        log("  Warning: {file} has an empty 'requires' field defined which is invalid. Moving on...".format(
                             file=document_id
                         ))
                         continue
@@ -706,7 +707,7 @@ def _load_json_data_buildroot_pkg_relations(document_id, document, settings):
         # Arch
         arch = document["data"]["arch"]
         if arch not in settings["allowed_arches"]:
-            raise ConfigError("Error: {file}.json lists an invalid architecture: {arch}. Ignoring this file.".format(
+            raise ConfigError("Error: '{file}.json' lists an unsupported architecture: {arch}.".format(
                 file=document_id,
                 arch=arch
             ))
@@ -716,16 +717,12 @@ def _load_json_data_buildroot_pkg_relations(document_id, document, settings):
         config["pkg_relations"] = document["data"]["pkgs"]
         
     except KeyError:
-        raise ConfigError("Error: {file} is invalid.".format(file=yml_file))
+        raise ConfigError("'{file}.yaml' - There's something wrong with the mandatory fields. Sorry I don't have more specific info.".format(file=document_id))
     
     return config
 
 
 def get_configs(settings):
-    log("")
-    log("###############################################################################")
-    log("### Loading user-provided configs #############################################")
-    log("###############################################################################")
     log("")
 
     directory = settings["configs"]
@@ -749,8 +746,11 @@ def get_configs(settings):
     configs["buildroots"] = {}
     configs["buildroot_pkg_relations"] = {}
 
+
     # Step 1: Load all configs
-    log("Loading config files...")
+    serious_error_messages = set()
+    log("Loading yaml files...")
+    log("---------------------")
     for yml_file in os.listdir(directory):
         # Only accept yaml files
         if not yml_file.endswith(".yaml"):
@@ -770,7 +770,7 @@ def get_configs(settings):
                 
                 # Only accept yaml files stating their purpose!
                 if not ("document" in document and "version" in document):
-                    raise ConfigError("Error: {file} is invalid.".format(file=yml_file))
+                    raise ConfigError("'{file}.yaml' - doesn't specify the 'document' and/or the 'version' field.".format(file=yml_file))
 
 
                 # === Case: Repository config ===
@@ -811,11 +811,33 @@ def get_configs(settings):
                     configs["buildroots"][document_id] = _load_config_buildroot(document_id, document, settings)
 
         except ConfigError as err:
-            err_log("Config load error: {err}. Ignoring.".format(err=err))
+            serious_error_messages.add(str(err))
             continue
+
+    if serious_error_messages:
+        log("")
+        log("  -------------------------------------------------------------------------")
+        log("  | 🔥 ERRORS FOUND 🔥  (the following files will be excluded)")
+        log("  |")
+
+        for message in serious_error_messages:
+            log("  |  {}".format(message))
+        log("  -------------------------------------------------------------------------")
+        log("")
+    else:
+        log("")
+        log("  ✅ No serious errors found.")
+        log("")
+    
+    log("  Done!")
+    log("")
+    log("")
     
     # Step 1.5: Load all external data sources
-    log("Loading external data files...")
+    serious_error_messages = set()
+    log("Loading json files...")
+    log("---------------------")
+    log("")
     for json_file in os.listdir(directory):
         # Only accept yaml files
         if not json_file.endswith(".json"):
@@ -833,23 +855,35 @@ def get_configs(settings):
             
             # Only accept json files stating their purpose!
             if not ("document_type" in json_data and "version" in json_data):
-                raise ConfigError("Error: {file} is invalid.".format(file=json_file))
+                raise ConfigError("'{file}.yaml' - doesn't specify the 'document' and/or the 'version' field.".format(file=json_file))
 
 
             # === Case: Buildroot pkg relations data ===
             if json_data["document_type"] == "buildroot-binary-relations":
                 configs["buildroot_pkg_relations"][document_id] = _load_json_data_buildroot_pkg_relations(document_id, json_data, settings)
 
-
         except ConfigError as err:
-            err_log("JSON data load error: {err}. Ignoring.".format(err=err))
+            serious_error_messages.add(str(err))
             continue
+    
+    if serious_error_messages:
+        log("")
+        log("  -------------------------------------------------------------------------")
+        log("  | 🔥 ERRORS FOUND 🔥  (the following files will be excluded)")
+        log("  |")
+
+        for message in serious_error_messages:
+            log("  |  {}".format(message))
+        log("  -------------------------------------------------------------------------")
+        log("")
+    else:
+        log("")
+        log("  ✅ No serious errors found.")
+        log("")
 
         
-
-
-    
     log("  Done!")
+    log("")
     log("")
 
 
@@ -864,7 +898,8 @@ def get_configs(settings):
     # check the compose views before checking the addon views,
     # because if I need to ditch a proper view, I can't use any
     # of the addon views either.
-    log("  Validating configs...")
+    log("Additional validations...")
+    log("-------------------------")
 
     for view_conf_id, view_conf in configs["views"].items():
         if view_conf["type"] == "compose":
@@ -893,21 +928,28 @@ def get_configs(settings):
     # FIXME: Check other configs, too!
 
 
-
+    log("")
+    log("  ✅ No serious errors found.")
+    log("")
     log("  Done!")
     log("")
+    log("")
+
+    log("Summary:")
+    log("--------")
+    log("")
     
-    log("Done!  Loaded:")
+    log("Standard yaml configs:")
     log("  - {} repositories".format(len(configs["repos"])))
     log("  - {} environments".format(len(configs["envs"])))
     log("  - {} workloads".format(len(configs["workloads"])))
-    log("  - {} labels".format(len(configs["labels"])))
+    #log("  - {} labels".format(len(configs["labels"])))
     log("  - {} views".format(len(configs["views"])))
     log("  - {} exclusion lists".format(len(configs["unwanteds"])))
-    log("  - {} buildroots".format(len(configs["buildroots"])))
     log("")
-    log("And the following data JSONs:")
-    log("  - {} buildroot pkg relations".format(len(configs["buildroot_pkg_relations"])))
+    log("Additional configs: (soon to be deprecated)")
+    log("  - {} buildroots".format(len(configs["buildroots"])))
+    log("  - {} buildroot pkg relations JSONs".format(len(configs["buildroot_pkg_relations"])))
     log("")
     
 
