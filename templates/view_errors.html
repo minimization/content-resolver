@@ -1,12 +1,10 @@
 {% extends "view.html" %}
 
-{% set view_menu_active_packages = "active" %}
+{% set view_menu_active_errors = "active" %}
 
 {% block view_content %}
 
 {% include "view_menu.html" %}
-
-
 
 <div id="loading">
     <div>
@@ -25,30 +23,77 @@
     </div>
 </div>
 
+<br>
 
+<h3> Failed Workloads </h3> 
+
+
+<table class="table table-striped" id="table_packages2">
+    <thead>
+        <tr class="sort_control_row">
+            <th>Workload Name</th>
+            <th>Maintainer</th>
+            <th>Config</th>
+            <th>Status</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for workload_conf_id, workload_conf in view_all_arches.workloads.items() %}
+        {% if not workload_conf.succeeded %}
+        <tr>
+            <td>
+                <a href="workload-overview--{{workload_conf_id}}--{{view_conf.repository}}.html">
+                    {{workload_conf.name}}
+                </a>
+            </td>
+            <td>
+                <a href="maintainer--{{workload_conf.maintainer}}.html">
+                    {{ workload_conf.maintainer }}
+                </a>
+            </td>
+            <td>
+                <small><a href="config-workload--{{workload_conf_id}}.html" class="text-monospace">{{workload_conf_id}}.yaml</a></small>
+            </td>
+            <td>
+                {% if workload_conf.succeeded %}
+                <span class="text-success">Success</span>
+                {% else %}
+                <span class="text-danger">Errors</span>
+                {% endif %}
+            </td>
+        </tr>
+        {% endif %}
+        {% endfor %}
+    </tbody>
+</table>
+
+<br>
+
+<h3> Failed Source Package Buildroots </h3>
 
 <table id="table_packages" class="table-packages">
     <thead>
         <tr class="sort_control_row">
-            <th>Package Name</th>
+            <th>Source Name</th>
             <th>Category</th>
-            <th>Epoch:Version.Release</th>
             {% for arch in view_conf.architectures %}
             <th>{{arch}}</th>
             {% endfor %}
-            <th>Source Package</th>
+            {% if view_all_arches.has_buildroot %}
+            <th>Buildroot Resolution</th>
+            {% endif %}
         </tr>
     </thead>
     <tbody>
-        {% for pkg in view_all_arches.pkgs_by_nevr.values() %}
+        {% for pkg_name, pkg in view_all_arches.source_pkgs_by_name.items() %}
+        {% if not pkg.buildroot_succeeded %}
         <tr>
             <td>
-                <a href="view-rpm--{{view_conf.id}}--{{pkg.name}}.html">{{pkg.name}}</a>
+                <a href="view-srpm--{{view_conf.id}}--{{pkg.name}}.html">{{pkg.name}}</a>
                 {% if pkg.placeholder %}<span class="text-muted">(placeholder)</span>{% endif %}
                 {% if pkg.unwanted_completely_in_list_ids %}<span class="text-danger">(unwanted)</span>{% endif %}
             </td>
             <td data-order="{{pkg_why_data_order(pkg)}}">{{pkg_why(pkg)}}</td>
-            <td>{{pkg.evr}}</td>
             {% for arch in view_conf.architectures %}
             {% if arch in pkg.arches %}
             <td>yes</td>
@@ -56,24 +101,30 @@
             <td class="text-muted">no</td>
             {% endif %}
             {% endfor %}
+            {% if view_all_arches.has_buildroot %}
             <td>
-                <a href="view-srpm--{{view_conf.id}}--{{pkg.source_name}}.html">{{pkg.source_name}}</a>
-                {% if pkg.placeholder %}<span class="text-muted">(placeholder)</span>{% endif %}
+                {% if pkg.buildroot_succeeded %}
+                <span class="text-success">Succeeded</span>
+                {% else %}
+                <span class="text-danger">Failed</span>
+                {% endif %}
             </td>
+            {% endif %}
         </tr>
+        {% endif %}
         {% endfor %}
     </tbody>
 </table>
 </div>
 
+
 <script>
     $(document).ready(function () {
-        $('#table_packages').DataTable({
+        $('#table_packages2').DataTable({
             paging: false,
             info: false,
-            order: [[1, "asc"],[0, "asc"]],
             initComplete: function () {
-                var input = $('.dataTables_filter input').unbind(),
+                var input = $('#table_packages2_filter input').unbind(),
                     self = this.api(),
                     $searchButton = $('<button>')
                         .text('search')
@@ -92,7 +143,35 @@
                     }
                 });
 
-                $('.dataTables_filter').append($searchButton, $clearButton);
+                $('#table_packages2_filter').append($searchButton, $clearButton);
+            }
+        });
+
+        $('#table_packages').DataTable({
+            paging: false,
+            info: false,
+            order: [[1, "asc"],[0, "asc"]],
+            initComplete: function () {
+                var input = $('#table_packages_filter input').unbind(),
+                    self = this.api(),
+                    $searchButton = $('<button>')
+                        .text('search')
+                        .click(function () {
+                            self.search(input.val()).draw();
+                        }),
+                    $clearButton = $('<button>')
+                        .text('clear')
+                        .click(function () {
+                            input.val('');
+                            $searchButton.click();
+                        });
+                $(document).keypress(function (event) {
+                    if (event.which == 13) {
+                        $searchButton.click();
+                    }
+                });
+
+                $('#table_packages_filter ').append($searchButton, $clearButton);
             }
         });
 
@@ -130,5 +209,6 @@
         loadingDiv.parentNode.removeChild(loadingDiv);
     });
 </script>
+
 
 {% endblock %}

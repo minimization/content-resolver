@@ -152,6 +152,8 @@ def load_settings():
 
     settings["allowed_arches"] = ["armv7hl","aarch64","ppc64le","s390x","x86_64"]
 
+    settings["weird_packages_that_can_not_be_installed"] = ["glibc32"]
+
     settings["repos"] = {
         "appstream": ["aarch64", "ppc64le", "s390x", "x86_64"],
         "baseos": ["aarch64", "ppc64le", "s390x", "x86_64"],
@@ -1821,8 +1823,11 @@ class Analyzer():
                 try:
                     base.install(pkg)
                 except dnf.exceptions.MarkingError:
-                    workload["errors"]["non_existing_pkgs"].append(pkg)
-                    continue
+                    if pkg in self.settings["weird_packages_that_can_not_be_installed"]:
+                        continue
+                    else:
+                        workload["errors"]["non_existing_pkgs"].append(pkg)
+                        continue
             
             # Groups
             log("  Adding groups...")
@@ -2516,7 +2521,7 @@ class Analyzer():
             # And now just saving the packages until the "installing dependencies" part
             # or the "transaction summary" part if there's no dependencies
             elif state == 3:
-                
+
                 if "Installing dependencies:" in file_line:
                     state += 1
 
@@ -2577,7 +2582,7 @@ class Analyzer():
         #elif srpm_id.rsplit("-",2)[0] in ["gawk", "xz", "findutils"]:
         #    return ['cpio', 'diffutils']
         #
-        #return ["bashBOOOM", "make", "unzip"]
+        #return ["bash", "make", "unzip"]
 
         # FIXME # DEBUG # FIXME # DEBUG # FIXME # DEBUG # FIXME # DEBUG # FIXME # DEBUG # FIXME # DEBUG #
         # FIXME # DEBUG # FIXME # DEBUG # FIXME # DEBUG # FIXME # DEBUG # FIXME # DEBUG # FIXME # DEBUG #
@@ -3274,6 +3279,8 @@ class Analyzer():
                 if view_conf["buildroot_strategy"] == "root_logs":
                     view_all_arches["has_buildroot"] = True
 
+                view_all_arches["everything_succeeded"] = True
+
                 view_all_arches["workloads"] = {}
 
                 view_all_arches["pkgs_by_name"] = {}
@@ -3328,6 +3335,7 @@ class Analyzer():
                         
                         if not workload["succeeded"]:
                             view_all_arches["workloads"][workload_conf_id]["succeeded"] = False
+                            view_all_arches["everything_succeeded"] = False
 
 
                     # Binary Packages
@@ -3400,6 +3408,7 @@ class Analyzer():
 
                         if view_all_arches["has_buildroot"]:
                             if not self.data["buildroot"]["srpms"][repo_id][arch][package["id"]]["succeeded"]:
+                                view_all_arches["everything_succeeded"] = False
                                 view_all_arches[key][identifier]["buildroot_succeeded"] = False
                                 view_all_arches[key][identifier]["errors"][arch] = self.data["buildroot"]["srpms"][repo_id][arch][package["id"]]["errors"]
                         
@@ -5360,23 +5369,29 @@ def _generate_view_pages_new(query):
         )
         _generate_html_page("view_sources", template_data, page_name, query.settings)
 
-        # Generate the source packages page
+        # Generate the modules page
         page_name = "view-modules--{view_conf_id}".format(
             view_conf_id=view_conf_id
         )
         _generate_html_page("view_modules", template_data, page_name, query.settings)
 
-        # Generate the source packages page
+        # Generate the unwanted packages page
         page_name = "view-unwanted--{view_conf_id}".format(
             view_conf_id=view_conf_id
         )
         _generate_html_page("view_unwanted", template_data, page_name, query.settings)
 
-        # Generate the source packages page
+        # Generate the workloads page
         page_name = "view-workloads--{view_conf_id}".format(
             view_conf_id=view_conf_id
         )
         _generate_html_page("view_workloads", template_data, page_name, query.settings)
+
+        # Generate the errors page
+        page_name = "view-errors--{view_conf_id}".format(
+            view_conf_id=view_conf_id
+        )
+        _generate_html_page("view_errors", template_data, page_name, query.settings)
 
 
 
