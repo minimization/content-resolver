@@ -1124,12 +1124,16 @@ class Analyzer():
     # - workload      workloads            workload_id:env_id:repo_id:arch_id
     # - view          views                view_id:repo_id:arch_id
     #
-    # tmp contents:
-    # - dnf_cachedir-{repo}-{arch}
-    # - dnf_generic_installroot-{repo}-{arch}
-    # - dnf_env_installroot-{env_conf}-{repo}-{arch}
+    # self.tmp_dnf_cachedir is either "dnf_cachedir" in TemporaryDirectory or set by --dnf-cache-dir
+    # contents:
+    # - "dnf_cachedir-{repo}-{arch}"                     <-- internal DNF cache
     #
+    # self.tmp_installroots is "installroots" in TemporaryDirectory
+    # contents:
+    # - "dnf_generic_installroot-{repo}-{arch}"          <-- installroots for _analyze_pkgs
+    # - "dnf_env_installroot-{env_conf}-{repo}-{arch}"   <-- installroots for envs and workloads and buildroots
     #
+    # 
 
     def __init__(self, configs, settings):   
         self.configs = configs
@@ -2072,7 +2076,8 @@ class Analyzer():
                 "summary": input_pkg["description"],
                 "source_name": input_pkg["srpm"],
                 "sourcerpm": "{}-000-placeholder".format(input_pkg["srpm"]),
-                "q_arch": input_pkg
+                "q_arch": input_pkg,
+                "reponame": "n/a"
             }
 
         else:
@@ -2602,7 +2607,7 @@ class Analyzer():
         
         elif srpm_id.rsplit("-",2)[0] in ["gawk", "xz", "findutils"]:
             return ['cpio', 'diffutils']
-
+        
         return ["bash", "make", "unzip"]
 
         # FIXME # DEBUG # FIXME # DEBUG # FIXME # DEBUG # FIXME # DEBUG # FIXME # DEBUG # FIXME # DEBUG #
@@ -3396,11 +3401,13 @@ class Analyzer():
                             view_all_arches[key][identifier]["evr"] = package["evr"]
                             view_all_arches[key][identifier]["source_name"] = package["source_name"]
                             view_all_arches[key][identifier]["arches"] = set()
+                            view_all_arches[key][identifier]["reponame_per_arch"] = {}
                             view_all_arches[key][identifier]["category"] = None
 
                             self._init_pkg_or_srpm_relations_fields(view_all_arches[key][identifier], type="rpm")
                         
                         view_all_arches[key][identifier]["arches"].add(arch)
+                        view_all_arches[key][identifier]["reponame_per_arch"][arch] = package["reponame"]
 
                         self._populate_pkg_or_srpm_relations_fields(view_all_arches[key][identifier], package, type="rpm", view=view)
 
