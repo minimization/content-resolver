@@ -4,7 +4,7 @@ import argparse, yaml, tempfile, os, subprocess, json, jinja2, datetime, copy, r
 import concurrent.futures
 import rpm_showme as showme
 from functools import lru_cache
-import multiprocessing
+import multiprocessing, asyncio
 
 
 # Features of this new release
@@ -149,6 +149,8 @@ def load_settings():
     settings["dnf_cache_dir_override"] = args.dnf_cache_dir_override
 
     settings["root_log_deps_cache_path"] = "cache_root_log_deps.json"
+
+    settings["max_subprocesses"] = 4
 
     settings["allowed_arches"] = ["armv7hl","aarch64","ppc64le","s390x","x86_64"]
 
@@ -1135,7 +1137,12 @@ class Analyzer():
     #
     # 
 
-    def __init__(self, configs, settings):   
+    def __init__(self, configs, settings):
+        self.workload_queue = {}
+        self.workload_queue_counter_total = 0
+        self.workload_queue_counter_current = 0
+        self.current_subprocesses = 0
+
         self.configs = configs
         self.settings = settings
 
@@ -1166,20 +1173,20 @@ class Analyzer():
             exists = False
         
         if exists:
-            log("  Loading repos from cache...")
+            #log("  Loading repos from cache...")
 
             for repo in self.global_dnf_repo_cache[repo_id][arch]:
                 base.repos.add(repo)
 
         else:
-            log("  Loading repos using DNF...")
+            #log("  Loading repos using DNF...")
 
             for repo_name, repo_data in repo["source"]["repos"].items():
                 if repo_data["limit_arches"]:
                     if arch not in repo_data["limit_arches"]:
-                        log("  Skipping {} on {}".format(repo_name, arch))
+                        #log("  Skipping {} on {}".format(repo_name, arch))
                         continue
-                log("  Including {}".format(repo_name))
+                #log("  Including {}".format(repo_name))
 
                 additional_repo = dnf.repo.Repo(
                     name=repo_name,
@@ -1212,6 +1219,10 @@ class Analyzer():
             ))
         
         with dnf.Base() as base:
+
+            base.conf.debuglevel = 0
+            base.conf.errorlevel = 0
+            base.conf.logfilelevel = 0
 
             # Local DNF cache
             cachedir_name = "dnf_cachedir-{repo}-{arch}".format(
@@ -1442,6 +1453,10 @@ class Analyzer():
 
         with dnf.Base() as base:
 
+            base.conf.debuglevel = 0
+            base.conf.errorlevel = 0
+            base.conf.logfilelevel = 0
+
             # Local DNF cache
             cachedir_name = "dnf_cachedir-{repo}-{arch}".format(
                 repo=repo["id"],
@@ -1645,33 +1660,6 @@ class Analyzer():
         """
 
         return workload
-        
-
-    def _analyze_workload_without_leaking(self, workload_conf, env_conf, repo, arch):
-
-        # DNF leaks memory and file descriptors :/
-        # 
-        # So, this workaround runs it in a subprocess that should have its resources
-        # freed when done!
-
-        queue_result = multiprocessing.Queue()
-        process = multiprocessing.Process(target=self._analyze_workload_process, args=(queue_result, workload_conf, env_conf, repo, arch))
-        process.start()
-        process.join()
-
-        # This basically means there was an exception in the processing and the process crashed
-        if queue_result.empty():
-            raise AnalysisError
-        
-        workload = queue_result.get()
-
-        return workload
-
-    
-    def _analyze_workload_process(self, queue_result, workload_conf, env_conf, repo, arch):
-
-        workload = self._analyze_workload(workload_conf, env_conf, repo, arch)
-        queue_result.put(workload)
 
 
     def _analyze_workload(self, workload_conf, env_conf, repo, arch):
@@ -1705,6 +1693,10 @@ class Analyzer():
         workload["labels"] = list(set(workload_conf["labels"]) & set(env_conf["labels"]))
 
         with dnf.Base() as base:
+
+            base.conf.debuglevel = 0
+            base.conf.errorlevel = 0
+            base.conf.logfilelevel = 0
 
             # Local DNF cache
             cachedir_name = "dnf_cachedir-{repo}-{arch}".format(
@@ -1761,7 +1753,7 @@ class Analyzer():
                         break
                     except dnf.exceptions.RepoError as err:
                         attempts +=1
-                        log("  Failed to download repodata. Trying again!")
+                        #log("  Failed to download repodata. Trying again!")
                 if not success:
                     err = "Failed to download repodata while analyzing workload '{workload_id} on '{env_id}' from '{repo}' {arch}...".format(
                             workload_id=workload_conf_id,
@@ -1775,28 +1767,28 @@ class Analyzer():
             # Disabling modules
             if workload_conf["modules_disable"]:
                 try:
-                    log("  Disabling modules...")
+                    #log("  Disabling modules...")
                     module_base = dnf.module.module_base.ModuleBase(base)
                     module_base.disable(workload_conf["modules_disable"])
                 except dnf.exceptions.MarkingErrors as err:
                     workload["succeeded"] = False
                     workload["errors"]["message"] = str(err)
-                    log("  Failed!  (Error message will be on the workload results page.")
-                    log("")
+                    #log("  Failed!  (Error message will be on the workload results page.")
+                    #log("")
                     return workload
 
 
             # Enabling modules
             if workload_conf["modules_enable"]:
                 try:
-                    log("  Enabling modules...")
+                    #log("  Enabling modules...")
                     module_base = dnf.module.module_base.ModuleBase(base)
                     module_base.enable(workload_conf["modules_enable"])
                 except dnf.exceptions.MarkingErrors as err:
                     workload["succeeded"] = False
                     workload["errors"]["message"] = str(err)
-                    log("  Failed!  (Error message will be on the workload results page.")
-                    log("")
+                    #log("  Failed!  (Error message will be on the workload results page.")
+                    #log("")
                     return workload
             
             # Get a list of enabled modules
@@ -1816,13 +1808,13 @@ class Analyzer():
                         )
                         enabled_modules.add(module_nsv)
             except:
-                log("  Something went wrong with getting a list of enabled modules. (This uses non-API DNF calls. Skipping.)")
+                #log("  Something went wrong with getting a list of enabled modules. (This uses non-API DNF calls. Skipping.)")
                 enabled_modules = set()
             workload["enabled_modules"] = list(enabled_modules)
 
 
             # Packages
-            log("  Adding packages...")
+            #log("  Adding packages...")
             for pkg in workload_conf["packages"]:
                 try:
                     base.install(pkg)
@@ -1834,7 +1826,7 @@ class Analyzer():
                         continue
             
             # Groups
-            log("  Adding groups...")
+            #log("  Adding groups...")
             if workload_conf["groups"]:
                 base.read_comps(arch_filter=True)
             for grp_spec in workload_conf["groups"]:
@@ -1873,7 +1865,7 @@ class Analyzer():
                     srpm_placeholders[placeholder_name] = placeholder_data
 
             # Dependencies of package placeholders
-            log("  Adding package placeholder dependencies...")
+            #log("  Adding package placeholder dependencies...")
             for placeholder_name, placeholder_data in package_placeholders.items():
                 for pkg in placeholder_data["requires"]:
                     try:
@@ -1909,23 +1901,23 @@ class Analyzer():
                 error_message = "\n".join(error_message_list)
                 workload["succeeded"] = False
                 workload["errors"]["message"] = str(error_message)
-                log("  Failed!  (Error message will be on the workload results page.")
-                log("")
+                #log("  Failed!  (Error message will be on the workload results page.")
+                #log("")
                 return workload
 
             # Resolve dependencies
-            log("  Resolving dependencies...")
+            #log("  Resolving dependencies...")
             try:
                 base.resolve()
             except dnf.exceptions.DepsolveError as err:
                 workload["succeeded"] = False
                 workload["errors"]["message"] = str(err)
-                log("  Failed!  (Error message will be on the workload results page.")
-                log("")
+                #log("  Failed!  (Error message will be on the workload results page.")
+                #log("")
                 return workload
 
             # DNF Query
-            log("  Creating a DNF Query object...")
+            #log("  Creating a DNF Query object...")
             query_env = base.sack.query()
             query_added = base.sack.query().filterm(pkg=base.transaction.install_set)
             pkgs_env = set(query_env.installed())
@@ -1962,17 +1954,139 @@ class Analyzer():
             
             pkg_env_count = len(workload["pkg_env_ids"])
             pkg_added_count = len(workload["pkg_added_ids"])
-            log("  Done!  ({pkg_count} packages in total. That's {pkg_env_count} in the environment, and {pkg_added_count} added.)".format(
-                pkg_count=str(pkg_env_count + pkg_added_count),
-                pkg_env_count=pkg_env_count,
-                pkg_added_count=pkg_added_count
-            ))
-            log("")
+            #log("  Done!  ({pkg_count} packages in total. That's {pkg_env_count} in the environment, and {pkg_added_count} added.)".format(
+            #    pkg_count=str(pkg_env_count + pkg_added_count),
+            #    pkg_env_count=pkg_env_count,
+            #    pkg_added_count=pkg_added_count
+            #))
+            #log("")
 
         return workload
 
+    
+    def _analyze_workload_process(self, queue_result, workload_conf, env_conf, repo, arch):
+
+        workload = self._analyze_workload(workload_conf, env_conf, repo, arch)
+        queue_result.put(workload)
+
+
+    async def _analyze_workloads_subset_async(self, task_queue, results):
+
+        for task in task_queue:
+            workload_conf = task["workload_conf"]
+            env_conf = task["env_conf"]
+            repo = task["repo"]
+            arch = task["arch"]
+
+            workload_id = "{workload_conf_id}:{env_conf_id}:{repo_id}:{arch}".format(
+                workload_conf_id=workload_conf["id"],
+                env_conf_id=env_conf["id"],
+                repo_id=repo["id"],
+                arch=arch
+            )
+
+            # Log progress
+            self.workload_queue_counter_current += 1
+            log("[{} of {}]".format(self.workload_queue_counter_current, self.workload_queue_counter_total))
+            log("Analyzing workload: {}".format(workload_id))
+            log("")
+
+            # Max processes
+            if self.settings["max_subprocesses"]:
+                while True:
+                    if self.current_subprocesses < self.settings["max_subprocesses"]:
+                        self.current_subprocesses += 1
+                        break
+                    else:
+                        await asyncio.sleep(0.1)
+
+            queue_result = multiprocessing.Queue()
+            process = multiprocessing.Process(target=self._analyze_workload_process, args=(queue_result, workload_conf, env_conf, repo, arch))
+            process.start()
+        
+            while True:
+                if process.is_alive():
+                    await asyncio.sleep(0.1)
+                else:
+                    break
+            
+            self.current_subprocesses -= 1
+
+            # This basically means there was an exception in the processing and the process crashed
+            if queue_result.empty():
+                log("")
+                log("")
+                log("--------------------------------------------------------------------------")
+                log("")
+                log("ERROR: Workload analysis failed")
+                log("")
+                log("Details:")
+                log("  workload_conf: {}".format(workload_conf["id"]))
+                log("  env_conf:      {}".format(env_conf["id"]))
+                log("  repo:          {}".format(repo["id"]))
+                log("  arch:          {}".format(arch))
+                log("")
+                log("More details somewhere above.")
+                log("")
+                log("--------------------------------------------------------------------------")
+                log("")
+                log("")
+                sys.exit(1)
+        
+            workload = queue_result.get()
+            
+            results[workload_id] = workload
+
+
+    async def _analyze_workloads_async(self, results):
+
+        tasks = []
+
+        for repo in self.workload_queue:
+            for arch in self.workload_queue[repo]:
+
+                task_queue = self.workload_queue[repo][arch]
+
+                tasks.append(asyncio.create_task(self._analyze_workloads_subset_async(task_queue, results)))
+        
+        for task in tasks:
+            await task
+
+        log("DONE!")
+
+    
+    def _queue_workload_processing(self, workload_conf, env_conf, repo, arch):
+        
+        repo_id = repo["id"]
+
+        if repo_id not in self.workload_queue:
+            self.workload_queue[repo_id] = {}
+        
+        if arch not in self.workload_queue[repo_id]:
+            self.workload_queue[repo_id][arch] = []
+
+        workload_task = {
+            "workload_conf": workload_conf,
+            "env_conf" : env_conf,
+            "repo" : repo,
+            "arch" : arch
+        }
+
+        self.workload_queue[repo_id][arch].append(workload_task)
+        self.workload_queue_counter_total += 1
+
+
+    def _reset_workload_processing_queue(self):
+        self.workload_queue = {}
+        self.workload_queue_counter_total = 0
+        self.workload_queue_counter_current = 0
+
+
     def _analyze_workloads(self):
-        workloads = {}
+
+        # Initialise
+        self.data["workloads"] = {}
+        self._reset_workload_processing_queue()
 
         # Here, I need to mix and match workloads & envs based on labels
         workload_env_map = {}
@@ -1988,8 +2102,6 @@ class Analyzer():
                         # And save those.
                         workload_env_map[workload_conf_id].add(env_conf_id)
         
-        # Get the total number of workloads
-        number_of_workloads = 0
         # And now, look at all workload configs...
         for workload_conf_id, workload_conf in self.configs["workloads"].items():
             # ... and for each, look at all env configs it should be analyzed in.
@@ -2000,10 +2112,7 @@ class Analyzer():
                     # ... and each repo probably has multiple architecture.
                     repo = self.configs["repos"][repo_id]
                     arches = repo["source"]["architectures"]
-                    number_of_workloads += len(arches)
 
-        # Analyze the workloads
-        current_workload = 0
         # And now, look at all workload configs...
         for workload_conf_id, workload_conf in self.configs["workloads"].items():
             # ... and for each, look at all env configs it should be analyzed in.
@@ -2015,34 +2124,12 @@ class Analyzer():
                     repo = self.configs["repos"][repo_id]
                     for arch in repo["source"]["architectures"]:
 
-                        current_workload += 1
-                        log ("[ workload {current} of {total} ]".format(
-                            current=current_workload,
-                            total=number_of_workloads
-                        ))
-
                         # And now it has:
                         #   all workload configs *
                         #   all envs that match those *
                         #   all repos of those envs *
                         #   all arches of those repos.
                         # That's a lot of stuff! Let's analyze all of that!
-                        log("Analyzing {workload_name} ({workload_id}) on {env_name} ({env_id}) from {repo_name} ({repo}) {arch}...".format(
-                            workload_name=workload_conf["name"],
-                            workload_id=workload_conf_id,
-                            env_name=env_conf["name"],
-                            env_id=env_conf_id,
-                            repo_name=repo["name"],
-                            repo=repo_id,
-                            arch=arch
-                        ))
-
-                        workload_id = "{workload_conf_id}:{env_conf_id}:{repo_id}:{arch}".format(
-                            workload_conf_id=workload_conf_id,
-                            env_conf_id=env_conf_id,
-                            repo_id=repo_id,
-                            arch=arch
-                        )
 
                         # Before even started, look if the env succeeded. If not, there's
                         # no point in doing anything here.
@@ -2052,15 +2139,20 @@ class Analyzer():
                             arch=arch
                         )
                         env = self.data["envs"][env_id]
+
                         if env["succeeded"]:
-                            # Let's do this! 
+                            self._queue_workload_processing(workload_conf, env_conf, repo, arch)
 
-                            workloads[workload_id] = self._analyze_workload(workload_conf, env_conf, repo, arch)
-                        
                         else:
-                            workloads[workload_id] = self._return_failed_workload_env_err(workload_conf, env_conf, repo, arch)
+                            workload_id = "{workload_conf_id}:{env_conf_id}:{repo_id}:{arch}".format(
+                                workload_conf_id=workload_conf_id,
+                                env_conf_id=env_conf_id,
+                                repo_id=repo_id,
+                                arch=arch
+                            )
+                            self.data["workloads"][workload_id] = _return_failed_workload_env_err(workload_conf, env_conf, repo, arch)
 
-        self.data["workloads"] = workloads
+        asyncio.run(self._analyze_workloads_async(self.data["workloads"]))
 
 
     def _init_view_pkg(self, input_pkg, arch, placeholder=False, level=0):
@@ -2472,6 +2564,7 @@ class Analyzer():
                 self.data["buildroot"]["srpms"][repo_id][arch][srpm_id]["errors"]["non_existing_pkgs"] = set()
                 self.data["buildroot"]["srpms"][repo_id][arch][srpm_id]["errors"]["message"] = ""
                 self.data["buildroot"]["srpms"][repo_id][arch][srpm_id]["succeeded"] = False
+                self.data["buildroot"]["srpms"][repo_id][arch][srpm_id]["queued"] = False
                 self.data["buildroot"]["srpms"][repo_id][arch][srpm_id]["processed"] = False
 
 
@@ -2836,6 +2929,7 @@ class Analyzer():
                         self.data["buildroot"]["srpms"][repo_id][arch][srpm_id]["errors"]["non_existing_pkgs"] = set()
                         self.data["buildroot"]["srpms"][repo_id][arch][srpm_id]["errors"]["message"] = ""
                         self.data["buildroot"]["srpms"][repo_id][arch][srpm_id]["succeeded"] = False
+                        self.data["buildroot"]["srpms"][repo_id][arch][srpm_id]["queued"] = False
                         self.data["buildroot"]["srpms"][repo_id][arch][srpm_id]["processed"] = False
 
         log("  Found {} new SRPMs!".format(counter))
@@ -2854,6 +2948,10 @@ class Analyzer():
         log("Analyzing SRPM buildroots...")
         log("")
 
+        # Initialise things for the workload resolver
+        self._reset_workload_processing_queue()
+        fake_workload_results = {}
+
         # Prepare a counter for the log
         total_srpms_to_resolve = 0
         for repo_id in self.data["buildroot"]["srpms"]:
@@ -2868,14 +2966,14 @@ class Analyzer():
             for arch in self.data["buildroot"]["srpms"][repo_id]:
                 for srpm_id, srpm in self.data["buildroot"]["srpms"][repo_id][arch].items():
 
-                    if srpm["processed"]:
+                    if srpm["queued"] or srpm["processed"]:
                         continue
 
                     # Using the _analyze_workload function!
                     # So I need to reconstruct a fake workload_conf and a fake env_conf
                     fake_workload_conf = {}
                     fake_workload_conf["labels"] = []
-                    fake_workload_conf["id"] = None
+                    fake_workload_conf["id"] = srpm_id
                     fake_workload_conf["options"] = []
                     fake_workload_conf["modules_disable"] = []
                     fake_workload_conf["modules_enable"] = []
@@ -2896,15 +2994,37 @@ class Analyzer():
 
                     srpms_to_resolve_counter += 1
                     
-                    log("[ Buildroot - pass {} - {} of {} ]".format(pass_counter, srpms_to_resolve_counter, total_srpms_to_resolve))
-                    log("Resolving SRPM buildroot: {repo_id} {arch} {srpm_id}".format(
-                        repo_id=repo_id,
-                        arch=arch,
-                        srpm_id=srpm_id
-                    ))
+                    #log("[ Buildroot - pass {} - {} of {} ]".format(pass_counter, srpms_to_resolve_counter, total_srpms_to_resolve))
+                    #log("Resolving SRPM buildroot: {repo_id} {arch} {srpm_id}".format(
+                    #    repo_id=repo_id,
+                    #    arch=arch,
+                    #    srpm_id=srpm_id
+                    #))
                     repo = self.configs["repos"][repo_id]
 
-                    fake_workload = self._analyze_workload(fake_workload_conf, fake_env_conf, repo, arch)
+                    #fake_workload = self._analyze_workload(fake_workload_conf, fake_env_conf, repo, arch)
+                    self._queue_workload_processing(fake_workload_conf, fake_env_conf, repo, arch)
+
+                    # Save the buildroot data
+                    self.data["buildroot"]["srpms"][repo_id][arch][srpm_id]["queued"] = True
+
+        asyncio.run(self._analyze_workloads_async(fake_workload_results))
+
+        for repo_id in self.data["buildroot"]["srpms"]:
+            for arch in self.data["buildroot"]["srpms"][repo_id]:
+                for srpm_id, srpm in self.data["buildroot"]["srpms"][repo_id][arch].items():
+
+                    if srpm["processed"]:
+                        continue
+
+                    fake_workload_id = "{workload_conf_id}:{env_conf_id}:{repo_id}:{arch}".format(
+                        workload_conf_id=srpm_id,
+                        env_conf_id=self.data["buildroot"]["build_groups"][repo_id][arch]["generated_id"],
+                        repo_id=repo_id,
+                        arch=arch
+                    )
+
+                    fake_workload = fake_workload_results[fake_workload_id]
 
                     # Save the buildroot data
                     self.data["buildroot"]["srpms"][repo_id][arch][srpm_id]["succeeded"] = fake_workload["succeeded"]
@@ -2913,7 +3033,6 @@ class Analyzer():
                     self.data["buildroot"]["srpms"][repo_id][arch][srpm_id]["pkg_added_ids"] = fake_workload["pkg_added_ids"]
                     self.data["buildroot"]["srpms"][repo_id][arch][srpm_id]["errors"] = fake_workload["errors"]
                     self.data["buildroot"]["srpms"][repo_id][arch][srpm_id]["processed"] = True
-
 
         log("")
         log("  DONE!")
