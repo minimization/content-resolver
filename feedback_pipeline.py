@@ -1985,31 +1985,50 @@ class Analyzer():
                 arch=arch
             )
 
+            # Max processes
+            while True:
+                if self.current_subprocesses < self.settings["max_subprocesses"]:
+                    self.current_subprocesses += 1
+                    break
+                else:
+                    await asyncio.sleep(.1)
+
             # Log progress
             self.workload_queue_counter_current += 1
             log("[{} of {}]".format(self.workload_queue_counter_current, self.workload_queue_counter_total))
             log("Analyzing workload: {}".format(workload_id))
             log("")
 
-            # Max processes
-            if self.settings["max_subprocesses"]:
-                while True:
-                    if self.current_subprocesses < self.settings["max_subprocesses"]:
-                        self.current_subprocesses += 1
-                        break
-                    else:
-                        await asyncio.sleep(0.1)
-
             queue_result = multiprocessing.Queue()
-            process = multiprocessing.Process(target=self._analyze_workload_process, args=(queue_result, workload_conf, env_conf, repo, arch))
+            process = multiprocessing.Process(target=self._analyze_workload_process, args=(queue_result, workload_conf, env_conf, repo, arch), daemon=True)
             process.start()
-        
-            while True:
-                if process.is_alive():
-                    await asyncio.sleep(0.1)
+
+            # Now wait a bit for the result.
+            # This is a terrible way to implement an async way to
+            # wait for the result with a 222 seconds timeout.
+            # But it works. If anyone knows how to make it nicer, let me know! :D
+
+            # 2 seconds
+            for _ in range(1, 20):
+                if queue_result.empty():
+                    await asyncio.sleep(.1)
                 else:
                     break
             
+            # 20 seconds
+            for _ in range(1, 20):
+                if queue_result.empty():
+                    await asyncio.sleep(1)
+                else:
+                    break
+            
+            # 200 seconds
+            for _ in range(1, 20):
+                if queue_result.empty():
+                    await asyncio.sleep(10)
+                else:
+                    break
+
             self.current_subprocesses -= 1
 
             # This basically means there was an exception in the processing and the process crashed
