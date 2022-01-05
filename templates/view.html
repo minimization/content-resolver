@@ -77,7 +77,12 @@ dependency
 
     <h1>
         {{view_conf.name}}
+
+        {% if view_conf.type == "addon" %}
+        <small class="text-muted"> Addon View</small>
+        {% else %}
         <small class="text-muted"> View</small>
+        {% endif %}
     </h1>
 
     <p class="lead"><span class="text-muted">Description: </span>{{view_conf.description}}</p>
