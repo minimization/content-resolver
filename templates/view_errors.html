@@ -25,7 +25,7 @@
 
 <br>
 
-<h3> Failed Workloads </h3> 
+<h3> Failed Workloads </h3>
 
 
 <table class="table table-striped" id="table_packages2">
@@ -52,7 +52,8 @@
                 </a>
             </td>
             <td>
-                <small><a href="config-workload--{{workload_conf_id}}.html" class="text-monospace">{{workload_conf_id}}.yaml</a></small>
+                <small><a href="config-workload--{{workload_conf_id}}.html"
+                        class="text-monospace">{{workload_conf_id}}.yaml</a></small>
             </td>
             <td>
                 {% if workload_conf.succeeded %}
@@ -68,6 +69,8 @@
 </table>
 
 <br>
+
+{% if view_all_arches.has_buildroot %}
 
 <h3> Failed Source Package Buildroots </h3>
 
@@ -115,7 +118,7 @@
         {% endfor %}
     </tbody>
 </table>
-</div>
+{% endif %}
 
 
 <script>
@@ -150,7 +153,7 @@
         $('#table_packages').DataTable({
             paging: false,
             info: false,
-            order: [[1, "asc"],[0, "asc"]],
+            order: [[1, "asc"], [0, "asc"]],
             initComplete: function () {
                 var input = $('#table_packages_filter input').unbind(),
                     self = this.api(),

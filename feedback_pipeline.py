@@ -1063,6 +1063,9 @@ def get_configs(settings):
                 if arch in configs["repos"][repo_id]["source"]["architectures"]:
                     actual_arches.add(arch)
             view_conf["architectures"] = sorted(list(actual_arches))
+
+    # Adjust addon view architecture based on its base view architectures        
+    for view_conf_id, view_conf in configs["views"].items():
         if view_conf["type"] == "addon":
             if not len(view_conf["architectures"]):
                 view_conf["architectures"] = settings["allowed_arches"]
@@ -3340,6 +3343,13 @@ class Analyzer():
     
     def _populate_pkg_or_srpm_relations_fields(self, target_pkg, source_pkg, type = None, view = None):
 
+        # source_pkg is the arch-specific binary package
+        # target_pkg is a representation of that pages for all arches
+        #
+        # This function adds information from the arch-specific package to the general one.
+        # It gets called for all the arches.
+        #
+
         if type == "rpm" and not view:
             raise ValueError("This function requires a view when using type = 'rpm'!")
 
@@ -3377,6 +3387,26 @@ class Analyzer():
             # Hard dependency of
             for pkg_id in source_pkg["required_by"]:
                 pkg_name = pkg_id_to_name(pkg_id)
+                
+                # This only happens in addon views, and only rarely.
+                # Basically means that a package in the addon view is required
+                # by a package in the base view.
+                # Doesn't make sense?
+                # Think of 'glibc-all-langpacks' being in the addon,
+                # while the proper langpacks along with 'glibc' are in the base view.
+                # 
+                # In that case, 'glibc' is not in the addon, but 'glibc-all-langpacks'
+                # requires it.
+                #
+                # I'm not implementing it now, as it's such a corner case.
+                # So just skip it. All the data will remain correct,
+                # it's just the 'glibc-all-langpacks' page won't show
+                # "required by 'glibc'" that's all.
+                if pkg_id not in view["pkgs"]:
+                    view_conf_id = view["view_conf_id"]
+                    view_conf = self.configs["views"][view_conf_id]
+                    if view_conf["type"] == "addon":
+                        continue
 
                 pkg = view["pkgs"][pkg_id]
                 pkg_nevr = "{name}-{evr}".format(
@@ -3432,7 +3462,8 @@ class Analyzer():
 
         for view_conf_id, view_conf in self.configs["views"].items():
 
-            if view_conf["type"] == "compose":
+            #if view_conf["type"] == "compose":
+            if True:
 
                 repo_id = view_conf["repository"]
 
@@ -3440,8 +3471,12 @@ class Analyzer():
 
                 view_all_arches["id"] = view_conf_id
                 view_all_arches["has_buildroot"] = False
-                if view_conf["buildroot_strategy"] == "root_logs":
-                    view_all_arches["has_buildroot"] = True
+
+                if view_conf["type"] == "compose":
+                    if view_conf["buildroot_strategy"] == "root_logs":
+                        view_all_arches["has_buildroot"] = True
+                else:
+                    view_all_arches["has_buildroot"] = False
 
                 view_all_arches["everything_succeeded"] = True
 
@@ -5502,11 +5537,11 @@ def _generate_view_pages_new(query):
     for view_conf_id, view_conf in query.configs["views"].items():
 
         # Skip all the old views
-        if view_conf["type"] not in ["compose"]:
-            continue
-
-        if view_conf["buildroot_strategy"] not in ["root_logs"]:
-            continue
+        #if view_conf["type"] not in ["compose"]:
+        #    continue
+        #
+        #if view_conf["buildroot_strategy"] not in ["root_logs"]:
+        #    continue
 
 
         # Common data
@@ -6241,7 +6276,7 @@ def generate_pages(query):
 
     # Generate view pages
     _generate_view_pages_new(query)
-    _generate_view_pages_old(query)
+    #_generate_view_pages_old(query)
 
     # Generate flat lists for views
     _generate_view_lists(query)
