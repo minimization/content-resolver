@@ -43,25 +43,31 @@ import multiprocessing, asyncio
 ### Some initial stuff ########################################################
 ###############################################################################
 
-# Error in global settings for Feedback Pipeline
-# Settings to be implemented, now hardcoded below
+
 class SettingsError(Exception):
+    # Error in global settings for Feedback Pipeline
+    # Settings to be implemented, now hardcoded below
     pass
 
-# Error in user-provided configs
+
 class ConfigError(Exception):
+    # Error in user-provided configs
     pass
 
-# Error in downloading repodata
+
 class RepoDownloadError(Exception):
+    # Error in downloading repodata
     pass
 
-# Error while processing buildroot build group
+
 class BuildGroupAnalysisError(Exception):
+    # Error while processing buildroot build group
     pass
+
 
 class KojiRootLogError(Exception):
     pass
+
 
 class AnalysisError(Exception):
     pass
@@ -70,8 +76,10 @@ class AnalysisError(Exception):
 def log(msg):
     print(msg, file=sys.stderr)
 
+
 def err_log(msg):
     print("ERROR LOG:  {}".format(msg), file=sys.stderr)
+
 
 class SetEncoder(json.JSONEncoder):
     def default(self, obj):
@@ -80,6 +88,7 @@ class SetEncoder(json.JSONEncoder):
         if isinstance(obj, jinja2.Environment):
             return ""
         return json.JSONEncoder.default(self, obj)
+
 
 def dump_data(path, data):
     with open(path, 'w') as file:
@@ -91,6 +100,7 @@ def load_data(path):
         data = json.load(file)
     return data
 
+
 def size(num, suffix='B'):
     for unit in ['','k','M','G']:
         if abs(num) < 1024.0:
@@ -98,21 +108,26 @@ def size(num, suffix='B'):
         num /= 1024.0
     return "%.1f %s%s" % (num, 'T', suffix)
 
+
 def pkg_id_to_name(pkg_id):
     pkg_name = pkg_id.rsplit("-",2)[0]
     return pkg_name
+
 
 def workload_id_to_conf_id(workload_id):
     workload_conf_id = workload_id.split(":")[0]
     return workload_conf_id
 
+
 def pkg_placeholder_name_to_id(placeholder_name):
     placeholder_id = "{name}-000-placeholder.placeholder".format(name=placeholder_name)
     return placeholder_id
 
+
 def pkg_placeholder_name_to_nevr(placeholder_name):
     placeholder_id = "{name}-000-placeholder".format(name=placeholder_name)
     return placeholder_id
+
 
 def url_to_id(url):
 
@@ -130,8 +145,10 @@ def url_to_id(url):
     regex = re.compile('[^0-9a-zA-Z]')
     return regex.sub("-", url)
 
+
 def datetime_now_string():
     return datetime.datetime.now().strftime("%m/%d/%Y, %H:%M:%S")
+
 
 def load_settings():
     settings = {}
@@ -175,6 +192,7 @@ def load_settings():
 
 
 
+
 ###############################################################################
 ### Loading user-provided configs #############################################
 ###############################################################################
@@ -189,6 +207,7 @@ def load_settings():
 
 def _load_config_repo(document_id, document, settings):
     raise NotImplementedError("Repo v1 is not supported. Please migrate to repo v2.")
+
 
 def _load_config_repo_v2(document_id, document, settings):
     config = {}
@@ -1106,6 +1125,14 @@ def get_configs(settings):
 
 
     return configs
+
+
+
+
+
+###############################################################################
+### Analysis ##################################################################
+###############################################################################
 
 
 class Analyzer():
@@ -3926,9 +3953,13 @@ class Analyzer():
         return self.data
 
 
+
+
+
 ###############################################################################
 ### Query gives an easy access to the data! ###################################
 ###############################################################################
+
 
 class Query():
     def __init__(self, data, configs, settings):
@@ -6304,9 +6335,11 @@ def generate_pages(query):
 ### Historic Data #############################################################
 ###############################################################################
 
-# This is generating historic (and present) package lists
-# Data for the historic charts is the function below
+
 def _save_package_history(query):
+    # This is generating historic (and present) package lists
+    # Data for the historic charts is the function below
+
     log("Generating current package history lists...")
 
 
@@ -6586,9 +6619,10 @@ def _save_package_history(query):
     log("")
 
 
-# This is the historic data for charts
-# Package lists are above 
 def _save_current_historic_data(query):
+    # This is the historic data for charts
+    # Package lists are above 
+
     log("Generating current historic data...")
 
     # Where to save it
@@ -7120,6 +7154,14 @@ def generate_historic_data(query):
     log("")
 
 
+
+
+
+###############################################################################
+### Maintainer Recommendation #################################################
+###############################################################################
+
+
 class OwnershipEngine:
     # Levels:
     #
@@ -7629,8 +7671,6 @@ class OwnershipEngine:
                     self.srpm_entries[source_name]["ownership"][level_name][maintainer]["pkg_count"] = len(self.srpm_entries[source_name]["ownership"][level_name][maintainer]["pkg_names"])
 
 
-
-
 def perform_additional_analyses(query):
 
     for view_conf_id in query.configs["views"]:
@@ -7656,9 +7696,11 @@ def perform_additional_analyses(query):
 
 
 
+
 ###############################################################################
 ### Main ######################################################################
 ###############################################################################
+
 
 def main():
 
