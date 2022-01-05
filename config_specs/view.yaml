@@ -46,11 +46,12 @@ data:
   # Buildroot strategy
   # 
   # Choose from:
-  #   * dep_tracker (default)
+  #   * none (default)
   #   * root_logs 
+  #   * dep_tracker (obsolete)
   #
   # (optional field)
-  buildroot_strategy: dep_tracker
+  buildroot_strategy: none
 
   # Limit this view only to the following architectures
   # 
