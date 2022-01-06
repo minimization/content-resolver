@@ -5568,6 +5568,10 @@ def _generate_view_pages_new(query):
 
     for view_conf_id, view_conf in query.configs["views"].items():
 
+        # Skip the obsolete dep_tracker build strategy, that's done by _generate_view_pages_old
+        if view_conf["type"] == "compose" and view_conf["buildroot_strategy"] == "dep_tracker":
+            continue
+
         # Skip all the old views
         #if view_conf["type"] not in ["compose"]:
         #    continue
@@ -6100,11 +6104,150 @@ def _generate_a_flat_list_file(data_list, file_name, settings):
         file.write(file_contents)
 
 
-def _generate_view_lists(query):
+def _generate_view_lists_new(query):
+    log("Generating view lists...")
+
+    for view_conf_id, view_conf in query.configs["views"].items():
+
+        # Skip the obsolete dep_tracker build strategy, that's done by _generate_view_lists_old
+        if view_conf["type"] == "compose" and view_conf["buildroot_strategy"] == "dep_tracker":
+            continue
+
+        # all      RPM    NEVRAs      view-all-binary-package-list
+        # all      RPM    NEVRs       view-all-binary-package-nevr-list
+        # all      RPM    Names       view-all-binary-package-name-list
+        # 
+        # all      SRPM   NEVRs       view-all-source-package-list
+        # all      SRPM   Names       view-all-source-package-name-list
+        # 
+        # 
+        # runtime  RPM    NEVRAs      view-binary-package-list
+        # runtime  RPM    NEVRs       view-binary-package-nevr-list
+        # runtime  RPM    Names       view-binary-package-name-list
+        # 
+        # runtime  SRPM   NEVRs       view-source-package-list
+        # runtime  SRPM   Names       view-source-package-name-list
+        # 
+        # 
+        # build    RPM    NEVRAs      view-buildroot-package-list
+        # build    RPM    NEVRs       view-buildroot-package-nevr-list
+        # build    RPM    Names       view-buildroot-package-name-list
+        # 
+        # build    SRPM   NEVRs       view-buildroot-package-nevr-list
+        # build    SRPM   Names       view-buildroot-source-package-name-list
+
+
+        all_arches_lists = {}
+
+        for arch in view_conf["architectures"]:
+
+            lists = {}
+
+            view_id = "{view_conf_id}:{arch}".format(
+                view_conf_id=view_conf_id,
+                arch=arch
+            )
+
+            view = query.data["views"][view_id]
+
+            # all      RPM    NEVRAs      view-all-binary-package-list
+            # all      RPM    NEVRs       view-all-binary-package-nevr-list
+            # all      RPM    Names       view-all-binary-package-name-list
+            lists["view-all-binary-package-list"] = set()
+            lists["view-all-binary-package-nevr-list"] = set()
+            lists["view-all-binary-package-name-list"] = set()
+
+            # all      SRPM   NEVRs       view-all-source-package-list
+            # all      SRPM   Names       view-all-source-package-name-list
+            lists["view-all-source-package-list"] = set()
+            lists["view-all-source-package-name-list"] = set()
+
+            # runtime  RPM    NEVRAs      view-binary-package-list
+            # runtime  RPM    NEVRs       view-binary-package-nevr-list
+            # runtime  RPM    Names       view-binary-package-name-list
+            lists["view-binary-package-list"] = set()
+            lists["view-binary-package-nevr-list"] = set()
+            lists["view-binary-package-name-list"] = set()
+
+            # runtime  SRPM   NEVRs       view-source-package-list
+            # runtime  SRPM   Names       view-source-package-name-list
+            lists["view-source-package-list"] = set()
+            lists["view-source-package-name-list"] = set()
+
+            # build    RPM    NEVRAs      view-buildroot-package-list
+            # build    RPM    NEVRs       view-buildroot-package-nevr-list
+            # build    RPM    Names       view-buildroot-package-name-list
+            lists["view-buildroot-package-list"] = set()
+            lists["view-buildroot-package-nevr-list"] = set()
+            lists["view-buildroot-package-name-list"] = set()
+
+            # build    SRPM   NEVRs       view-buildroot-source-package-list
+            # build    SRPM   Names       view-buildroot-source-package-name-list
+            lists["view-buildroot-source-package-list"] = set()
+            lists["view-buildroot-source-package-name-list"] = set()
+
+            for pkg_id, pkg in view["pkgs"].items():
+                lists["view-all-binary-package-list"].add(pkg_id)
+                lists["view-all-binary-package-nevr-list"].add(pkg["nevr"])
+                lists["view-all-binary-package-name-list"].add(pkg["name"])
+
+                srpm_id = pkg["sourcerpm"].rsplit(".src.rpm")[0]
+
+                lists["view-all-source-package-list"].add(srpm_id)
+                lists["view-all-source-package-name-list"].add(pkg["source_name"])
+
+                if pkg["in_workload_ids_all"]:
+                    lists["view-binary-package-list"].add(pkg_id)
+                    lists["view-binary-package-nevr-list"].add(pkg["nevr"])
+                    lists["view-binary-package-name-list"].add(pkg["name"])
+
+                    lists["view-source-package-list"].add(srpm_id)
+                    lists["view-source-package-name-list"].add(pkg["source_name"])
+
+                else:
+                    lists["view-buildroot-package-list"].add(pkg_id)
+                    lists["view-buildroot-package-nevr-list"].add(pkg["nevr"])
+                    lists["view-buildroot-package-name-list"].add(pkg["name"])
+
+                    lists["view-buildroot-source-package-list"].add(srpm_id)
+                    lists["view-buildroot-source-package-name-list"].add(pkg["source_name"])
+            
+            
+            for list_name, list_content in lists.items():
+
+                # Generate the arch-specific lists
+                file_name = "{list_name}--{view_conf_id}--{arch}".format(
+                    list_name=list_name,
+                    view_conf_id=view_conf_id,
+                    arch=arch
+                )
+                _generate_a_flat_list_file(sorted(list(list_content)), file_name, query.settings)
+
+                # Populate the all-arch lists
+                if list_name not in all_arches_lists:
+                    all_arches_lists[list_name] = set()
+                all_arches_lists[list_name].update(list_content)
+        
+        
+        for list_name, list_content in all_arches_lists.items():
+
+            # Generate the all-arch lists
+            file_name = "{list_name}--{view_conf_id}".format(
+                list_name=list_name,
+                view_conf_id=view_conf_id
+            )
+            _generate_a_flat_list_file(sorted(list(list_content)), file_name, query.settings)
+
+
+
+
+def _generate_view_lists_old(query):
     log("Generating view lists...")
 
     for view_conf_id,view_conf in query.configs["views"].items():
-        if view_conf["type"] in ["compose", "addon"]:
+
+        # This function is now only used for the obsolete dep_tracker build strategy
+        if view_conf["type"] == "compose" and view_conf["buildroot_strategy"] == "dep_tracker":
 
             repo_id = view_conf["repository"]
 
@@ -6303,7 +6446,8 @@ def generate_pages(query):
     _generate_view_pages_old(query)
 
     # Generate flat lists for views
-    _generate_view_lists(query)
+    _generate_view_lists_new(query)
+    _generate_view_lists_old(query)
 
     # Dump all data
     if not query.settings["use_cache"]:

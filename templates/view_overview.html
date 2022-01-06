@@ -143,7 +143,8 @@
                         <span class="badge badge-warning">Environment</span> - Packages pre-installed in every
                         workload.
                         <br>
-                        <span class="badge badge-success">Required</span> - Packages explicitly required in the workloads.
+                        <span class="badge badge-success">Required</span> - Packages explicitly required in the
+                        workloads.
                         <br>
                         <span class="badge badge-secondary">Dependency</span> - Runtime dependencies.
                         {% if view_all_arches.has_buildroot %}
@@ -164,7 +165,238 @@
             </div>
         </div>
     </div>
+
+    <div class="col-4">
+    </div>
+
+    <div class="col-8">
+        <br>
+
+        <div class="card bg-light border-secondary">
+            <div class="card-body">
+                <h5 class="card-title text-center">
+                    List Downloads
+                </h5>
+                <hr>
+                <div class="card border-secondary">
+                    <table class="table table-striped table-sm text-center" style="margin-bottom:0">
+                        <tbody>
+
+
+
+                            <tr>
+                                {% if view_all_arches.has_buildroot %}
+                                <td rowspan=5 class="align-middle"> All </td>
+                                {% endif %}
+                                <td rowspan=3 class="align-middle"> RPM </td>
+                                <td> Names </td>
+
+                                <td>
+                                    <a class="card-link" href="view-all-binary-package-name-list--{{view_conf.id}}.txt">All Arches</a>
+                                    {% for arch in view_conf.architectures %}
+                                    <a class="card-link" href="view-all-binary-package-name-list--{{view_conf.id}}--{{arch}}.txt">{{arch}}</a>
+                                    {% endfor %}
+                                </td>
+                            </tr>
+
+                            <tr>
+                                <td> NEVRs </td>
+
+                                <td>
+                                    <a class="card-link" href="view-all-binary-package-nevr-list--{{view_conf.id}}.txt">All Arches</a>
+                                    {% for arch in view_conf.architectures %}
+                                    <a class="card-link" href="view-all-binary-package-nevr-list--{{view_conf.id}}--{{arch}}.txt">{{arch}}</a>
+                                    {% endfor %}
+                                </td>
+                            </tr>
+
+                            <tr>
+                                <td> NEVRAs </td>
+
+                                <td>
+                                    <a class="card-link" href="view-all-binary-package-list--{{view_conf.id}}.txt">All Arches</a>
+                                    {% for arch in view_conf.architectures %}
+                                    <a class="card-link" href="view-all-binary-package-list--{{view_conf.id}}--{{arch}}.txt">{{arch}}</a>
+                                    {% endfor %}
+                                </td>
+                            </tr>
+
+                            <tr>
+                                <td rowspan=2 class="align-middle"> SRPM </td>
+                                <td> Names </td>
+
+                                <td>
+                                    <a class="card-link" href="view-all-source-package-name-list--{{view_conf.id}}.txt">All Arches</a>
+                                    {% for arch in view_conf.architectures %}
+                                    <a class="card-link" href="view-all-source-package-name-list--{{view_conf.id}}--{{arch}}.txt">{{arch}}</a>
+                                    {% endfor %}
+                                </td>
+                            </tr>
+
+                            <tr>
+                                <td> NEVRs </td>
+
+                                <td>
+                                    <a class="card-link" href="view-all-source-package-list--{{view_conf.id}}.txt">All Arches</a>
+                                    {% for arch in view_conf.architectures %}
+                                    <a class="card-link" href="view-all-source-package-list--{{view_conf.id}}--{{arch}}.txt">{{arch}}</a>
+                                    {% endfor %}
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+
+                {% if view_all_arches.has_buildroot %}
+                <br>
+
+                <div class="card border-secondary">
+                    <table class="table table-striped table-sm text-center" style="margin-bottom:0">
+                        <tbody>
+
+                            <tr>
+                                <td rowspan=5 class="align-middle"> Runtime </td>
+                                <td rowspan=3 class="align-middle"> RPM </td>
+                                <td> Names </td>
+
+                                <td>
+                                    <a class="card-link" href="view-binary-package-name-list--{{view_conf.id}}.txt">All Arches</a>
+                                    {% for arch in view_conf.architectures %}
+                                    <a class="card-link" href="view-binary-package-name-list--{{view_conf.id}}--{{arch}}.txt">{{arch}}</a>
+                                    {% endfor %}
+                                </td>
+                            </tr>
+
+                            <tr>
+                                <td> NEVRs </td>
+
+                                <td>
+                                    <a class="card-link" href="view-binary-package-nevr-list--{{view_conf.id}}.txt">All Arches</a>
+                                    {% for arch in view_conf.architectures %}
+                                    <a class="card-link" href="view-binary-package-nevr-list--{{view_conf.id}}--{{arch}}.txt">{{arch}}</a>
+                                    {% endfor %}
+                                </td>
+                            </tr>
+
+                            <tr>
+                                <td> NEVRAs </td>
+
+                                <td>
+                                    <a class="card-link" href="view-binary-package-list--{{view_conf.id}}.txt">All Arches</a>
+                                    {% for arch in view_conf.architectures %}
+                                    <a class="card-link" href="view-binary-package-list--{{view_conf.id}}--{{arch}}.txt">{{arch}}</a>
+                                    {% endfor %}
+                                </td>
+                            </tr>
+
+                            <tr>
+                                <td rowspan=2 class="align-middle"> SRPM </td>
+                                <td> Names </td>
+
+                                <td>
+                                    <a class="card-link" href="view-source-package-name-list--{{view_conf.id}}.txt">All Arches</a>
+                                    {% for arch in view_conf.architectures %}
+                                    <a class="card-link" href="view-source-package-name-list--{{view_conf.id}}--{{arch}}.txt">{{arch}}</a>
+                                    {% endfor %}
+                                </td>
+                            </tr>
+
+                            <tr>
+                                <td> NEVRs </td>
+
+                                <td>
+                                    <a class="card-link" href="view-source-package-list--{{view_conf.id}}.txt">All Arches</a>
+                                    {% for arch in view_conf.architectures %}
+                                    <a class="card-link" href="view-source-package-list--{{view_conf.id}}--{{arch}}.txt">{{arch}}</a>
+                                    {% endfor %}
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <br>
+
+                <div class="card border-secondary">
+
+                    <table class="table table-striped table-sm text-center" style="margin-bottom:0">
+                        <tbody>
+
+
+                            <tr>
+                                <td rowspan=5 class="align-middle"> Buildroot-only </td>
+                                <td rowspan=3 class="align-middle"> RPM </td>
+                                <td> Names </td>
+
+                                <td>
+                                    <a class="card-link" href="view-buildroot-package-name-list--{{view_conf.id}}.txt">All Arches</a>
+                                    {% for arch in view_conf.architectures %}
+                                    <a class="card-link" href="view-buildroot-package-name-list--{{view_conf.id}}--{{arch}}.txt">{{arch}}</a>
+                                    {% endfor %}
+                                </td>
+                            </tr>
+
+                            <tr>
+                                <td> NEVRs </td>
+
+                                <td>
+                                    <a class="card-link" href="view-buildroot-package-nevr-list--{{view_conf.id}}.txt">All Arches</a>
+                                    {% for arch in view_conf.architectures %}
+                                    <a class="card-link" href="view-buildroot-package-nevr-list--{{view_conf.id}}--{{arch}}.txt">{{arch}}</a>
+                                    {% endfor %}
+                                </td>
+                            </tr>
+
+                            <tr>
+                                <td> NEVRAs </td>
+
+                                <td>
+                                    <a class="card-link" href="view-buildroot-package-list--{{view_conf.id}}.txt">All Arches</a>
+                                    {% for arch in view_conf.architectures %}
+                                    <a class="card-link" href="view-buildroot-package-list--{{view_conf.id}}--{{arch}}.txt">{{arch}}</a>
+                                    {% endfor %}
+                                </td>
+                            </tr>
+
+                            <tr>
+                                <td rowspan=2 class="align-middle"> SRPM </td>
+                                <td> Names </td>
+
+                                <td>
+                                    <a class="card-link" href="view-buildroot-source-package-name-list--{{view_conf.id}}.txt">All Arches</a>
+                                    {% for arch in view_conf.architectures %}
+                                    <a class="card-link" href="view-buildroot-source-package-name-list--{{view_conf.id}}--{{arch}}.txt">{{arch}}</a>
+                                    {% endfor %}
+                                </td>
+                            </tr>
+
+                            <tr>
+                                <td> NEVRs </td>
+
+                                <td>
+                                    <a class="card-link" href="view-buildroot-source-package-list--{{view_conf.id}}.txt">All Arches</a>
+                                    {% for arch in view_conf.architectures %}
+                                    <a class="card-link" href="view-buildroot-source-package-list--{{view_conf.id}}--{{arch}}.txt">{{arch}}</a>
+                                    {% endfor %}
+                                </td>
+                            </tr>
+
+
+                            {% endif %}
+
+
+                        </tbody>
+                    </table>
+                </div>
+
+            </div>
+        </div>
+
+
+    </div>
 </div>
+
 
 
 
