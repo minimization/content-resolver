@@ -151,9 +151,43 @@ configs["views"][view_conf_id]["buildroot_strategy"]
 
 data["views_all_arches"][view_conf_id]["id"]
 data["views_all_arches"][view_conf_id]["workloads"][workload_conf_id]
-data["views_all_arches"][view_conf_id]["pkgs"][pkg_name]          <-- name instead of NEVRA
-data["views_all_arches"][view_conf_id]["source_pkgs"][srpm_name]  <-- name instead of NEVR
+data["views_all_arches"][view_conf_id]["pkgs_by_name"][pkg_name]
+data["views_all_arches"][view_conf_id]["pkgs_by_nevr"][pkg_nevr]
+data["views_all_arches"][view_conf_id]["source_pkgs_by_name"][srpm_name]
 data["views_all_arches"][view_conf_id]["modules"][module_id]
+
+
+data["views_all_arches"][view_conf_id]["pkgs_by_name"][pkg_name]...
+data["views_all_arches"][view_conf_id]["pkgs_by_nevr"][pkg_nevr]...
+data["views_all_arches"][view_conf_id]["source_pkgs_by_name"][srpm_name]...
+    ... ["unwanted_completely_in_list_ids"]
+    ... ["unwanted_buildroot_in_list_ids"]
+    ... ["in_workload_ids_all"]
+    ... ["in_workload_ids_req"]
+    ... ["in_workload_ids_dep"]
+    ... ["in_workload_ids_env"]
+    ... ["in_buildroot_of_srpm_id_all"]
+    ... ["in_buildroot_of_srpm_id_req"]
+    ... ["in_buildroot_of_srpm_id_dep"]
+    ... ["in_buildroot_of_srpm_id_env"]
+    ... ["in_workload_conf_ids_all"]
+    ... ["in_workload_conf_ids_req"]
+    ... ["in_workload_conf_ids_dep"]
+    ... ["in_workload_conf_ids_env"]
+    ... ["in_buildroot_of_srpm_name_all"]
+    ... ["in_buildroot_of_srpm_name_req"]
+    ... ["in_buildroot_of_srpm_name_dep"]
+    ... ["in_buildroot_of_srpm_name_env"]
+
+data["views_all_arches"][view_conf_id]["pkgs_by_name"][pkg_name]...
+data["views_all_arches"][view_conf_id]["pkgs_by_nevr"][pkg_nevr]...
+    ... ["hard_dependency_of_pkg_nevrs"]
+    ... ["hard_dependency_of_pkg_names"]
+    ... ["weak_dependency_of_pkg_nevrs"]
+    ... ["weak_dependency_of_pkg_names"]
+    ... ["dependency_of_pkg_nevrs"]
+    ... ["dependency_of_pkg_names"]
+
 
 
 data["views"][view_id]["id"]
