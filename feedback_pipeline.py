@@ -167,7 +167,7 @@ def load_settings():
 
     settings["root_log_deps_cache_path"] = "cache_root_log_deps.json"
 
-    settings["max_subprocesses"] = 4
+    settings["max_subprocesses"] = 10
 
     settings["allowed_arches"] = ["armv7hl","aarch64","ppc64le","s390x","x86_64"]
 
@@ -2757,8 +2757,22 @@ class Analyzer():
         # FIXME # DEBUG # FIXME # DEBUG # FIXME # DEBUG # FIXME # DEBUG # FIXME # DEBUG # FIXME # DEBUG #
         
         log("    Talking to Koji API...")
-        koji_pkg_data = koji_session.getRPM("{}.src".format(srpm_id))
-        koji_logs = koji_session.getBuildLogs(koji_pkg_data["build_id"])
+        # This sometimes hangs, so I'm giving it a timeout and
+        # a few extra tries before totally giving up!
+        MAX_TRIES = 10
+        attempts = 0
+        success = False
+        while attempts < MAX_TRIES:
+            try:
+                koji_pkg_data = koji_session.getRPM("{}.src".format(srpm_id))
+                koji_logs = koji_session.getBuildLogs(koji_pkg_data["build_id"])
+                success = True
+                break
+            except:
+                attempts +=1
+                log("    Error talking to Koji API... retrying...")
+        if not success:
+            raise KojiRootLogError("Could not talk to Koji API")
 
         koji_log_path = None
 
@@ -2829,7 +2843,7 @@ class Analyzer():
 
             # Initiate Koji sessions
             if koji_id not in koji_sessions:
-                koji_sessions[koji_id] = koji.ClientSession(koji_urls["api"])
+                koji_sessions[koji_id] = koji.ClientSession(koji_urls["api"], opts = {"timeout": 20})
 
             for arch in self.data["buildroot"]["koji_srpms"][koji_id]:
 
