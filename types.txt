@@ -160,6 +160,9 @@ data["views_all_arches"][view_conf_id]["modules"][module_id]
 data["views_all_arches"][view_conf_id]["pkgs_by_name"][pkg_name]...
 data["views_all_arches"][view_conf_id]["pkgs_by_nevr"][pkg_nevr]...
 data["views_all_arches"][view_conf_id]["source_pkgs_by_name"][srpm_name]...
+    ... ["name"]
+    ... ["source_name"]
+    ... ["arches"]
     ... ["unwanted_completely_in_list_ids"]
     ... ["unwanted_buildroot_in_list_ids"]
     ... ["in_workload_ids_all"]
@@ -177,7 +180,16 @@ data["views_all_arches"][view_conf_id]["source_pkgs_by_name"][srpm_name]...
     ... ["in_buildroot_of_srpm_name_all"]
     ... ["in_buildroot_of_srpm_name_req"]
     ... ["in_buildroot_of_srpm_name_dep"]
-    ... ["in_buildroot_of_srpm_name_env"]
+    ... ["maintainer_recommendation"]
+
+    ... ["maintainer_recommendation_details"][level][sublevel][maintainer]["reasons"] = set()
+            ^^ (first_pkg_name, first_srpm_name, second_pkg_name)
+                # first requires second
+                # "reasons" is only in sublevel 1 and higher
+
+    ... ["maintainer_recommendation_details"][level][sublevel][maintainer]["locations"] = set()
+            ^^ workload_conf_id or srpm_name
+    
 
 data["views_all_arches"][view_conf_id]["pkgs_by_name"][pkg_name]...
 data["views_all_arches"][view_conf_id]["pkgs_by_nevr"][pkg_nevr]...
@@ -187,6 +199,8 @@ data["views_all_arches"][view_conf_id]["pkgs_by_nevr"][pkg_nevr]...
     ... ["weak_dependency_of_pkg_names"]
     ... ["dependency_of_pkg_nevrs"]
     ... ["dependency_of_pkg_names"]
+
+
 
 
 
