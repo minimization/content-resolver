@@ -262,3 +262,8 @@ table.table-packages.table-packages-muted tbody tr:last-child {
 #chLine {
   height: 300px;
 }
+
+
+table.table-downloads {
+  margin-bottom: 0;
+}

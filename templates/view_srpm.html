@@ -65,6 +65,8 @@
     </div>
 </div>
 
+<br>
+
 
 {% if srpm.unwanted_completely_in_list_ids %}
 <hr>
@@ -103,20 +105,119 @@
 <br>
 {% endif %}
 
+<div class="row">
+    <div class="col-4">
+        <div class="card bg-light border-secondary">
+            <h4 class="card-header"><span class="text-muted">Maintainer Recommendation - </span>Summary</h4>
+            <div class="card-body">
 
-<br>
-<br>
-<br>
-<span class="text-muted">More details will be added soon...</span>
-{# More details TBD
-<hr>
-{% for key, value in srpm.items() %}
-<b>{{key}}</b>
-<br>
-{{value}}
-<br>
-<br>
+                <div class="card border-secondary">
+                    <div class="card-body">
+                        TBD
+                        <br>
+                        Meanwhile, please see details to the right.
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <div class="col-8">
+        <div class="card bg-light border-secondary">
+            <h4 class="card-header"><span class="text-muted">Maintainer Recommendation - </span>Details</h4>
+            <div class="card-body">
+
+                <div class="card border-secondary">
+                    <div class="card-body">
+                        {% for level, sublevels in srpm.maintainer_recommendation_details.items() %}
+                        <h5 class="card-title">Level {{level}}</h5>
+                        {% if level == "0" %}
+                        <p>Includes <span class="badge badge-success">Required</span> and <span class="badge badge-secondary">Dependency</span>.</p>
+                        {% else %}
+                        <p>Includes <span class="badge badge-secondary" style="background-color: #999">Buildroot level {{level}}</span> which are direct build dependencies of the previous level, along with their own runtime dependencies.</p>
+                        {% endif %}
+                        <table class="table-packages table-packages-muted" id="table_packages_{{level}}">
+                            <thead>
+                                <tr>
+                                    <th></th>
+                                    <th>Maintainer</th>
+                                    <th>Reason</th>
+                                    <th>{% if level == "0" %} Workload {% else %} Buildroot of {% endif %}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for sublevel, maintainers in sublevels.items() %}
+                                {% for maintainer, maintainer_details in maintainers.items() %}
+                                <tr>
+                                    <td><small class="text-muted">{{level}}.{{sublevel}}</small></td>
+                                    <td>{{maintainer}}</td>
+                                    <td>
+                                        {% if sublevel == "0" %}
+                                        {% if level == "0" %} Explicitly required {% else %} Direct build dependency {% endif %}
+                                        {% else %}
+                                        {% for reason in maintainer_details.reasons %}
+                                        <a href="view-rpm--{{view_conf.id}}--{{reason[0]}}.html">{{reason[0]}}</a> (<small>SRPM:</small> <a href="view-srpm--{{view_conf.id}}--{{reason[1]}}.html">{{reason[1]}}</a>) requires <a href="view-rpm--{{view_conf.id}}--{{reason[2]}}.html">{{reason[2]}}</a><br>
+                                        {% endfor %}
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% for location in maintainer_details.locations %}
+                                        {% if level == "0" %}
+                                        <a href="workload-overview--{{location}}--{{view_conf.repository}}.html">{{query.configs.workloads[location].name}}</a><br>
+                                        {% else %}
+                                        <a href="view-srpm--{{view_conf.id}}--{{location}}.html">{{location}}</a><br>
+                                        {% endif %}
+                                        {% endfor %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                        {% endfor %}
+
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+{% for level, sublevels in srpm.maintainer_recommendation_details.items() %}
+<script>
+    $(document).ready(function () {
+        $('#table_packages_{{level}}').DataTable({
+            paging: false,
+            info: false,
+            order: [[0, "asc"]],
+            initComplete: function () {
+                var input = $('.dataTables_filter input').unbind(),
+                    self = this.api(),
+                    $searchButton = $('<button>')
+                        .text('search')
+                        .click(function () {
+                            self.search(input.val()).draw();
+                        }),
+                    $clearButton = $('<button>')
+                        .text('clear')
+                        .click(function () {
+                            input.val('');
+                            $searchButton.click();
+                        });
+                $(document).keypress(function (event) {
+                    if (event.which == 13) {
+                        $searchButton.click();
+                    }
+                });
+
+                $('.dataTables_filter').append($searchButton, $clearButton);
+            }
+        });
+    });
+</script>
 {% endfor %}
-#}
 
 {% endblock %}
