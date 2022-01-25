@@ -45,6 +45,7 @@ data:
         priority: 42 #(optional, default 100)
         koji_api_url: https://koji.fedoraproject.org/kojihub #(optional)
         koji_files_url: https://kojipkgs.fedoraproject.org #(optional)
+        exclude: ["rpm-name"] #(optional)
 
       some-other-repo: 
         name: Fedora Rawhide #(optional)

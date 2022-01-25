@@ -254,6 +254,7 @@ def _load_config_repo_v2(document_id, document, settings):
     for id, repo_data in document["data"]["source"]["repos"].items():
         name = repo_data.get("name", id)
         priority = repo_data.get("priority", 100)
+        exclude = repo_data.get("exclude", None)
         limit_arches = repo_data.get("limit_arches", None)
         koji_api_url = repo_data.get("koji_api_url", None)
         koji_files_url = repo_data.get("koji_files_url", None)
@@ -268,6 +269,7 @@ def _load_config_repo_v2(document_id, document, settings):
                 file=yml_file,
                 id=id))
         config["source"]["repos"][id]["priority"] = priority
+        config["source"]["repos"][id]["exclude"] = exclude
         config["source"]["repos"][id]["limit_arches"] = limit_arches
         config["source"]["repos"][id]["koji_api_url"] = koji_api_url
         config["source"]["repos"][id]["koji_files_url"] = koji_files_url
@@ -1224,6 +1226,7 @@ class Analyzer():
                 )
                 additional_repo.baseurl = repo_data["baseurl"]
                 additional_repo.priority = repo_data["priority"]
+                additional_repo.exclude = repo_data["exclude"]
                 base.repos.add(additional_repo)
 
             # Additional repository (if configured)
