@@ -141,9 +141,33 @@
 
         <div class="card border-secondary">
             <div class="card-body">
-                TBD
-                <br>
-                Meanwhile, please see details to the right.
+
+                {% if srpm.best_maintainers %}
+
+                {% if srpm.best_maintainers | count == 1 %}
+
+                {% for maint in srpm.best_maintainers %}
+                    <b>{{ maint }}</b>
+                {% endfor %}
+                seems like the best maintainer. See below for more details.
+
+                {% else %}
+
+                Multiple candidates for the best maintainer:
+                <ul>
+                    {% for maint in srpm.best_maintainers %}
+                    <li><b>{{ maint }}</b></li>
+                    {% endfor %}
+                </ul>
+                See below for more details.
+
+                {% endif %}
+
+                {% else %}
+                Can't say, sorry!
+                {% endif %}
+
+                
             </div>
         </div>
     </div>
@@ -170,7 +194,7 @@
                             <th></th>
                             <th>Maintainer</th>
                             <th>Reason</th>
-                            <th>{% if level == "0" %} Workload {% else %} Buildroot of {% endif %}</th>
+                            <th>{% if level == "0" %} Workload(s) {% else %} Buildroot(s) of {% endif %}</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -183,8 +207,14 @@
                                 {% if sublevel == "0" %}
                                 {% if level == "0" %} Explicitly required {% else %} Direct build dependency {% endif %}
                                 {% else %}
-                                {% for reason in maintainer_details.reasons %}
-                                <a href="view-rpm--{{view_conf.id}}--{{reason[0]}}.html">{{reason[0]}}</a> (<small>SRPM:</small> <a href="view-srpm--{{view_conf.id}}--{{reason[1]}}.html">{{reason[1]}}</a>) requires <a href="view-rpm--{{view_conf.id}}--{{reason[2]}}.html">{{reason[2]}}</a><br>
+                                {% for reason in maintainer_details.reasons | sort %}
+                                <a href="view-rpm--{{view_conf.id}}--{{reason[0]}}.html">{{reason[0]}}</a>
+                                {% if srpm.name == reason[1] %}
+                                (<small>this SRPM</small>)
+                                {% else %}
+                                (<small>SRPM:</small> <a href="view-srpm--{{view_conf.id}}--{{reason[1]}}.html">{{reason[1]}}</a>)
+                                {% endif %}
+                                requires <a href="view-rpm--{{view_conf.id}}--{{reason[2]}}.html">{{reason[2]}}</a><br>
                                 {% endfor %}
                                 {% endif %}
                             </td>
