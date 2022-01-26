@@ -3375,6 +3375,7 @@ class Analyzer():
         # Maintainer recommendation
         target_pkg["maintainer_recommendation"] = {}
         target_pkg["maintainer_recommendation_details"] = {}
+        target_pkg["best_maintainers"] = set()
 
         if type == "rpm":
 
@@ -3907,8 +3908,8 @@ class Analyzer():
             log("  {}".format(view_conf_id))
 
             # Level 0
-            level = 0
-            sublevel = 0
+            level = str(0)
+            sublevel = str(0)
             score = (level, sublevel)
 
             log("    {}".format(score))
@@ -3972,7 +3973,7 @@ class Analyzer():
             while level_changes_made:
 
                 # Level 1 and higher
-                if level > 0:
+                if int(level) > 0:
 
                     level_changes_made = False
 
@@ -3989,34 +3990,34 @@ class Analyzer():
                             continue
 
                         # Look at all SRPMs that directly pull this RPM into the buildroot...
-                        for superior_srpm_name in pkg["in_buildroot_of_srpm_name_req"]:
-                            superior_srpm = view_all_arches["source_pkgs_by_name"][superior_srpm_name]
+                        for buildroot_srpm_name in pkg["in_buildroot_of_srpm_name_req"]:
+                            buildroot_srpm = view_all_arches["source_pkgs_by_name"][buildroot_srpm_name]
 
                             # ... and if they're in the previous group, assign their maintainer(s)
-                            for superior_srpm_maintainer, superior_srpm_maintainer_scores in superior_srpm["maintainer_recommendation"].items():
+                            for buildroot_srpm_maintainer, buildroot_srpm_maintainer_scores in buildroot_srpm["maintainer_recommendation"].items():
                                 
                                 # This is a complicated way of asking
-                                # if <any of the previous sublevels> in superior_srpm_maintainer_scores:
-                                superior_in_previous_group = False
-                                for superior_srpm_maintainer_score in superior_srpm_maintainer_scores:
-                                    superior_srpm_maintainer_score_level, _ = superior_srpm_maintainer_score
-                                    if superior_srpm_maintainer_score_level == prev_level:
-                                        superior_in_previous_group = True
-                                if superior_in_previous_group:
+                                # if <any of the previous sublevels> in buildroot_srpm_maintainer_scores:
+                                buildroot_in_previous_group = False
+                                for buildroot_srpm_maintainer_score in buildroot_srpm_maintainer_scores:
+                                    buildroot_srpm_maintainer_score_level, _ = buildroot_srpm_maintainer_score
+                                    if buildroot_srpm_maintainer_score_level == prev_level:
+                                        buildroot_in_previous_group = True
+                                if buildroot_in_previous_group:
 
-                                    level_change_detection_tuple = (superior_pkg_name, pkg_name)
+                                    level_change_detection_tuple = (buildroot_srpm_name, pkg_name)
                                     if level_change_detection_tuple not in level_change_detection:
                                         level_changes_made = True
                                         level_change_detection.add(level_change_detection_tuple)
 
                                     # 1/  maintainer_recommendation
 
-                                    if superior_srpm_maintainer not in pkg["maintainer_recommendation"]:
+                                    if buildroot_srpm_maintainer not in pkg["maintainer_recommendation"]:
                                         #pkg["maintainer_recommendation"][workload_maintainer] = set()
-                                        self.data["views_all_arches"][view_conf_id]["pkgs_by_name"][pkg_name]["maintainer_recommendation"][superior_srpm_maintainer] = set()
+                                        self.data["views_all_arches"][view_conf_id]["pkgs_by_name"][pkg_name]["maintainer_recommendation"][buildroot_srpm_maintainer] = set()
 
-                                    #pkg["maintainer_recommendation"][superior_srpm_maintainer].add(score)
-                                    self.data["views_all_arches"][view_conf_id]["pkgs_by_name"][pkg_name]["maintainer_recommendation"][superior_srpm_maintainer].add(score)
+                                    #pkg["maintainer_recommendation"][buildroot_srpm_maintainer].add(score)
+                                    self.data["views_all_arches"][view_conf_id]["pkgs_by_name"][pkg_name]["maintainer_recommendation"][buildroot_srpm_maintainer].add(score)
 
                                     # 2/  maintainer_recommendation_details
 
@@ -4028,16 +4029,16 @@ class Analyzer():
                                         #pkg["maintainer_recommendation_details"][level][sublevel] = {}
                                         self.data["views_all_arches"][view_conf_id]["pkgs_by_name"][pkg_name]["maintainer_recommendation_details"][level][sublevel] = {}
                                     
-                                    if superior_srpm_maintainer not in pkg["maintainer_recommendation_details"][level][sublevel]:
-                                        #pkg["maintainer_recommendation_details"][level][sublevel][superior_srpm_maintainer] = {}
-                                        #pkg["maintainer_recommendation_details"][level][sublevel][superior_srpm_maintainer]["reasons"] = {}
-                                        #pkg["maintainer_recommendation_details"][level][sublevel][superior_srpm_maintainer]["locations"] = {}
-                                        self.data["views_all_arches"][view_conf_id]["pkgs_by_name"][pkg_name]["maintainer_recommendation_details"][level][sublevel][superior_srpm_maintainer] = {}
-                                        self.data["views_all_arches"][view_conf_id]["pkgs_by_name"][pkg_name]["maintainer_recommendation_details"][level][sublevel][superior_srpm_maintainer]["reasons"] = set()
-                                        self.data["views_all_arches"][view_conf_id]["pkgs_by_name"][pkg_name]["maintainer_recommendation_details"][level][sublevel][superior_srpm_maintainer]["locations"] = set()
+                                    if buildroot_srpm_maintainer not in pkg["maintainer_recommendation_details"][level][sublevel]:
+                                        #pkg["maintainer_recommendation_details"][level][sublevel][buildroot_srpm_maintainer] = {}
+                                        #pkg["maintainer_recommendation_details"][level][sublevel][buildroot_srpm_maintainer]["reasons"] = {}
+                                        #pkg["maintainer_recommendation_details"][level][sublevel][buildroot_srpm_maintainer]["locations"] = {}
+                                        self.data["views_all_arches"][view_conf_id]["pkgs_by_name"][pkg_name]["maintainer_recommendation_details"][level][sublevel][buildroot_srpm_maintainer] = {}
+                                        self.data["views_all_arches"][view_conf_id]["pkgs_by_name"][pkg_name]["maintainer_recommendation_details"][level][sublevel][buildroot_srpm_maintainer]["reasons"] = set()
+                                        self.data["views_all_arches"][view_conf_id]["pkgs_by_name"][pkg_name]["maintainer_recommendation_details"][level][sublevel][buildroot_srpm_maintainer]["locations"] = set()
 
-                                    #pkg["maintainer_recommendation_details"][level][sublevel][superior_srpm_maintainer]["locations"].add(workload_conf_id)
-                                    self.data["views_all_arches"][view_conf_id]["pkgs_by_name"][pkg_name]["maintainer_recommendation_details"][level][sublevel][superior_srpm_maintainer]["locations"].add(superior_srpm_name)
+                                    #pkg["maintainer_recommendation_details"][level][sublevel][buildroot_srpm_maintainer]["locations"].add(buildroot_srpm_name)
+                                    self.data["views_all_arches"][view_conf_id]["pkgs_by_name"][pkg_name]["maintainer_recommendation_details"][level][sublevel][buildroot_srpm_maintainer]["locations"].add(buildroot_srpm_name)
 
 
                 # Time to look at runtime dependencies!
@@ -4059,7 +4060,9 @@ class Analyzer():
 
                     # Jump another sub-level down
                     prev_score = score
-                    sublevel += 1
+                    prev_sublevel = sublevel
+                    #sublevel += 1
+                    sublevel = str(int(sublevel) + 1)
                     score = (level, sublevel)
 
                     log("    {}".format(score))
@@ -4080,8 +4083,10 @@ class Analyzer():
                             for superior_pkg_maintainer, superior_pkg_maintainer_scores in superior_pkg["maintainer_recommendation"].items():
                                 if prev_score in superior_pkg_maintainer_scores:
 
-                                    sublevel_change_detection_tuple = (superior_pkg_name, pkg_name)
-                                    if sublevel_change_detection_tuple not in sublevel_change_detection:
+                                    sublevel_change_detection_tuple = (superior_pkg_name, pkg_name, superior_pkg_maintainer)
+                                    if sublevel_change_detection_tuple in sublevel_change_detection:
+                                        continue
+                                    else:
                                         sublevel_changes_made = True
                                         sublevel_change_detection.add(sublevel_change_detection_tuple)
                                     
@@ -4112,8 +4117,9 @@ class Analyzer():
                                         self.data["views_all_arches"][view_conf_id]["pkgs_by_name"][pkg_name]["maintainer_recommendation_details"][level][sublevel][superior_pkg_maintainer]["reasons"] = set()
                                         self.data["views_all_arches"][view_conf_id]["pkgs_by_name"][pkg_name]["maintainer_recommendation_details"][level][sublevel][superior_pkg_maintainer]["locations"] = set()
 
-                                    #pkg["maintainer_recommendation_details"][level][sublevel][superior_pkg_maintainer]["locations"].add(workload_conf_id)
-                                    self.data["views_all_arches"][view_conf_id]["pkgs_by_name"][pkg_name]["maintainer_recommendation_details"][level][sublevel][superior_pkg_maintainer]["locations"].add(workload_conf_id)
+                                    # Copy the locations from the superior package one sublevel up
+                                    locations = superior_pkg["maintainer_recommendation_details"][level][prev_sublevel][superior_pkg_maintainer]["locations"]
+                                    self.data["views_all_arches"][view_conf_id]["pkgs_by_name"][pkg_name]["maintainer_recommendation_details"][level][sublevel][superior_pkg_maintainer]["locations"].update(locations)
 
                                     reason = (superior_pkg_name, superior_srpm_name, pkg_name)
                                     #pkg["maintainer_recommendation_details"][level][sublevel][superior_pkg_maintainer]["reasons"].add(reason)
@@ -4167,11 +4173,37 @@ class Analyzer():
 
                 # And set stuff for the next level
                 prev_level = level
-                level += 1
-                sublevel = 0
+                level = str(int(level) + 1)
+                #level += 1
+                sublevel = str(0)
                 score = (level, sublevel)
                 previous_level_srpms.update(this_level_srpms)
                 this_level_srpms = set()
+
+
+
+            # And elect the best owners for each srpm
+            for source_name, srpm in view_all_arches["source_pkgs_by_name"].items():
+
+                if not srpm["maintainer_recommendation_details"]:
+                    continue
+
+                level_numbers = set()
+                for level_string in srpm["maintainer_recommendation_details"].keys():
+                    level_numbers.add(int(level_string))
+                lowest_level = str(min(level_numbers))
+
+                if not srpm["maintainer_recommendation_details"][lowest_level]:
+                    continue
+
+                sublevel_numbers = set()
+                for sublevel_string in srpm["maintainer_recommendation_details"][lowest_level].keys():
+                    sublevel_numbers.add(int(sublevel_string))
+                lowest_sublevel = str(min(sublevel_numbers))
+
+                best_maintainers = set(srpm["maintainer_recommendation_details"][lowest_level][lowest_sublevel].keys())
+                self.data["views_all_arches"][view_conf_id]["source_pkgs_by_name"][source_name]["best_maintainers"].update(best_maintainers)
+
 
 
                      
