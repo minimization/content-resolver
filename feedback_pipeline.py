@@ -164,6 +164,7 @@ def load_settings():
     settings["configs"] = args.configs
     settings["output"] = args.output
     settings["use_cache"] = args.use_cache
+    settings["dev_buildroot"] = args.dev_buildroot
     settings["dnf_cache_dir_override"] = args.dnf_cache_dir_override
 
     settings["root_log_deps_cache_path"] = "cache_root_log_deps.json"
