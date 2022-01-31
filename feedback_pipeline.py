@@ -157,6 +157,7 @@ def load_settings():
     parser.add_argument("configs", help="Directory with YAML configuration files. Only files ending with '.yaml' are accepted.")
     parser.add_argument("output", help="Directory to contain the output.")
     parser.add_argument("--use-cache", dest="use_cache", action='store_true', help="Use local data instead of pulling Content Resolver. Saves a lot of time! Needs a 'cache_data.json' file at the same location as the script is at.")
+    parser.add_argument("--dev-buildroot", dest="dev_buildroot", action='store_true', help="Buildroot grows pretty quickly. Use a fake one for development.")
     parser.add_argument("--dnf-cache-dir", dest="dnf_cache_dir_override", help="Override the dnf cache_dir.")
     args = parser.parse_args()
 
@@ -2740,25 +2741,24 @@ class Analyzer():
 
 
     def _resolve_srpm_using_root_log(self, srpm_id, arch, koji_session, koji_files_url):
-
-        # FIXME # DEBUG # FIXME # DEBUG # FIXME # DEBUG # FIXME # DEBUG # FIXME # DEBUG # FIXME # DEBUG #
-        # FIXME # DEBUG # FIXME # DEBUG # FIXME # DEBUG # FIXME # DEBUG # FIXME # DEBUG # FIXME # DEBUG #
-        # FIXME # DEBUG # FIXME # DEBUG # FIXME # DEBUG # FIXME # DEBUG # FIXME # DEBUG # FIXME # DEBUG #
-
-        # Making sure there are 3 passes at least, but that it won't get overwhelmed
-
-        if srpm_id.rsplit("-",2)[0] in ["bash", "make", "unzip"]:
-            return ["gawk", "xz", "findutils"]
         
-        elif srpm_id.rsplit("-",2)[0] in ["gawk", "xz", "findutils"]:
-            return ['cpio', 'diffutils']
-        
-        return ["bash", "make", "unzip"]
+        # Buildroot grows pretty quickly. Use a fake one for development.
+        if self.settings["dev_buildroot"]:
+            # Making sure there are 3 passes at least, but that it won't get overwhelmed
+            if srpm_id.rsplit("-",2)[0] in ["bash", "make", "unzip"]:
+                return ["gawk", "xz", "findutils"]
+            
+            elif srpm_id.rsplit("-",2)[0] in ["gawk", "xz", "findutils"]:
+                return ['cpio', 'diffutils']
+            
+            return ["bash", "make", "unzip"]
 
-        # FIXME # DEBUG # FIXME # DEBUG # FIXME # DEBUG # FIXME # DEBUG # FIXME # DEBUG # FIXME # DEBUG #
-        # FIXME # DEBUG # FIXME # DEBUG # FIXME # DEBUG # FIXME # DEBUG # FIXME # DEBUG # FIXME # DEBUG #
-        # FIXME # DEBUG # FIXME # DEBUG # FIXME # DEBUG # FIXME # DEBUG # FIXME # DEBUG # FIXME # DEBUG #
+        # Shim is special.
+        if srpm_id.rsplit("-",2)[0] in ["shim"]:
+            log(    "It's shim! It gets sometiems tagged from wherever... Let's not even bother!")
+            return []
         
+        # Starting for real!
         log("    Talking to Koji API...")
         # This sometimes hangs, so I'm giving it a timeout and
         # a few extra tries before totally giving up!
@@ -3994,8 +3994,33 @@ class Analyzer():
                             buildroot_srpm = view_all_arches["source_pkgs_by_name"][buildroot_srpm_name]
 
                             # ... and if they're in the previous group, assign their maintainer(s)
+
+
+                            ### The following code (commented with ###) should make the maintainer recommendation even better.
+                            ### But I'm not includign it now, need to do more testing, so it's for later.
+                            ###
+                            ### Instructions for future self:
+                            ### 1. uncomment all that starts with ### on the next ~15 lines
+                            ###    (don't forget about the one line below the foor loop)
+                            ### 2. comment out everything after the for loop up until "if buildroot_in_previous_group:"
+                            ###
+                            ###
+                            #### But limit this to only the ones with the highest score.
+                            ###all_the_previous_sublevels_of_this_buildroot_srpm = set()
+                            ###for buildroot_srpm_maintainer, buildroot_srpm_maintainer_scores in buildroot_srpm["maintainer_recommendation"].items():
+                            ###    for buildroot_srpm_maintainer_score in buildroot_srpm_maintainer_scores:
+                            ###        buildroot_srpm_maintainer_score_level, buildroot_srpm_maintainer_score_sublevel = buildroot_srpm_maintainer_score
+                            ###        if not buildroot_srpm_maintainer_score_level == prev_level:
+                            ###            continue
+                            ###        all_the_previous_sublevels_of_this_buildroot_srpm.add(buildroot_srpm_maintainer_score_sublevel)
+                            ###the_highest_sublevel_of_this_buildroot_srpm = max(all_the_previous_sublevels_of_this_buildroot_srpm)
+                            ###the_score_I_care_about = (prev_level, the_highest_sublevel_of_this_buildroot_srpm)
+
+
                             for buildroot_srpm_maintainer, buildroot_srpm_maintainer_scores in buildroot_srpm["maintainer_recommendation"].items():
                                 
+                                ###if the_score_I_care_about in buildroot_srpm_maintainer_scores:
+
                                 # This is a complicated way of asking
                                 # if <any of the previous sublevels> in buildroot_srpm_maintainer_scores:
                                 buildroot_in_previous_group = False
