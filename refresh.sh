@@ -33,6 +33,10 @@ mkdir -p $WORK_DIR/content-resolver/out/history || exit 1
 # Get a copy of the historic data
 aws s3 sync s3://tiny.distro.builders/history $WORK_DIR/content-resolver/out/history --exclude "*" --include="historic_data*" || exit 1
 
+# Get the root log cache
+# (there's no exit one because that file might not exist)
+aws s3 sync s3://tiny.distro.builders/cache_root_log_deps.json $WORK_DIR/content-resolver/cache_root_log_deps.json
+
 # Build the site
 build_started=$(date +"%Y-%m-%d-%H%M")
 echo ""
@@ -41,6 +45,9 @@ echo "$build_started"
 echo "(Logging into ~/logs/$build_started.log)"
 CMD="./feedback_pipeline.py --dnf-cache-dir /dnf_cachedir content-resolver-input/configs out" || exit 1
 podman run --rm -it --tmpfs /dnf_cachedir -v $WORK_DIR/content-resolver:/workspace:z localhost/asamalik/fedora-env $CMD > ~/logs/$build_started.log || exit 1
+
+# Save the root log cache
+cp $WORK_DIR/content-resolver/cache_root_log_deps.json $WORK_DIR/content-resolver/out/cache_root_log_deps.json || exit 1
 
 # Publish the site
 aws s3 sync --delete $WORK_DIR/content-resolver/out s3://tiny.distro.builders || exit 1
