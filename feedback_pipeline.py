@@ -3501,6 +3501,14 @@ class Analyzer():
                 for pkg_id in source_pkg["{}_by".format(list_type)]:
                     pkg_name = pkg_id_to_name(pkg_id)
 
+                    # This only happens in addon views, and only rarely.
+                    # (see the long comment above)
+                    if pkg_id not in view["pkgs"]:
+                        view_conf_id = view["view_conf_id"]
+                        view_conf = self.configs["views"][view_conf_id]
+                        if view_conf["type"] == "addon":
+                            continue
+
                     pkg = view["pkgs"][pkg_id]
                     pkg_nevr = "{name}-{evr}".format(
                         name=pkg["name"],
