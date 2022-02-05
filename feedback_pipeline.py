@@ -6885,8 +6885,9 @@ def generate_pages(query):
     _generate_view_lists_old(query)
 
     # Dump all data
-    if not query.settings["use_cache"]:
-        _dump_all_data(query)
+    # The data is now pretty huge and not really needed anyway
+    #if not query.settings["use_cache"]:
+    #    _dump_all_data(query)
 
     # Generate the errors page
     template_data = {
@@ -8306,9 +8307,9 @@ def main():
         analyzer = Analyzer(configs, settings)
         data = analyzer.analyze_things()
 
-        dump_data("cache_settings.json", settings)
-        dump_data("cache_configs.json", configs)
-        dump_data("cache_data.json", data)
+        #dump_data("cache_settings.json", settings)
+        #dump_data("cache_configs.json", configs)
+        #dump_data("cache_data.json", data)
 
     
     
