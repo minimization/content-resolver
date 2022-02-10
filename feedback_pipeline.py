@@ -4004,40 +4004,22 @@ class Analyzer():
 
                             # ... and if they're in the previous group, assign their maintainer(s)
 
-
-                            ### The following code (commented with ###) should make the maintainer recommendation even better.
-                            ### But I'm not includign it now, need to do more testing, so it's for later.
-                            ###
-                            ### Instructions for future self:
-                            ### 1. uncomment all that starts with ### on the next ~15 lines
-                            ###    (don't forget about the one line below the foor loop)
-                            ### 2. comment out everything after the for loop up until "if buildroot_in_previous_group:"
-                            ###
-                            ###
-                            #### But limit this to only the ones with the highest score.
-                            ###all_the_previous_sublevels_of_this_buildroot_srpm = set()
-                            ###for buildroot_srpm_maintainer, buildroot_srpm_maintainer_scores in buildroot_srpm["maintainer_recommendation"].items():
-                            ###    for buildroot_srpm_maintainer_score in buildroot_srpm_maintainer_scores:
-                            ###        buildroot_srpm_maintainer_score_level, buildroot_srpm_maintainer_score_sublevel = buildroot_srpm_maintainer_score
-                            ###        if not buildroot_srpm_maintainer_score_level == prev_level:
-                            ###            continue
-                            ###        all_the_previous_sublevels_of_this_buildroot_srpm.add(buildroot_srpm_maintainer_score_sublevel)
-                            ###the_highest_sublevel_of_this_buildroot_srpm = max(all_the_previous_sublevels_of_this_buildroot_srpm)
-                            ###the_score_I_care_about = (prev_level, the_highest_sublevel_of_this_buildroot_srpm)
-
+                            # But limit this to only the ones with the highest score.
+                            all_the_previous_sublevels_of_this_buildroot_srpm = set()
+                            for buildroot_srpm_maintainer, buildroot_srpm_maintainer_scores in buildroot_srpm["maintainer_recommendation"].items():
+                                for buildroot_srpm_maintainer_score in buildroot_srpm_maintainer_scores:
+                                    buildroot_srpm_maintainer_score_level, buildroot_srpm_maintainer_score_sublevel = buildroot_srpm_maintainer_score
+                                    if not buildroot_srpm_maintainer_score_level == prev_level:
+                                        continue
+                                    all_the_previous_sublevels_of_this_buildroot_srpm.add(buildroot_srpm_maintainer_score_sublevel)
+                            if not all_the_previous_sublevels_of_this_buildroot_srpm:
+                                continue
+                            the_highest_sublevel_of_this_buildroot_srpm = max(all_the_previous_sublevels_of_this_buildroot_srpm)
+                            the_score_I_care_about = (prev_level, the_highest_sublevel_of_this_buildroot_srpm)
 
                             for buildroot_srpm_maintainer, buildroot_srpm_maintainer_scores in buildroot_srpm["maintainer_recommendation"].items():
                                 
-                                ###if the_score_I_care_about in buildroot_srpm_maintainer_scores:
-
-                                # This is a complicated way of asking
-                                # if <any of the previous sublevels> in buildroot_srpm_maintainer_scores:
-                                buildroot_in_previous_group = False
-                                for buildroot_srpm_maintainer_score in buildroot_srpm_maintainer_scores:
-                                    buildroot_srpm_maintainer_score_level, _ = buildroot_srpm_maintainer_score
-                                    if buildroot_srpm_maintainer_score_level == prev_level:
-                                        buildroot_in_previous_group = True
-                                if buildroot_in_previous_group:
+                                if the_score_I_care_about in buildroot_srpm_maintainer_scores:
 
                                     level_change_detection_tuple = (buildroot_srpm_name, pkg_name)
                                     if level_change_detection_tuple not in level_change_detection:
