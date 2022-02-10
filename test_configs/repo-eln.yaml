@@ -8,31 +8,41 @@ data:
   source:
 
     repos:
-
+      
       BaseOS:
         baseurl: https://odcs.fedoraproject.org/composes/production/latest-Fedora-ELN/compose/BaseOS/$basearch/os/
         priority: 1
         koji_api_url: https://koji.fedoraproject.org/kojihub
         koji_files_url: https://kojipkgs.fedoraproject.org
+        exclude: ["exim", "esmtp", "opensmtpd", "esmtp-local-delivery"]
 
       AppStream:
         baseurl: https://odcs.fedoraproject.org/composes/production/latest-Fedora-ELN/compose/AppStream/$basearch/os/
         priority: 2
         koji_api_url: https://koji.fedoraproject.org/kojihub
         koji_files_url: https://kojipkgs.fedoraproject.org
+        exclude: ["exim", "esmtp", "opensmtpd", "esmtp-local-delivery"]
 
       CRB:
         baseurl: https://odcs.fedoraproject.org/composes/production/latest-Fedora-ELN/compose/CRB/$basearch/os/
         priority: 3
         koji_api_url: https://koji.fedoraproject.org/kojihub
         koji_files_url: https://kojipkgs.fedoraproject.org
+        exclude: ["exim", "esmtp", "opensmtpd", "esmtp-local-delivery"]
 
       Everything:
         baseurl: https://odcs.fedoraproject.org/composes/production/latest-Fedora-ELN/compose/Everything/$basearch/os/
         priority: 100
         koji_api_url: https://koji.fedoraproject.org/kojihub
         koji_files_url: https://kojipkgs.fedoraproject.org
+        exclude: ["exim", "esmtp", "opensmtpd", "esmtp-local-delivery"]
 
+      rawhide-everything:
+        baseurl: https://kojipkgs.fedoraproject.org/compose/rawhide/latest-Fedora-Rawhide/compose/Everything/$basearch/os/
+        priority: 200
+        koji_api_url: https://koji.fedoraproject.org/kojihub
+        koji_files_url: https://kojipkgs.fedoraproject.org
+        exclude: ["exim", "esmtp", "opensmtpd", "esmtp-local-delivery"]
 
     releasever: "rawhide"
     
@@ -42,4 +52,5 @@ data:
 
     composeinfo: https://odcs.fedoraproject.org/composes/production/latest-Fedora-ELN/compose/metadata/composeinfo.json
 
+    # These are just packages for local testing
     base_buildroot_override: ['bash', 'bzip2', 'coreutils', 'unzip']
