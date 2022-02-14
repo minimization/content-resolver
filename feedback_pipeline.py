@@ -4365,6 +4365,25 @@ class Analyzer():
 
             # Finally, save the cache for next time
             dump_data(self.settings["root_log_deps_cache_path"], self.cache["root_log_deps"]["next"])
+
+
+            # DEBUG FIXME
+            # Dump debug data for _recommend_maintainers()
+            log("")
+            log("DEBUG: Saving debug_recommend_maintainers.json")
+            debug_data = {}
+            debug_data["configs"] = {}
+            debug_data["configs"]["views"] = self.configs["views"]
+            debug_data["configs"]["workloads"] = self.configs["workloads"]
+            debug_data["data"] = {}
+            debug_data["data"]["workloads"] = self.data["workloads"]
+            debug_data["data"]["views_all_arches"] = self.data["views_all_arches"]
+            debug_data_filename = "debug_recommend_maintainers.json"
+            debug_data_path = os.path.join(self.settings["output"], debug_data_filename)
+            dump_data(debug_data_path, debug_data)
+            log("  Done!")
+            log("")
+
             
 
         return self.data
