@@ -14,3 +14,4 @@ pkg_entries.json
 actual_output
 actual_configs
 content-resolver-input
+debug_*.json
