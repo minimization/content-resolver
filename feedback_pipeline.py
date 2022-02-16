@@ -4014,11 +4014,11 @@ class Analyzer():
                                     all_the_previous_sublevels_of_this_buildroot_srpm.add(buildroot_srpm_maintainer_score_sublevel)
                             if not all_the_previous_sublevels_of_this_buildroot_srpm:
                                 continue
-                            the_highest_sublevel_of_this_buildroot_srpm = max(all_the_previous_sublevels_of_this_buildroot_srpm)
+                            the_highest_sublevel_of_this_buildroot_srpm = min(all_the_previous_sublevels_of_this_buildroot_srpm)
                             the_score_I_care_about = (prev_level, the_highest_sublevel_of_this_buildroot_srpm)
 
                             for buildroot_srpm_maintainer, buildroot_srpm_maintainer_scores in buildroot_srpm["maintainer_recommendation"].items():
-                                
+
                                 if the_score_I_care_about in buildroot_srpm_maintainer_scores:
 
                                     level_change_detection_tuple = (buildroot_srpm_name, pkg_name)
@@ -4207,6 +4207,8 @@ class Analyzer():
                 level_numbers = set()
                 for level_string in srpm["maintainer_recommendation_details"].keys():
                     level_numbers.add(int(level_string))
+
+                lowest_level_int = min(level_numbers)
                 lowest_level = str(min(level_numbers))
 
                 if not srpm["maintainer_recommendation_details"][lowest_level]:
@@ -4217,7 +4219,27 @@ class Analyzer():
                     sublevel_numbers.add(int(sublevel_string))
                 lowest_sublevel = str(min(sublevel_numbers))
 
-                best_maintainers = set(srpm["maintainer_recommendation_details"][lowest_level][lowest_sublevel].keys())
+                maintainers_with_the_best_score = set(srpm["maintainer_recommendation_details"][lowest_level][lowest_sublevel].keys())
+
+                highest_number_of_dependencies = 0
+                best_maintainers = set()
+                for maint in maintainers_with_the_best_score:
+
+                    # If we're looking at a direct build dependency, count the number of locations == SRPMs that directly need this
+                    # And in all other cases count the reasons == the number of packages that runtime require
+                    # (in case of 0,0 len(reasons) is always 1 as it just says "directly required" so that works fine)
+                    if lowest_level_int > 0 and lowest_sublevel == "0":
+                        number_of_dependencies = len(srpm["maintainer_recommendation_details"][lowest_level][lowest_sublevel][maint]["locations"])
+                    else:
+                        number_of_dependencies = len(srpm["maintainer_recommendation_details"][lowest_level][lowest_sublevel][maint]["reasons"])
+
+                    if number_of_dependencies > highest_number_of_dependencies:
+                        highest_number_of_dependencies = number_of_dependencies
+                        best_maintainers = set()
+
+                    if number_of_dependencies == highest_number_of_dependencies:
+                        best_maintainers.add(maint)
+
                 self.data["views_all_arches"][view_conf_id]["source_pkgs_by_name"][source_name]["best_maintainers"].update(best_maintainers)
 
 
@@ -4365,24 +4387,6 @@ class Analyzer():
 
             # Finally, save the cache for next time
             dump_data(self.settings["root_log_deps_cache_path"], self.cache["root_log_deps"]["next"])
-
-
-            # DEBUG FIXME
-            # Dump debug data for _recommend_maintainers()
-            log("")
-            log("DEBUG: Saving debug_recommend_maintainers.json")
-            debug_data = {}
-            debug_data["configs"] = {}
-            debug_data["configs"]["views"] = self.configs["views"]
-            debug_data["configs"]["workloads"] = self.configs["workloads"]
-            debug_data["data"] = {}
-            debug_data["data"]["workloads"] = self.data["workloads"]
-            debug_data["data"]["views_all_arches"] = self.data["views_all_arches"]
-            debug_data_filename = "debug_recommend_maintainers.json"
-            debug_data_path = os.path.join(self.settings["output"], debug_data_filename)
-            dump_data(debug_data_path, debug_data)
-            log("  Done!")
-            log("")
 
             
 
