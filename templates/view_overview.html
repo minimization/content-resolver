@@ -8,7 +8,7 @@
 
 
 <div class="row">
-    <div class="col-8">
+    <div class="col-9">
 
         <div class="card bg-light border-secondary">
             <div class="card-body">
@@ -166,10 +166,39 @@
         </div>
     </div>
 
-    <div class="col-4">
+    <div class="col-3">
+        <div class="card">
+            <div class="card bg-light border-secondary">
+                <div class="card-body">
+                    <h5 class="card-title text-center">
+                        Repository Info
+                    </h5>
+                    <hr>
+                    <div class="card border-secondary">
+                        <div class="card-body">
+                            <dl>
+                                <dt>Repository</dt>
+                                <dd>{{query.configs.repos[view_conf.repository].name}}</dd>
+        
+                                {% if query.data.repos[view_conf.repository].compose_date %}
+                                <dt>Compose Date</dt>
+                                <dd>
+                                    {{query.data.repos[view_conf.repository].compose_date}}
+                                    ({{query.data.repos[view_conf.repository].compose_days_ago}} days ago)
+                                </dd>
+                                {% endif %}
+        
+                                <dt>Configuration</dt>
+                                <dd><a href="config-view--{{view_conf.id}}.html">{{view_conf.id}}.yaml</a></dd>
+                            </dl>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
-    <div class="col-8">
+    <div class="col-9">
         <br>
 
         <div class="card bg-light border-secondary">
