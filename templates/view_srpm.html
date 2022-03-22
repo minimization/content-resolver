@@ -36,7 +36,25 @@
         {% endfor %}
     </div>
 </div>
-
+<br>
+{% endif %}
+{% if not srpm.buildroot_no_warnings %}
+<div class="card border-warning">
+    <h5 class="card-header text-warning">Buildroot resolved with warnings</h5>
+    <div class="card-body">
+        {% for arch, warnings in srpm.warnings.items() %}
+        {{arch}}:
+        <div class="card bg-light">
+            <div class="card-body">
+                <pre class="pre-scrollable">
+                        {{warnings.message}}
+                    </pre>
+            </div>
+        </div>
+        <br>
+        {% endfor %}
+    </div>
+</div>
 <br>
 {% endif %}
 {% endif %}

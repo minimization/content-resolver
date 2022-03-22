@@ -38,6 +38,12 @@
     </div>
     {% endif %}
 
+    {% if query.workload_warnings(workload_conf_id,env_conf_id,repo_id,arch) %}
+    <div class="alert alert-warning" role="alert">
+        <b>Warnings</b> Some warnings were raised during analysis. Please check below for more details.
+    </div>
+    {% endif %}
+
     <div class="row">
         <div class="col-sm-9 d-flex align-items-stretch">
             <div class="card w-100">
@@ -72,6 +78,8 @@
                     <span class="font-weight-normal">
                         {% if not query.workload_succeeded(workload_conf_id,env_conf.id,repo.id,arch) %}
                         (<span class="text-danger">Errors</span>)
+                        {% elif query.workload_warnings(workload_conf_id,env_conf_id,repo_id,arch) %}
+                        (<span class="text-warning">Warnings</span>)
                         {% endif %}
                         <br>
                         <a href="workload--{{workload_conf_id}}--{{env_conf.id}}--{{repo.id}}--{{arch}}.html">Details</a>

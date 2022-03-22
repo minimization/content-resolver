@@ -439,6 +439,8 @@ def _load_config_workload(document_id, document, settings):
             config["options"].append("include-docs")
         if "include-weak-deps" in document["data"]["options"]:
             config["options"].append("include-weak-deps")
+        if "strict" in document["data"]["options"]:
+            config["options"].append("strict")
     
     # Disable module streams.
     config["modules_disable"] = []
@@ -1719,6 +1721,11 @@ class Analyzer():
         workload["errors"]["non_existing_pkgs"] = []
         workload["errors"]["non_existing_placeholder_deps"] = []
 
+        workload["warnings"] = {}
+        workload["warnings"]["non_existing_pkgs"] = []
+        workload["warnings"]["non_existing_placeholder_deps"] = []
+        workload["warnings"]["message"] = None
+
         workload["succeeded"] = True
         workload["env_succeeded"] = True
 
@@ -1857,7 +1864,10 @@ class Analyzer():
                     if pkg in self.settings["weird_packages_that_can_not_be_installed"]:
                         continue
                     else:
-                        workload["errors"]["non_existing_pkgs"].append(pkg)
+                        if "strict" in workload_conf["options"]:
+                            workload["errors"]["non_existing_pkgs"].append(pkg)
+                        else:
+                            workload["warnings"]["non_existing_pkgs"].append(pkg)
                         continue
             
             # Groups
@@ -1906,7 +1916,10 @@ class Analyzer():
                     try:
                         base.install(pkg)
                     except dnf.exceptions.MarkingError:
-                        workload["errors"]["non_existing_placeholder_deps"].append(pkg)
+                        if "strict" in workload_conf["options"]:
+                            workload["errors"]["non_existing_placeholder_deps"].append(pkg)
+                        else:
+                            workload["warnings"]["non_existing_placeholder_deps"].append(pkg)
                         continue
 
             # Architecture-specific packages
@@ -1914,7 +1927,10 @@ class Analyzer():
                 try:
                     base.install(pkg)
                 except dnf.exceptions.MarkingError:
-                    workload["errors"]["non_existing_pkgs"].append(pkg)
+                    if "strict" in workload_conf["options"]:
+                        workload["errors"]["non_existing_pkgs"].append(pkg)
+                    else:
+                        workload["warnings"]["non_existing_pkgs"].append(pkg)
                     continue
 
             if workload["errors"]["non_existing_pkgs"] or workload["errors"]["non_existing_placeholder_deps"]:
@@ -1939,6 +1955,25 @@ class Analyzer():
                 #log("  Failed!  (Error message will be on the workload results page.")
                 #log("")
                 return workload
+            
+            if workload["warnings"]["non_existing_pkgs"] or workload["warnings"]["non_existing_placeholder_deps"]:
+                error_message_list = []
+                if workload["warnings"]["non_existing_pkgs"]:
+                    error_message_list.append("The following required packages are not available (and were skipped):")
+                    for pkg_name in workload["warnings"]["non_existing_pkgs"]:
+                        pkg_string = "  - {pkg_name}".format(
+                            pkg_name=pkg_name
+                        )
+                        error_message_list.append(pkg_string)
+                if workload["warnings"]["non_existing_placeholder_deps"]:
+                    error_message_list.append("The following dependencies of package placeholders are not available (and were skipped):")
+                    for pkg_name in workload["warnings"]["non_existing_placeholder_deps"]:
+                        pkg_string = "  - {pkg_name}".format(
+                            pkg_name=pkg_name
+                        )
+                        error_message_list.append(pkg_string)
+                error_message = "\n".join(error_message_list)
+                workload["warnings"]["message"] = str(error_message)
 
             # Resolve dependencies
             #log("  Resolving dependencies...")
@@ -3099,6 +3134,7 @@ class Analyzer():
                     self.data["buildroot"]["srpms"][repo_id][arch][srpm_id]["pkg_env_ids"] = fake_workload["pkg_env_ids"]
                     self.data["buildroot"]["srpms"][repo_id][arch][srpm_id]["pkg_added_ids"] = fake_workload["pkg_added_ids"]
                     self.data["buildroot"]["srpms"][repo_id][arch][srpm_id]["errors"] = fake_workload["errors"]
+                    self.data["buildroot"]["srpms"][repo_id][arch][srpm_id]["warnings"] = fake_workload["warnings"]
                     self.data["buildroot"]["srpms"][repo_id][arch][srpm_id]["processed"] = True
 
         log("")
@@ -3564,6 +3600,7 @@ class Analyzer():
                     view_all_arches["has_buildroot"] = False
 
                 view_all_arches["everything_succeeded"] = True
+                view_all_arches["no_warnings"] = True
 
                 view_all_arches["workloads"] = {}
 
@@ -3615,11 +3652,16 @@ class Analyzer():
                             view_all_arches["workloads"][workload_conf_id]["name"] = workload_conf["name"]
                             view_all_arches["workloads"][workload_conf_id]["maintainer"] = workload_conf["maintainer"]
                             view_all_arches["workloads"][workload_conf_id]["succeeded"] = True
+                            view_all_arches["workloads"][workload_conf_id]["no_warnings"] = True
                             # ...
                         
                         if not workload["succeeded"]:
                             view_all_arches["workloads"][workload_conf_id]["succeeded"] = False
                             view_all_arches["everything_succeeded"] = False
+                        
+                        if workload["warnings"]["message"]:
+                            view_all_arches["workloads"][workload_conf_id]["no_warnings"] = False
+                            view_all_arches["no_warnings"] = False
 
 
                     # Binary Packages
@@ -3683,7 +3725,9 @@ class Analyzer():
                             view_all_arches[key][identifier]["placeholder"] = package["placeholder"]
                             if view_all_arches["has_buildroot"]:
                                 view_all_arches[key][identifier]["buildroot_succeeded"] = True
+                                view_all_arches[key][identifier]["buildroot_no_warnings"] = True
                             view_all_arches[key][identifier]["errors"] = {}
+                            view_all_arches[key][identifier]["warnings"] = {}
                             view_all_arches[key][identifier]["pkg_names"] = set()
                             view_all_arches[key][identifier]["pkg_nevrs"] = set()
                             view_all_arches[key][identifier]["arches"] = set()
@@ -3697,7 +3741,12 @@ class Analyzer():
                                 view_all_arches["everything_succeeded"] = False
                                 view_all_arches[key][identifier]["buildroot_succeeded"] = False
                                 view_all_arches[key][identifier]["errors"][arch] = self.data["buildroot"]["srpms"][repo_id][arch][package["id"]]["errors"]
-                        
+                            if self.data["buildroot"]["srpms"][repo_id][arch][package["id"]]["warnings"]["message"]:
+                                view_all_arches["no_warnings"] = False
+                                view_all_arches[key][identifier]["buildroot_no_warnings"] = False
+                                view_all_arches[key][identifier]["warnings"][arch] = self.data["buildroot"]["srpms"][repo_id][arch][package["id"]]["warnings"]
+
+                            
                         view_all_arches[key][identifier]["arches"].add(arch)
 
                         self._populate_pkg_or_srpm_relations_fields(view_all_arches[key][identifier], package, type="srpm")
@@ -5301,6 +5350,16 @@ class Query():
             if not workload["succeeded"]:
                 return False
         return True
+    
+    @lru_cache(maxsize = None)
+    def workload_warnings(self, workload_conf_id, env_conf_id, repo_id, arch):
+        workload_ids = self.workloads(workload_conf_id, env_conf_id, repo_id, arch, list_all=True)
+
+        for workload_id in workload_ids:
+            workload = self.data["workloads"][workload_id]
+            if workload["warnings"]["message"]:
+                return True
+        return False
     
     @lru_cache(maxsize = None)
     def env_succeeded(self, env_conf_id, repo_id, arch):
@@ -8312,9 +8371,9 @@ def main():
         analyzer = Analyzer(configs, settings)
         data = analyzer.analyze_things()
 
-        #dump_data("cache_settings.json", settings)
-        #dump_data("cache_configs.json", configs)
-        #dump_data("cache_data.json", data)
+        if settings["dev_buildroot"]:
+            dump_data("cache_configs.json", configs)
+            dump_data("cache_data.json", data)
 
     
     

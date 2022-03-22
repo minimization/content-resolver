@@ -25,7 +25,7 @@
 
 <br>
 
-<h3> Failed Workloads </h3>
+<h3> Failed Workloads / Warnings </h3>
 
 
 <table class="table table-striped" id="table_packages2">
@@ -39,7 +39,7 @@
     </thead>
     <tbody>
         {% for workload_conf_id, workload_conf in view_all_arches.workloads.items() %}
-        {% if not workload_conf.succeeded %}
+        {% if not workload_conf.succeeded or not workload_conf.no_warnings %}
         <tr>
             <td>
                 <a href="workload-overview--{{workload_conf_id}}--{{view_conf.repository}}.html">
@@ -57,7 +57,11 @@
             </td>
             <td>
                 {% if workload_conf.succeeded %}
+                {% if workload_conf.no_warnings %}
                 <span class="text-success">Success</span>
+                {% else %}
+                <span class="text-warning">Warnings</span>
+                {% endif %}
                 {% else %}
                 <span class="text-danger">Errors</span>
                 {% endif %}
@@ -72,7 +76,7 @@
 
 {% if view_all_arches.has_buildroot %}
 
-<h3> Failed Source Package Buildroots </h3>
+<h3> Failed Source Package Buildroots / Warnings </h3>
 
 <table id="table_packages" class="table-packages">
     <thead>
@@ -89,7 +93,7 @@
     </thead>
     <tbody>
         {% for pkg_name, pkg in view_all_arches.source_pkgs_by_name.items() %}
-        {% if not pkg.buildroot_succeeded %}
+        {% if not pkg.buildroot_succeeded or not pkg.buildroot_no_warnings %}
         <tr>
             <td>
                 <a href="view-srpm--{{view_conf.id}}--{{pkg.name}}.html">{{pkg.name}}</a>
@@ -107,7 +111,11 @@
             {% if view_all_arches.has_buildroot %}
             <td>
                 {% if pkg.buildroot_succeeded %}
+                {% if pkg.buildroot_no_warnings %}
                 <span class="text-success">Succeeded</span>
+                {% else %}
+                <span class="text-warning">Warnings</span>
+                {% endif %}
                 {% else %}
                 <span class="text-danger">Failed</span>
                 {% endif %}

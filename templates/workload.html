@@ -78,6 +78,19 @@
     <br>
     {% endif %}
 
+    {% if workload.warnings.message %}
+    <div class="card border-warning">
+        <h5 class="card-header text-warning">Warning</h5>
+        <div class="card-body">
+            <pre class="pre-scrollable">
+                {{ workload.warnings.message }}
+            </pre>
+        </div>
+    </div>
+    <br>
+
+    {% endif %}
+
     <div class="row">
         <div class="col-sm-9 d-flex align-items-stretch">
             <div class="card w-100">

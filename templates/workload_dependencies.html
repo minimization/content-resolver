@@ -59,6 +59,18 @@
     <br>
     {% endif %}
 
+    {% if workload.warnings.message %}
+    <div class="card border-warning">
+        <h5 class="card-header bg-warning text-white">Warning</h5>
+        <div class="card-body">
+            <pre class="pre-scrollable">
+                {{ workload.warnings.message }}
+            </pre>
+        </div>
+    </div>
+    <br>
+    {% endif %}
+
     {% macro relations(pkg, dep=True) -%}
 
     {% if workload.pkg_relations[pkg.id].required_by %}

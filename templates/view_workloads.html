@@ -53,7 +53,11 @@
             </td>
             <td>
                 {% if workload_conf.succeeded %}
+                {% if workload_conf.no_warnings %}
                 <span class="text-success">Success</span>
+                {% else %}
+                <span class="text-warning">Warnings</span>
+                {% endif %}
                 {% else %}
                 <span class="text-danger">Errors</span>
                 {% endif %}

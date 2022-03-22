@@ -55,10 +55,14 @@
 
                         </td>
                         <td>
-                            {% if query.view_succeeded(view_conf_id, None) %}
+                            {% if query.data.views_all_arches[view_conf_id].everything_succeeded %}
+                            {% if query.data.views_all_arches[view_conf_id].no_warnings %}
                             <span class="text-success">All Succeeded</span>
                             {% else %}
-                            <span class="text-warning">Some Errors</span>
+                            <span class="text-warning">Some Warnings</span>
+                            {% endif %}
+                            {% else %}
+                            <span class="text-danger">Some Errors</span>
                             {% endif %}
                         </td>
                     </tr>

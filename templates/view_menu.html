@@ -21,9 +21,13 @@
         <a class="nav-link {{view_menu_active_errors}}" href="view-errors--{{view_conf.id}}.html">
             Error Log
             {% if view_all_arches.everything_succeeded %}
+            {% if view_all_arches.no_warnings %}
             <span class="text-success badge badge-light">All Good</span>
             {% else %}
-            <span class="text-danger badge badge-light">Some Errors</span>
+            <span class="text-warning badge badge-light">Warnings</span>
+            {% endif %}
+            {% else %}
+            <span class="text-danger badge badge-light">Errors</span>
             {% endif %}
         </a>
     </li>

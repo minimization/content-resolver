@@ -59,7 +59,11 @@
             {% if view_all_arches.has_buildroot %}
             <td>
                 {% if pkg.buildroot_succeeded %}
+                {% if pkg.buildroot_no_warnings %}
                 <span class="text-success">Succeeded</span>
+                {% else %}
+                <span class="text-warning">Warnings</span>
+                {% endif %}
                 {% else %}
                 <span class="text-danger">Failed</span>
                 {% endif %}

@@ -47,13 +47,19 @@
                                 {{query.configs.repos[repo_id].name}}
                                 {% if not query.workload_succeeded(workload_conf_id,None,repo_id,None) %}
                                 (<span class="text-danger">Errors</span>)
+                                {% elif query.workload_warnings(workload_conf_id,env_conf_id,repo_id,arch) %}
+                                (<span class="text-warning">Warnings</span>)
                                 {% endif %}
                             </a>
                             {% endfor %}
                         </td>
                         <td>
                             {% if query.workload_succeeded(workload_conf_id,None,repo_id,None) %}
+                            {% if query.workload_warnings(workload_conf_id,env_conf_id,repo_id,arch) %}
+                            <span class="text-warning">Warnings</span>
+                            {% else %}
                             <span class="text-success">Success</span>
+                            {% endif %}
                             {% else %}
                             <span class="text-danger">Errors</span>
                             {% endif %}

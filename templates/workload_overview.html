@@ -29,6 +29,12 @@
     </div>
     {% endif %}
 
+    {% if query.workload_warnings(workload_conf_id,env_conf_id,repo_id,arch) %}
+    <div class="alert alert-warning" role="alert">
+        <b>Warnings</b> Some warnings were raised during analysis. Please check below for more details.
+    </div>
+    {% endif %}
+
     <div class="row">
         <div class="col-sm-9 d-flex align-items-stretch">
             <div class="card w-100">
@@ -99,6 +105,10 @@
                             {{ query.workload_pkgs(workload_conf_id,env_conf_id,repo_id,arch) | count }} packages
                             <br>
                             {{ query.size(query.workload_size(workload_conf_id,env_conf_id,repo_id,arch)) }}
+                            {% if query.workload_warnings(workload_conf_id,env_conf_id,repo_id,arch) %}
+                            <br>
+                            <span class="text-warning">Warnings</span>
+                            {% endif %}
                             {% else %}
                             <span class="text-danger">Analysis<br>Failed</span>
                             {% endif %}

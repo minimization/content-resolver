@@ -65,6 +65,7 @@ data:
   # The following are now supported:
   # - "include-docs" - include documentation packages
   # - "include-weak-deps" - automatically pull in "recommends" weak dependencies
+  # - "strict" - fail the workload when a package is missing
   #
   # (optional field)
   options:
