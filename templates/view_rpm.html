@@ -22,7 +22,7 @@
     <div class="card-body">
 
         <div class="row">
-            <div class="col-6">
+            <div class="col-8">
                 <div class="card border-secondary">
                     <div class="card-body">
                         <h5 class="card-title">Specific NEVRAs</h5>
@@ -30,13 +30,33 @@
                         <div class="card">
 
                             <table class="table-packages table-packages-muted">
+                                <thead>
+                                    <tr class="sort_control_row">
+                                        <th>Package NEVR</th>
+                                        {% for arch in view_conf.architectures %}
+                                        <th>{{arch}}</th>
+                                        {% endfor %}
+                                    </tr>
+                                </thead>
 
                                 <tbody>
-                                    {% for srpm_nevr in pkg.nevrs | sort %}
+                                    {% for pkg_nevr in pkg.nevrs | sort %}
+                                    {% set pkg = view_all_arches.pkgs_by_nevr[pkg_nevr] %}
                                     <tr>
                                         <td>
-                                            {{srpm_nevr}}
+                                            {{pkg_nevr}}
                                         </td>
+                                        {% for arch in view_conf.architectures %}
+                                        {% if arch in pkg.arches %}
+                                        {% if pkg.highest_priority_reponames_per_arch[arch] %}
+                                        <td>{{ pkg.highest_priority_reponames_per_arch[arch] | sort | join(", ") }}</td>
+                                        {% else %}
+                                        <td class="text-muted">-</td>
+                                        {% endif %}
+                                        {% else %}
+                                        <td class="text-muted">-</td>
+                                        {% endif %}
+                                        {% endfor %}
                                     </tr>
                                     {% endfor %}
                                 </tbody>
@@ -46,7 +66,7 @@
                     </div>
                 </div>
             </div>
-            <div class="col-6">
+            <div class="col-4">
                 <div class="card border-secondary">
                     <div class="card-body">
                         <h5 class="card-title">Source Package (SRPM)</h5>

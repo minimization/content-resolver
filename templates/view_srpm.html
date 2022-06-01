@@ -91,9 +91,13 @@
                                 <td data-order="{{pkg_why_data_order(pkg)}}">{{pkg_why(pkg)}}</td>
                                 {% for arch in view_conf.architectures %}
                                 {% if arch in pkg.arches %}
-                                <td>yes</td>
+                                {% if pkg.highest_priority_reponames_per_arch[arch] %}
+                                <td>{{ pkg.highest_priority_reponames_per_arch[arch] | sort | join(", ") }}</td>
                                 {% else %}
-                                <td class="text-muted">no</td>
+                                <td class="text-muted">-</td>
+                                {% endif %}
+                                {% else %}
+                                <td class="text-muted">-</td>
                                 {% endif %}
                                 {% endfor %}
                             </tr>

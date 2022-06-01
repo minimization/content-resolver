@@ -1313,8 +1313,8 @@ class Analyzer():
             # That also includes modular packages. Modular packages in non-enabled
             # streams would be normally hidden. So I mark all the available repos as
             # hotfix repos to make all packages visible, including non-enabled streams.
-            for repo in base.repos.all():
-                repo.module_hotfixes = True
+            for dnf_repo in base.repos.all():
+                dnf_repo.module_hotfixes = True
 
             # This sometimes fails, so let's try at least N times
             # before totally giving up!
@@ -1373,6 +1373,40 @@ class Analyzer():
 
                 pkgs[pkg_nevra] = pkg
             
+            # There shouldn't be multiple packages of the same NVR
+            # But the world isn't as simple! So add all reponames
+            # to every package, in case it's in multiple repos
+
+            repo_priorities = {}
+            for repo_name, repo_data in repo["source"]["repos"].items():
+                repo_priorities[repo_name] = repo_data["priority"]
+
+            for pkg_object in all_pkgs_set:
+                pkg_nevra = "{name}-{evr}.{arch}".format(
+                    name=pkg_object.name,
+                    evr=pkg_object.evr,
+                    arch=pkg_object.arch
+                )
+                reponame = pkg_object.reponame
+
+                if "all_reponames" not in pkgs[pkg_nevra]:
+                    pkgs[pkg_nevra]["all_reponames"] = set()
+                
+                pkgs[pkg_nevra]["all_reponames"].add(reponame)
+            
+            for pkg_nevra, pkg in pkgs.items():
+                pkgs[pkg_nevra]["highest_priority_reponames"] = set()
+
+                all_repo_priorities = set()
+                for reponame in pkg["all_reponames"]:
+                    all_repo_priorities.add(repo_priorities[reponame])
+                
+                highest_repo_priority = sorted(list(all_repo_priorities))[0]
+
+                for reponame in pkg["all_reponames"]:
+                    if repo_priorities[reponame] == highest_repo_priority:
+                        pkgs[pkg_nevra]["highest_priority_reponames"].add(reponame)
+
             log("  Done!  ({pkg_count} packages in total)".format(
                 pkg_count=len(pkgs)
             ))
@@ -2258,7 +2292,9 @@ class Analyzer():
                 "source_name": input_pkg["srpm"],
                 "sourcerpm": "{}-000-placeholder".format(input_pkg["srpm"]),
                 "q_arch": input_pkg,
-                "reponame": "n/a"
+                "reponame": "n/a",
+                "all_reponames": set(),
+                "highest_priority_reponames": set()
             }
 
         else:
@@ -3679,6 +3715,7 @@ class Analyzer():
                             view_all_arches[key][identifier]["source_name"] = package["source_name"]
                             view_all_arches[key][identifier]["nevrs"] = {}
                             view_all_arches[key][identifier]["arches"] = set()
+                            view_all_arches[key][identifier]["highest_priority_reponames_per_arch"] = {}
 
                             self._init_pkg_or_srpm_relations_fields(view_all_arches[key][identifier], type="rpm")
 
@@ -3687,6 +3724,10 @@ class Analyzer():
                         view_all_arches[key][identifier]["nevrs"][package["nevr"]].add(arch)
 
                         view_all_arches[key][identifier]["arches"].add(arch)
+
+                        if arch not in view_all_arches[key][identifier]["highest_priority_reponames_per_arch"]:
+                            view_all_arches[key][identifier]["highest_priority_reponames_per_arch"][arch] = set()
+                        view_all_arches[key][identifier]["highest_priority_reponames_per_arch"][arch].update(package["highest_priority_reponames"])
 
                         self._populate_pkg_or_srpm_relations_fields(view_all_arches[key][identifier], package, type="rpm", view=view)
 
@@ -3702,12 +3743,14 @@ class Analyzer():
                             view_all_arches[key][identifier]["source_name"] = package["source_name"]
                             view_all_arches[key][identifier]["arches"] = set()
                             view_all_arches[key][identifier]["reponame_per_arch"] = {}
+                            view_all_arches[key][identifier]["highest_priority_reponames_per_arch"] = {}
                             view_all_arches[key][identifier]["category"] = None
 
                             self._init_pkg_or_srpm_relations_fields(view_all_arches[key][identifier], type="rpm")
                         
                         view_all_arches[key][identifier]["arches"].add(arch)
                         view_all_arches[key][identifier]["reponame_per_arch"][arch] = package["reponame"]
+                        view_all_arches[key][identifier]["highest_priority_reponames_per_arch"][arch] = package["highest_priority_reponames"]
 
                         self._populate_pkg_or_srpm_relations_fields(view_all_arches[key][identifier], package, type="rpm", view=view)
 

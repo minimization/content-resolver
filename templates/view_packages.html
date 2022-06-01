@@ -29,6 +29,11 @@
 
 <table id="table_packages" class="table-packages">
     <thead>
+        <tr>
+            <th colspan="3"></th>
+            <th colspan="{{view_conf.architectures | count }}" style="border-left: 1px solid black;border-right: 1px solid black">Repository</th>
+            <th></th>
+        </tr>
         <tr class="sort_control_row">
             <th>Package Name</th>
             <th>Category</th>
@@ -51,9 +56,13 @@
             <td>{{pkg.evr}}</td>
             {% for arch in view_conf.architectures %}
             {% if arch in pkg.arches %}
-            <td>yes</td>
+            {% if pkg.highest_priority_reponames_per_arch[arch] %}
+            <td>{{ pkg.highest_priority_reponames_per_arch[arch] | sort | join(", ") }}</td>
             {% else %}
-            <td class="text-muted">no</td>
+            <td class="text-muted">-</td>
+            {% endif %}
+            {% else %}
+            <td class="text-muted">-</td>
             {% endif %}
             {% endfor %}
             <td>
