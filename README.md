@@ -22,7 +22,7 @@ Content Resolver is entirely controlled by a set of YAML files stored in a git r
 
 ![Workloads and Environments](docs/img/workloads-and-envs.png)
 
-*Workloads* are the primary reason for Content Resolver's existence, representing a package set with a specific purpose — an application, a runtime, a set of dependencies for a specific se case, etc.
+*Workloads* are the primary reason for Content Resolver's existence, representing a package set with a specific purpose — an application, a runtime, a set of dependencies for a specific use case, etc.
 
 Workloads consist of two parts:
 * Required Packages — defined by the user
