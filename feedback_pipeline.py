@@ -171,23 +171,9 @@ def load_settings():
 
     settings["max_subprocesses"] = 10
 
-    settings["allowed_arches"] = ["armv7hl","aarch64","ppc64le","s390x","x86_64"]
+    settings["allowed_arches"] = ["armv7hl", "aarch64", "ppc64le", "s390x", "x86_64"]
 
     settings["weird_packages_that_can_not_be_installed"] = ["glibc32"]
-
-    settings["repos"] = {
-        "appstream": ["aarch64", "ppc64le", "s390x", "x86_64"],
-        "baseos": ["aarch64", "ppc64le", "s390x", "x86_64"],
-        "crb": ["aarch64", "ppc64le", "s390x", "x86_64"],
-        "addon-ha": ["aarch64", "ppc64le", "s390x", "x86_64"],
-        "addon-nfv": ["x86_64"],
-        "addon-rt": ["x86_64"],
-        "addon-rs": ["ppc64le", "s390x", "x86_64"],
-        "addon-sap": ["ppc64le", "s390x", "x86_64"],
-        "addon-saphana": ["ppc64le", "x86_64"]
-    }
-
-    settings["addons"] = ["addon-ha", "addon-nfv", "addon-rt", "addon-rs", "addon-sap", "addon-saphana"]
 
     return settings
 
