@@ -17,12 +17,12 @@ data:
   # Name is an identifier for humans
   #
   # (mandatory field)
-  name: make
+  name: make (this should have a warning)
   
   # A short description, perhaps hinting the purpose
   #
   # (mandatory field)
-  description: make
+  description: make (this should have a warning)
 
   # Who maintains it? This is just a freeform string
   # for humans to read. In Fedora, a FAS nick is recommended.
@@ -37,6 +37,7 @@ data:
   # (mandatory field)
   packages:
   - make
+  - non-existent-package
 
   # Labels connect things together.
   # Workloads get installed in environments with the same label.
@@ -61,6 +62,7 @@ data:
   # The following are now supported:
   # - "include-docs" - include documentation packages
   # - "include-weak-deps" - automatically pull in "recommends" weak dependencies
+  # - "strict" - fail the workload when a package is missing
   #
   # (optional field)
   #options:

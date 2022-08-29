@@ -17,12 +17,12 @@ data:
   # Name is an identifier for humans
   #
   # (mandatory field)
-  name: Bash
+  name: Bash (this workload should fail)
   
   # A short description, perhaps hinting the purpose
   #
   # (mandatory field)
-  description: Bash
+  description: Bash (this workload should fail)
 
   # Who maintains it? This is just a freeform string
   # for humans to read. In Fedora, a FAS nick is recommended.
@@ -37,6 +37,7 @@ data:
   # (mandatory field)
   packages: 
   - bash
+  - non-existent-package
 
   # Labels connect things together.
   # Workloads get installed in environments with the same label.
