@@ -17,6 +17,13 @@
                 </h5>
                 <hr>
 
+                <div class="card border-secondary w-100">
+                    <div class="card-body">
+                        <canvas id="chLine"></canvas>
+                    </div>
+                </div>
+                <hr>
+
                 <div class="card border-secondary">
                     <div class="card-body text-center">
 
@@ -426,7 +433,47 @@
     </div>
 </div>
 
+<script>
+    $(document).ready(function () {
 
+        function plot_graph(chartData) {
+            var chLine = document.getElementById("chLine");
+            if (chLine) {
+                new Chart(chLine, {
+                    type: 'line',
+                    data: chartData,
+                    options: {
+                        scales: {
+                            yAxes: [{
+                                ticks: {
+                                    beginAtZero: true,
+                                    callback: function (value, index, values) {
+                                        return value + " SRPMs";
+                                    }
+                                }
+                            }]
+                        },
+                        legend: {
+                            display: true
+                        },
+                        spanGaps: true,
+                        maintainAspectRatio: false,
+                        elements: {
+                            line: {
+                                tension: 0
+                            }
+                        }
+                    }
+                });
+            }
+        }
+
+        axios.get(`chartjs-data--view--{{view_conf.id}}.json`)
+            .then(response => {
+                plot_graph(response.data)
+            })
+    });
+</script>
 
 
 {% endblock %}

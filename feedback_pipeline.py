@@ -587,7 +587,7 @@ def _load_config_compose_view(document_id, document, settings):
     # Buildroot strategy
     config["buildroot_strategy"] = "none"
     if "buildroot_strategy" in document["data"]:
-        if str(document["data"]["buildroot_strategy"]) in ["none", "dep_tracker", "root_logs"]:
+        if str(document["data"]["buildroot_strategy"]) in ["none", "root_logs"]:
             config["buildroot_strategy"] = str(document["data"]["buildroot_strategy"])
     
     # Limit this view only to the following architectures
@@ -3984,11 +3984,8 @@ class Analyzer():
             view_conf = self.configs["views"][view_conf_id]
             view_all_arches = self.data["views_all_arches"][view_conf_id]
 
-            # Skip the obsolete dep_tracker build strategy, that's done by the old OwnershipEngine
-            if view_conf["type"] == "compose" and view_conf["buildroot_strategy"] == "dep_tracker":
-                continue
-
-            # Also skip addons for now
+            # Skip addons for now
+            # TODO: Implement support for addons
             if view_conf["type"] == "addon":
                 continue
 
@@ -5727,7 +5724,7 @@ def _generate_html_page(template_name, template_data, page_name, settings):
     log("")
 
 
-def _generate_json_page(data, page_name, settings):
+def _generate_json_file(data, page_name, settings):
     log("Generating the '{page_name}' JSON page...".format(
         page_name=page_name
     ))
@@ -6091,22 +6088,10 @@ def _generate_repo_pages(query):
     log("")
 
 
-def _generate_view_pages_new(query):
+def _generate_view_pages(query):
     log("Generating view pages... (the new function)")
 
     for view_conf_id, view_conf in query.configs["views"].items():
-
-        # Skip the obsolete dep_tracker build strategy, that's done by _generate_view_pages_old
-        if view_conf["type"] == "compose" and view_conf["buildroot_strategy"] == "dep_tracker":
-            continue
-
-        # Skip all the old views
-        #if view_conf["type"] not in ["compose"]:
-        #    continue
-        #
-        #if view_conf["buildroot_strategy"] not in ["root_logs"]:
-        #    continue
-
 
         # Common data
         view_all_arches = query.data["views_all_arches"][view_conf_id]
@@ -6217,404 +6202,6 @@ def _generate_view_pages_new(query):
             _generate_html_page("view_srpm", template_data, page_name, query.settings)
 
 
-def _generate_view_pages_old(query):
-    log("Generating view pages... (the old function)")
-
-    for view_conf_id, view_conf in query.configs["views"].items():
-
-        # This function is now only used for the obsolete dep_tracker build strategy
-        if view_conf["type"] == "compose" and view_conf["buildroot_strategy"] == "dep_tracker":
-
-            # ==================
-            # ===   Part 1   ===
-            # ==================
-            #
-            # First, generate the overview page comparing all architectures
-            log("  Generating 'compose' view overview {view_conf_id}".format(
-                view_conf_id=view_conf_id
-            ))
-
-            repo_id = view_conf["repository"]
-
-            # That page needs the number of binary and source packages for each architecture
-            arch_pkg_counts = {}
-            all_arches_nevrs = set()
-            all_arches_unwanteds = set()
-            all_arches_source_nvrs = set()
-            for arch in query.settings["allowed_arches"]:
-                arch_pkg_counts[arch] = {}
-
-                workload_ids = query.workloads_in_view(view_conf_id, arch=arch)
-
-                pkg_ids = query.pkgs_in_view(view_conf_id, arch, output_change="ids")
-                pkg_nevrs = query.pkgs_in_view(view_conf_id, arch, output_change="nevrs")
-                pkg_binary_names = query.pkgs_in_view(view_conf_id, arch, output_change="binary_names")
-                pkg_source_nvr = query.pkgs_in_view(view_conf_id, arch, output_change="source_nvr")
-                pkg_source_names = query.pkgs_in_view(view_conf_id, arch, output_change="source_names")
-                unwanted_pkgs = query.view_unwanted_pkgs(view_conf_id, arch)
-
-                unwanted_packages_count = 0
-                for pkg_name in unwanted_pkgs:
-                    if pkg_name in pkg_binary_names:
-                        unwanted_packages_count += 1
-                        all_arches_unwanteds.add(pkg_name)
-                
-                arch_pkg_counts[arch]["pkg_ids"] = len(pkg_ids)
-                arch_pkg_counts[arch]["pkg_binary_names"] = len(pkg_binary_names)
-                arch_pkg_counts[arch]["source_pkg_nvr"] = len(pkg_source_nvr)
-                arch_pkg_counts[arch]["source_pkg_names"] = len(pkg_source_names)
-                arch_pkg_counts[arch]["unwanted_packages"] = unwanted_packages_count
-
-                all_arches_nevrs.update(pkg_nevrs) 
-                all_arches_source_nvrs.update(pkg_source_nvr) 
-
-            template_data = {
-                "query": query,
-                "view_conf": view_conf,
-                "arch_pkg_counts": arch_pkg_counts,
-                "all_pkg_count": len(all_arches_nevrs),
-                "all_unwanted_count": len(all_arches_unwanteds),
-                "all_source_nvr_count": len(all_arches_source_nvrs)
-            }
-            page_name = "view--{view_conf_id}".format(
-                view_conf_id=view_conf_id
-            )
-            _generate_html_page("view_compose_overview", template_data, page_name, query.settings)
-
-            log("    Done!")
-            log("")
-
-
-            # ==================
-            # ===   Part 2   ===
-            # ==================
-            #
-            # Second, generate detail pages for each architecture
-            for arch in query.arches_in_view(view_conf_id):
-                # First, generate the overview page comparing all architectures
-                log("  Generating 'compose' view {view_conf_id} for {arch}".format(
-                    view_conf_id=view_conf_id,
-                    arch=arch
-                ))
-
-                template_data = {
-                    "query": query,
-                    "view_conf": view_conf,
-                    "arch": arch,
-
-                }
-                page_name = "view--{view_conf_id}--{arch}".format(
-                    view_conf_id=view_conf_id,
-                    arch=arch
-                )
-                _generate_html_page("view_compose_packages", template_data, page_name, query.settings)
-
-                page_name = "view-modules--{view_conf_id}--{arch}".format(
-                    view_conf_id=view_conf_id,
-                    arch=arch
-                )
-                _generate_html_page("view_compose_modules", template_data, page_name, query.settings)
-
-                page_name = "view-unwanted--{view_conf_id}--{arch}".format(
-                    view_conf_id=view_conf_id,
-                    arch=arch
-                )
-                _generate_html_page("view_compose_unwanted", template_data, page_name, query.settings)
-
-                page_name = "view-buildroot--{view_conf_id}--{arch}".format(
-                    view_conf_id=view_conf_id,
-                    arch=arch
-                )
-                _generate_html_page("view_compose_buildroot", template_data, page_name, query.settings)
-
-                page_name = "view-workloads--{view_conf_id}--{arch}".format(
-                    view_conf_id=view_conf_id,
-                    arch=arch
-                )
-                _generate_html_page("view_compose_workloads", template_data, page_name, query.settings)
-
-                
-
-            # ==================
-            # ===   Part 3   ===
-            # ==================
-            #
-            # third, generate one page per RPM name
-
-            pkg_names = set()
-            buildroot_pkg_names = set()
-            all_pkg_names = set()
-
-            #save some useful data for the SRPM pages below
-            pkg_name_data = {}
-
-            
-            
-            all_arches = query.arches_in_view(view_conf_id)
-
-            for arch in all_arches:
-                pkg_names.update(query.pkgs_in_view(view_conf_id, arch, output_change="binary_names"))
-
-            buildroot_pkg_srpm_requires = {}
-            for arch in all_arches:
-                buildroot_pkg_srpm_requires[arch] = query.view_buildroot_pkgs(view_conf_id, arch)
-
-            for arch in all_arches:
-                for buildroot_pkg_name in buildroot_pkg_srpm_requires[arch]:
-                    buildroot_pkg_names.add(buildroot_pkg_name)
-            
-            all_pkg_names.update(pkg_names)
-            all_pkg_names.update(buildroot_pkg_names)
-
-            for pkg_name in all_pkg_names:
-
-                pkg_ids = {}
-                workload_conf_ids_required = {}
-                workload_conf_ids_dependency = {}
-                workload_conf_ids_env = {}
-
-                required_to_build_srpms = set()
-
-                #pkgs_required_by["this_pkg_id"]["required_by_name"] = set() of required_by_ids
-                pkgs_required_by = {}
-
-                exclusion_list_ids = {}
-                unwanted_in_view = False
-
-                build_dependency = False
-
-                pkg_srpm_name = None
-
-                # 1: Runtime package stuff
-                if pkg_name in pkg_names:
-
-                    for arch in all_arches:
-
-                        for pkg in query.pkgs_in_view(view_conf_id, arch):
-                            pkg_nevra = "{name}-{evr}.{arch}".format(
-                                name=pkg["name"],
-                                evr=pkg["evr"],
-                                arch=pkg["arch"]
-                            )
-                            if pkg["name"] == pkg_name:
-
-                                if pkg_nevra not in pkg_ids:
-                                    pkg_ids[pkg_nevra] = set()
-                                pkg_ids[pkg_nevra].add(arch)
-
-                                pkg_srpm_name = pkg["source_name"]
-                            
-                                for workload_id in pkg["q_required_in"]:
-                                    workload = query.data["workloads"][workload_id]
-                                    workload_conf_id = workload["workload_conf_id"]
-
-                                    if workload_conf_id not in workload_conf_ids_required: 
-                                        workload_conf_ids_required[workload_conf_id] = set()
-                                    
-                                    workload_conf_ids_required[workload_conf_id].add(arch)
-                                
-                                for workload_id in pkg["q_dep_in"]:
-                                    workload = query.data["workloads"][workload_id]
-                                    workload_conf_id = workload["workload_conf_id"]
-
-                                    if workload_conf_id not in workload_conf_ids_dependency: 
-                                        workload_conf_ids_dependency[workload_conf_id] = set()
-                                    
-                                    workload_conf_ids_dependency[workload_conf_id].add(arch)
-                                
-                                for workload_id in pkg["q_env_in"]:
-                                    workload = query.data["workloads"][workload_id]
-                                    workload_conf_id = workload["workload_conf_id"]
-
-                                    if workload_conf_id not in workload_conf_ids_env: 
-                                        workload_conf_ids_env[workload_conf_id] = set()
-                                    
-                                    workload_conf_ids_env[workload_conf_id].add(arch)
-
-                        for pkg_unwanted_name, pkg_unwanted_data in query.view_unwanted_pkgs(view_conf_id, arch).items():
-                            if pkg_name == pkg_unwanted_name:
-                                if pkg_unwanted_data["unwanted_in_view"]:
-                                    unwanted_in_view = True
-                                
-                                for exclusion_list_id in pkg_unwanted_data["unwanted_list_ids"]:
-                                    if exclusion_list_id not in exclusion_list_ids:
-                                        exclusion_list_ids[exclusion_list_id] = set()
-                                    
-                                    exclusion_list_ids[exclusion_list_id].add(arch)
-
-
-                    for arch in all_arches:
-                        for workload_id in query.workloads_in_view(view_conf_id, arch):
-                            workload = query.data["workloads"][workload_id]
-                            workload_pkgs = query.workload_pkgs_id(workload_id)
-                            workload_pkg_relations = workload["pkg_relations"]
-                            workload_conf_id = workload["workload_conf_id"]
-
-                            for this_pkg_id in pkg_ids:
-
-                                if this_pkg_id not in workload_pkg_relations:
-                                    continue
-
-                                if this_pkg_id not in pkgs_required_by:
-                                    pkgs_required_by[this_pkg_id] = {}
-
-                                for required_by_id in workload_pkg_relations[this_pkg_id]["required_by"]:
-                                    required_by_name = pkg_id_to_name(required_by_id)
-
-                                    if required_by_name not in pkgs_required_by[this_pkg_id]:
-                                        pkgs_required_by[this_pkg_id][required_by_name] = set()
-                                    
-                                    pkgs_required_by[this_pkg_id][required_by_name].add(required_by_id)
-
-                                    # Not all packages that are required by something are marked as "dependency"
-                                    # on the list — like those marked "required" for example. So adding them
-                                    # to the list of dependencies here additionally
-                                    if workload_conf_id not in workload_conf_ids_dependency: 
-                                        workload_conf_ids_dependency[workload_conf_id] = set()
-                                    
-                                    workload_conf_ids_dependency[workload_conf_id].add(arch)
-                                
-                # 2: Buildroot package stuff
-                if pkg_name in buildroot_pkg_names:
-                    build_dependency = True
-
-                    for buildroot_pkg_relations_conf_id, buildroot_pkg_relations_conf in query.configs["buildroot_pkg_relations"].items():
-                        if view_conf_id == buildroot_pkg_relations_conf["view_id"]:
-                            arch = buildroot_pkg_relations_conf["arch"]
-                            buildroot_pkg_relations = buildroot_pkg_relations_conf["pkg_relations"]
-
-                            for this_pkg_id in buildroot_pkg_relations:
-                                this_pkg_name = pkg_id_to_name(this_pkg_id)
-
-                                if this_pkg_name == pkg_name:
-
-                                    if this_pkg_id not in pkg_ids:
-                                        pkg_ids[this_pkg_id] = set()
-                                    pkg_ids[this_pkg_id].add(arch)
-
-                                    if this_pkg_id in buildroot_pkg_relations and not pkg_srpm_name:
-                                        pkg_srpm_name = buildroot_pkg_relations[this_pkg_id]["source_name"]
-                            
-                            for this_pkg_id in pkg_ids:
-                                if this_pkg_id not in buildroot_pkg_relations:
-                                    continue
-
-                                if this_pkg_id not in pkgs_required_by:
-                                    pkgs_required_by[this_pkg_id] = {}
-                                
-                                for required_by_id in buildroot_pkg_relations[this_pkg_id]["required_by"]:
-                                    required_by_name = pkg_id_to_name(required_by_id)
-
-                                    if required_by_name not in pkgs_required_by[this_pkg_id]:
-                                        pkgs_required_by[this_pkg_id][required_by_name] = set()
-                                    
-                                    pkgs_required_by[this_pkg_id][required_by_name].add(required_by_id + " (buildroot only)")
-
-                    # required to build XX SRPMs
-                    for arch in all_arches:
-                        if pkg_name in buildroot_pkg_srpm_requires[arch]:
-                            required_to_build_srpms.update(set(buildroot_pkg_srpm_requires[arch][pkg_name]["required_by"]))
-
-
-                template_data = {
-                    "query": query,
-                    "view_conf": view_conf,
-                    "pkg_name": pkg_name,
-                    "srpm_name": pkg_srpm_name,
-                    "pkg_ids": pkg_ids,
-                    "view_all_pkg_names": all_pkg_names,
-                    "workload_conf_ids_required": workload_conf_ids_required,
-                    "workload_conf_ids_dependency": workload_conf_ids_dependency,
-                    "workload_conf_ids_env": workload_conf_ids_env,
-                    "exclusion_list_ids": exclusion_list_ids,
-                    "unwanted_in_view": unwanted_in_view,
-                    "pkgs_required_by": pkgs_required_by,
-                    "build_dependency": build_dependency,
-                    "required_to_build_srpms": required_to_build_srpms
-                }
-                pkg_name_data[pkg_name] = template_data
-                page_name = "view-rpm--{view_conf_id}--{pkg_name}".format(
-                    view_conf_id=view_conf_id,
-                    pkg_name=pkg_name
-                )
-                _generate_html_page("view_compose_rpm", template_data, page_name, query.settings)
-            
-            
-            # ==================
-            # ===   Part 4   ===
-            # ==================
-            #
-            # fourth, generate one page per SRPM name
-
-            srpm_names = set()
-            buildroot_srpm_names = set()
-            all_srpm_names = set()
-
-            for arch in all_arches:
-                srpm_names.update(query.pkgs_in_view(view_conf_id, arch, output_change="source_names"))
-
-            for arch in all_arches:
-                buildroot_srpm_names.update(query.view_buildroot_pkgs(view_conf_id, arch, output_change="source_names"))
-
-            srpm_maintainers = {}
-            if "srpm_maintainers" in query.computed_data["views"][view_conf_id]:
-                srpm_maintainers = query.computed_data["views"][view_conf_id]["srpm_maintainers"]
-
-            all_srpm_names.update(srpm_names)
-            all_srpm_names.update(buildroot_srpm_names)
-
-            for srpm_name in all_srpm_names:
-
-                # Since it doesn't include buildroot, yet, I'll need to recreate those manually for now
-                if srpm_name in srpm_maintainers:
-                    recommended_maintainers = srpm_maintainers[srpm_name]
-                else:
-                    recommended_maintainers = {}
-                    recommended_maintainers["top"] = None
-                    recommended_maintainers["all"] = {}
-
-                srpm_pkg_names = set()
-
-                for arch in all_arches:
-                    for pkg in query.pkgs_in_view(view_conf_id, arch):
-                        if pkg["source_name"] == srpm_name:
-                            srpm_pkg_names.add(pkg["name"])
-                
-                for buildroot_pkg_relations_conf_id, buildroot_pkg_relations_conf in query.configs["buildroot_pkg_relations"].items():
-                    if view_conf_id == buildroot_pkg_relations_conf["view_id"]:
-
-                        buildroot_pkg_relations = buildroot_pkg_relations_conf["pkg_relations"]
-
-                        for buildroot_pkg_id, buildroot_pkg in buildroot_pkg_relations.items():
-                            if srpm_name == buildroot_pkg["source_name"]:
-                                buildroot_pkg_name = pkg_id_to_name(buildroot_pkg_id)
-                                srpm_pkg_names.add(buildroot_pkg_name)
-
-                ownership_recommendations = None
-                if "ownership_recommendations" in query.computed_data["views"][view_conf_id]:
-                    if srpm_name in query.computed_data["views"][view_conf_id]["ownership_recommendations"]:
-                        ownership_recommendations = query.computed_data["views"][view_conf_id]["ownership_recommendations"][srpm_name]
-
-                template_data = {
-                    "query": query,
-                    "view_conf": view_conf,
-                    "ownership_recommendations": ownership_recommendations,
-                    "recommended_maintainers": recommended_maintainers,
-                    "srpm_name": srpm_name,
-                    "pkg_names": srpm_pkg_names,
-                    "pkg_name_data": pkg_name_data
-                }
-                page_name = "view-srpm--{view_conf_id}--{srpm_name}".format(
-                    view_conf_id=view_conf_id,
-                    srpm_name=srpm_name
-                )
-                _generate_html_page("view_compose_srpm", template_data, page_name, query.settings)
-
-
-    log("  Done!")
-    log("")
-
-
 def _generate_a_flat_list_file(data_list, file_name, settings):
 
     file_contents = "\n".join(data_list)
@@ -6632,14 +6219,10 @@ def _generate_a_flat_list_file(data_list, file_name, settings):
         file.write(file_contents)
 
 
-def _generate_view_lists_new(query):
+def _generate_view_lists(query):
     log("Generating view lists...")
 
     for view_conf_id, view_conf in query.configs["views"].items():
-
-        # Skip the obsolete dep_tracker build strategy, that's done by _generate_view_lists_old
-        if view_conf["type"] == "compose" and view_conf["buildroot_strategy"] == "dep_tracker":
-            continue
 
         # all      RPM    NEVRAs      view-all-binary-package-list
         # all      RPM    NEVRs       view-all-binary-package-nevr-list
@@ -6767,135 +6350,6 @@ def _generate_view_lists_new(query):
             _generate_a_flat_list_file(sorted(list(list_content)), file_name, query.settings)
 
 
-
-
-def _generate_view_lists_old(query):
-    log("Generating view lists...")
-
-    for view_conf_id,view_conf in query.configs["views"].items():
-
-        # This function is now only used for the obsolete dep_tracker build strategy
-        if view_conf["type"] == "compose" and view_conf["buildroot_strategy"] == "dep_tracker":
-
-            repo_id = view_conf["repository"]
-
-            for arch in query.arches_in_view(view_conf_id):
-                # First, generate the overview page comparing all architectures
-                log("  Generating 'compose' package list {view_conf_id} for {arch}".format(
-                    view_conf_id=view_conf_id,
-                    arch=arch
-                ))
-
-
-                pkg_ids = query.pkgs_in_view(view_conf_id, arch, output_change="ids")
-                pkg_binary_names = query.pkgs_in_view(view_conf_id, arch, output_change="binary_names")
-                pkg_source_nvrs = query.pkgs_in_view(view_conf_id, arch, output_change="source_nvr")
-                pkg_source_names = query.pkgs_in_view(view_conf_id, arch, output_change="source_names")
-
-                # If it's the addon view, there are two SRPM lists:
-                #   1/ all SRPMs in the addon, with some potentially also being in the base view
-                #      because, one SRPM can have RPMs in both
-                #   2/ added SRPMs - only SRPMs not in the base view, potentially missing
-                #      some SRPMs that are in this addon
-                if view_conf["type"] == "addon":
-                    base_view_id = view_conf["base_view_id"]
-                    base_pkg_source_nvrs = query.pkgs_in_view(base_view_id, arch, output_change="source_nvr")
-                    base_pkg_source_names = query.pkgs_in_view(base_view_id, arch, output_change="source_names")
-
-                    added_pkg_source_nvrs = sorted(list(set(pkg_source_nvrs) - set(base_pkg_source_nvrs)))
-                    added_pkg_source_names = sorted(list(set(pkg_source_names) - set(base_pkg_source_names)))
-
-                
-                buildroot_data = query.view_buildroot_pkgs(view_conf_id, arch)
-                pkg_buildroot_source_names = query.view_buildroot_pkgs(view_conf_id, arch, output_change="source_names")
-                if buildroot_data:
-                    pkg_buildroot_names = buildroot_data.keys()
-                else:
-                    pkg_buildroot_names = []
-                
-                modules = query.view_modules(view_conf_id, arch)
-
-                file_name = "view-binary-package-list--{view_conf_id}--{arch}".format(
-                    view_conf_id=view_conf_id,
-                    arch=arch
-                )
-                _generate_a_flat_list_file(pkg_ids, file_name, query.settings)
-
-                file_name = "view-binary-package-name-list--{view_conf_id}--{arch}".format(
-                    view_conf_id=view_conf_id,
-                    arch=arch
-                )
-                _generate_a_flat_list_file(pkg_binary_names, file_name, query.settings)
-
-                if view_conf["type"] == "compose":
-                    file_name = "view-source-package-list--{view_conf_id}--{arch}".format(
-                        view_conf_id=view_conf_id,
-                        arch=arch
-                    )
-                    _generate_a_flat_list_file(pkg_source_nvrs, file_name, query.settings)
-        
-                    file_name = "view-source-package-name-list--{view_conf_id}--{arch}".format(
-                        view_conf_id=view_conf_id,
-                        arch=arch
-                    )
-                    _generate_a_flat_list_file(pkg_source_names, file_name, query.settings)
-
-                elif view_conf["type"] == "addon":
-                    file_name = "view-all-source-package-list--{view_conf_id}--{arch}".format(
-                        view_conf_id=view_conf_id,
-                        arch=arch
-                    )
-                    _generate_a_flat_list_file(pkg_source_nvrs, file_name, query.settings)
-        
-                    file_name = "view-all-source-package-name-list--{view_conf_id}--{arch}".format(
-                        view_conf_id=view_conf_id,
-                        arch=arch
-                    )
-                    _generate_a_flat_list_file(pkg_source_names, file_name, query.settings)
-
-                    file_name = "view-added-source-package-list--{view_conf_id}--{arch}".format(
-                        view_conf_id=view_conf_id,
-                        arch=arch
-                    )
-                    _generate_a_flat_list_file(added_pkg_source_nvrs, file_name, query.settings)
-        
-                    file_name = "view-added-source-package-name-list--{view_conf_id}--{arch}".format(
-                        view_conf_id=view_conf_id,
-                        arch=arch
-                    )
-                    _generate_a_flat_list_file(added_pkg_source_names, file_name, query.settings)
-
-                file_name = "view-buildroot-package-name-list--{view_conf_id}--{arch}".format(
-                    view_conf_id=view_conf_id,
-                    arch=arch
-                )
-                _generate_a_flat_list_file(pkg_buildroot_names, file_name, query.settings)
-
-                file_name = "view-buildroot-source-package-name-list--{view_conf_id}--{arch}".format(
-                    view_conf_id=view_conf_id,
-                    arch=arch
-                )
-                _generate_a_flat_list_file(pkg_buildroot_source_names, file_name, query.settings)
-
-                file_name = "view-module-list--{view_conf_id}--{arch}".format(
-                    view_conf_id=view_conf_id,
-                    arch=arch
-                )
-                _generate_a_flat_list_file(modules, file_name, query.settings)
-
-                file_name = "view-placeholder-srpm-details--{view_conf_id}--{arch}.json".format(
-                    view_conf_id=view_conf_id,
-                    arch=arch
-                )
-                file_path = os.path.join(query.settings["output"], file_name)
-                view_placeholder_srpm_details = query.view_placeholder_srpms(view_conf_id, arch)
-                dump_data(file_path, view_placeholder_srpm_details)
-
-    
-    log("  Done!")
-    log("")
-
-
 def _dump_all_data(query):
     log("Dumping all data...")
 
@@ -6914,6 +6368,7 @@ def _dump_all_data(query):
 
 
 def generate_pages(query):
+
     log("")
     log("###############################################################################")
     log("### Generating html pages! ####################################################")
@@ -6970,12 +6425,7 @@ def generate_pages(query):
     _generate_workload_pages(query)
 
     # Generate view pages
-    _generate_view_pages_new(query)
-    _generate_view_pages_old(query)
-
-    # Generate flat lists for views
-    _generate_view_lists_new(query)
-    _generate_view_lists_old(query)
+    _generate_view_pages(query)
 
     # Dump all data
     # The data is now pretty huge and not really needed anyway
@@ -6989,16 +6439,21 @@ def generate_pages(query):
     _generate_html_page("errors", template_data, "errors", query.settings)
 
 
+def generate_data_files(query):
 
     log("")
     log("###############################################################################")
-    log("### Generating JSON pages! ####################################################")
+    log("### Generating data files! ####################################################")
     log("###############################################################################")
     log("")
+
+    # Generate the package lists for views
+    _generate_view_lists(query)
 
     # Generate data for the top-level results pages
+    log("Generating the maintainers json file...")
     maintainer_data = query.maintainers()
-    _generate_json_page(maintainer_data, "maintainers", query.settings)
+    _generate_json_file(maintainer_data, "maintainers", query.settings)
 
 
 
@@ -7316,6 +6771,7 @@ def _save_current_historic_data(query):
     history_data["repos"] = {}
     history_data["views"] = {}
 
+    # Workloads
     for workload_id in query.workloads(None,None,None,None,list_all=True):
         workload = query.data["workloads"][workload_id]
 
@@ -7328,6 +6784,7 @@ def _save_current_historic_data(query):
 
         history_data["workloads"][workload_id] = workload_history
     
+    # Environments
     for env_id in query.envs(None,None,None,list_all=True):
         env = query.data["envs"][env_id]
 
@@ -7340,6 +6797,7 @@ def _save_current_historic_data(query):
 
         history_data["envs"][env_id] = env_history
 
+    # Repositories
     for repo_id in query.configs["repos"].keys():
         history_data["repos"][repo_id] = {}
 
@@ -7350,17 +6808,20 @@ def _save_current_historic_data(query):
             
             history_data["repos"][repo_id][arch] = repo_history
     
-    for view_conf_id in query.configs["views"].keys():
+    # Views (new)
+    for view_conf_id, view_conf in query.configs["views"].items():
+        view_all_arches = query.data["views_all_arches"][view_conf_id]
+
         history_data["views"][view_conf_id] = {}
 
-        for arch in query.arches_in_view(view_conf_id):
+        history_data["views"][view_conf_id]["srpm_count_env"] = view_all_arches["numbers"]["srpms"]["env"]
+        history_data["views"][view_conf_id]["srpm_count_req"] = view_all_arches["numbers"]["srpms"]["req"]
+        history_data["views"][view_conf_id]["srpm_count_dep"] = view_all_arches["numbers"]["srpms"]["dep"]
 
-            pkg_ids = query.pkgs_in_view(view_conf_id, arch)
-
-            view_history = {}
-            view_history["pkg_count"] = len(pkg_ids)
-            
-            history_data["views"][view_conf_id][arch] = view_history
+        if view_all_arches["has_buildroot"]:
+            history_data["views"][view_conf_id]["srpm_count_build_base"] = view_all_arches["numbers"]["srpms"]["build_base"]
+            history_data["views"][view_conf_id]["srpm_count_build_level_1"] = view_all_arches["numbers"]["srpms"]["build_level_1"]
+            history_data["views"][view_conf_id]["srpm_count_build_level_2_plus"] = view_all_arches["numbers"]["srpms"]["build_level_2_plus"]
 
     # And save it
     log("  Saving in: {file_path}".format(
@@ -7767,41 +7228,96 @@ def _generate_chartjs_data(historic_data, query):
             )
             _save_json_data_entry(entry_name, entry_data, query.settings)
     
-    # Data for compose view pages    
+    # Data for view pages 
     for view_conf_id in query.configs["views"].keys():
+        view_all_arches = query.data["views_all_arches"][view_conf_id]
 
-        for arch in query.arches_in_view(view_conf_id):
+        entry_data = {}
 
-            entry_data = {}
+        # First, get the dates as chart labels
+        entry_data["labels"] = []
 
-            # First, get the dates as chart labels
-            entry_data["labels"] = []
-            for _,entry in historic_data.items():
-                date = entry["date"]
-                entry_data["labels"].append(date)
+        for _,entry in historic_data.items():
+            date = entry["date"]
+            entry_data["labels"].append(date)
 
-            # Second, get the actual data for everything that's needed
-            entry_data["datasets"] = []
+        # Second, get the actual data for everything that's needed
+        entry_data["datasets"] = []
+
+        if view_all_arches["has_buildroot"]:
+            dataset_names = [
+                "env",
+                "req",
+                "dep",
+                "build_base",
+                "build_level_1",
+                "build_level_2_plus"
+            ]
+        else:
+            dataset_names = [
+                "env",
+                "req",
+                "dep"
+            ]
+
+        dataset_metadata = {
+            "env": {
+                "name": "Environment",
+                "color": "#ffc107"
+            },
+            "req": {
+                "name": "Required",
+                "color": "#28a745"
+            },
+            "dep": {
+                "name": "Dependency",
+                "color": "#6c757d"
+            },
+            "build_base": {
+                "name": "Base Buildroot",
+                "color": "#a39e87"
+            },
+            "build_level_1": {
+                "name": "Buildroot level 1",
+                "color": "#999"
+            },
+            "build_level_2_plus": {
+                "name": "Buildroot levels 2+",
+                "color": "#bbb"
+            },
+        }
+
+        for dataset_name in dataset_names:
+            dataset_key = "srpm_count_{}".format(dataset_name)
 
             dataset = {}
             dataset["data"] = []
-            dataset["label"] = "Number of packages"
-            dataset["fill"] = "false"
+            dataset["label"] = dataset_metadata[dataset_name]["name"]
+            dataset["backgroundColor"] = dataset_metadata[dataset_name]["color"]
 
+            loop_index = 0
             for _,entry in historic_data.items():
                 try:
-                    count = entry["views"][view_conf_id][arch]["pkg_count"]
-                    dataset["data"].append(count)
-                except KeyError:
+                    srpm_count = entry["views"][view_conf_id][dataset_key]
+
+                    # It's a stack chart, so I need to show the numbers on top of each other
+                    if dataset_name == "env":
+                        srpm_count_compound = srpm_count
+                    else:
+                        srpm_count_compound = entry_data["datasets"][-1]["data"][loop_index] + srpm_count
+
+                    dataset["data"].append(srpm_count_compound)
+                except (KeyError, IndexError):
                     dataset["data"].append("null")
+
+                loop_index += 1
 
             entry_data["datasets"].append(dataset)
 
-            entry_name = "chartjs-data--view--{view_conf_id}--{arch}".format(
-                view_conf_id=view_conf_id,
-                arch=arch
-            )
-            _save_json_data_entry(entry_name, entry_data, query.settings)
+        entry_name = "chartjs-data--view--{view_conf_id}".format(
+            view_conf_id=view_conf_id
+        )
+        _save_json_data_entry(entry_name, entry_data, query.settings)
 
 
 def generate_historic_data(query):
@@ -7825,551 +7341,6 @@ def generate_historic_data(query):
 
     log("Done!")
     log("")
-
-
-
-
-
-###############################################################################
-### Maintainer Recommendation #################################################
-###############################################################################
-
-
-class OwnershipEngine:
-    # Levels:
-    #
-    #  
-    # level0 == required
-    # ---
-    # level1 == 1st level runtime dep
-    # ...
-    # level9 == 9th level runtime dep
-    #
-    #  
-    # level10 == build dep of something in the previous group
-    # --- 
-    # level11 == 1st level runtime dep 
-    # ...
-    # level19 == 9th level runtime dep
-    #
-    #  
-    # level20 == build dep of something in the previous group
-    # level21 == 1st level runtime dep 
-    # ...
-    # level29 == 9th level runtime dep
-    #
-    # etc. up to level99
-
-
-    def __init__(self, query):
-        self.query = query
-        self.MAX_LEVEL = 9
-        self.MAX_LAYER = 9
-        self.skipped_maintainers = ["bakery", "jwboyer", "asamalik"]
-
-    
-    def process_view(self, view_conf_id):
-        self._initiate_view(view_conf_id)
-
-        log("Processing ownership recommendations for {} view...".format(view_conf_id))
-
-        # Layer 0
-        log("  Processing Layer 0...")
-        self._process_layer_zero_entries()
-        self._process_layer_component_maintainers()
-
-
-        # Layers 1-9
-        # This operates on all SRPMs from the previous level.
-        # Resolves all their build dependencies. 
-        previous_layer_srpms = self.runtime_srpm_names
-        for layer in range(1, self.MAX_LAYER + 1):
-            log("  Processing Layer {}...".format(layer))
-            log("    {} components".format(len(previous_layer_srpms)))
-            # Process all the "pkg_entries" for this layer, and collect this layer srpm packages
-            # which will be used in the next layer.
-            this_layer_srpm_packages = self._process_layer_pkg_entries(layer, previous_layer_srpms)
-            self._process_layer_srpm_entries(layer)
-            self._process_layer_component_maintainers()
-            previous_layer_srpms = this_layer_srpm_packages
-        
-        log("Done!")
-        log("")
-
-        return self.component_maintainers
-
-
-    def _process_layer_pkg_entries(self, layer, build_srpm_names):
-
-        if layer not in range(1,10):
-            raise ValueError
-
-        level_srpm_packages = set()
-
-        for build_srpm_name in build_srpm_names:
-
-            # Packages on level 0 == required
-            level = 0
-            level_name = "level{}{}".format(layer, level)
-            level0_pkg_names = set()
-
-
-            # This will initially hold all packages.
-            # When figuring out levels, I'll process each package just once.
-            # And for that I'll be removing them from this set as I go.
-            remaining_pkg_names = self.buildroot_only_rpm_names.copy()
-
-            #for pkg_name, pkg in self.buildroot_pkgs.items():
-            for pkg_name in remaining_pkg_names.copy():
-                pkg = self.buildroot_pkgs[pkg_name]
-                if build_srpm_name in pkg["required_by_srpms"]:
-
-                    if "source_name" not in self.pkg_entries[pkg_name]:
-                        self.pkg_entries[pkg_name]["source_name"] = pkg["source_name"]
-
-                    self.pkg_entries[pkg_name][level_name]["build_source_names"].add(build_srpm_name)
-                    level0_pkg_names.add(pkg_name)
-                    remaining_pkg_names.discard(pkg_name)
-                    level_srpm_packages.add(pkg["source_name"])
-
-
-            pkg_names_level = []
-            pkg_names_level.append(level0_pkg_names)
-
-            # Starting at level 1, because level 0 is already done (that's required packages)
-            for level in range(1, self.MAX_LEVEL + 1):
-                level_name = "level{}{}".format(layer, level)
-
-                #1..
-                pkg_names_level.append(set())
-
-                #for pkg_name, pkg in self.buildroot_pkgs.items():
-                for pkg_name in remaining_pkg_names.copy():
-                    pkg = self.buildroot_pkgs[pkg_name]
-                    for higher_pkg_name in pkg["required_by"]:
-                        if higher_pkg_name in pkg_names_level[level - 1]:
-
-                            if "source_name" not in self.pkg_entries[pkg_name]:
-                                self.pkg_entries[pkg_name]["source_name"] = pkg["source_name"]
-                            
-                            self.pkg_entries[pkg_name][level_name]["build_source_names"].add(build_srpm_name)
-                            pkg_names_level[level].add(pkg_name)
-                            remaining_pkg_names.discard(pkg_name)
-                            level_srpm_packages.add(pkg["source_name"])
-        
-        return level_srpm_packages
-
-
-    def _process_layer_srpm_entries(self, layer):
-
-        if layer not in range(1,10):
-            raise ValueError
-
-        for pkg_name, pkg in self.pkg_entries.items():
-            if "source_name" not in pkg:
-                continue
-
-            source_name = pkg["source_name"]
-
-            for level in range(0, self.MAX_LEVEL + 1):
-                level_name = "level{}{}".format(layer, level)
-
-                for build_srpm_name in pkg[level_name]["build_source_names"]:
-                    top_maintainers = self.component_maintainers[build_srpm_name]["top_multiple"]
-
-                    for maintainer in top_maintainers:
-
-                        if maintainer not in self.srpm_entries[source_name]["ownership"][level_name]:
-                            self.srpm_entries[source_name]["ownership"][level_name][maintainer] = {}
-                            self.srpm_entries[source_name]["ownership"][level_name][maintainer]["build_source_names"] = {}
-                            self.srpm_entries[source_name]["ownership"][level_name][maintainer]["pkg_count"] = 0
-                        
-                        if build_srpm_name not in self.srpm_entries[source_name]["ownership"][level_name][maintainer]["build_source_names"]:
-                            self.srpm_entries[source_name]["ownership"][level_name][maintainer]["build_source_names"][build_srpm_name] = set()
-
-                        self.srpm_entries[source_name]["ownership"][level_name][maintainer]["pkg_count"] += 1
-                        self.srpm_entries[source_name]["ownership"][level_name][maintainer]["build_source_names"][build_srpm_name].add(pkg_name)
-
-
-    def _process_layer_component_maintainers(self):
-
-        clear_components = set()
-        unclear_components = set()
-
-        for component_name, owner_data in self.srpm_entries.items():
-
-            if self.component_maintainers[component_name]["top"]:
-                continue
-
-            found = False
-            maintainers = {}
-            top_maintainer = None
-            top_maintainers = set()
-
-            for level_name, level_data in owner_data["ownership"].items():
-                if found:
-                    break
-
-                if not level_data:
-                    continue
-
-                for maintainer, maintainer_data in level_data.items():
-
-                    if maintainer in self.skipped_maintainers:
-                        continue
-
-                    found = True
-                    
-                    maintainers[maintainer] = maintainer_data["pkg_count"]
-            
-            # Sort out maintainers based on their score
-            maintainer_scores = {}
-            for maintainer, score in maintainers.items():
-                if score not in maintainer_scores:
-                    maintainer_scores[score] = set()
-                maintainer_scores[score].add(maintainer)
-
-            # Going through the scores, starting with the highest
-            for score in sorted(maintainer_scores, reverse=True):
-                # If there are multiple with the same score, it's unclear
-                if len(maintainer_scores[score]) > 1:
-                    for chosen_maintainer in maintainer_scores[score]:
-                        top_maintainers.add(chosen_maintainer)
-                    break
-
-                # If there's just one maintainer with this score, it's the owner!
-                if len(maintainer_scores[score]) == 1:
-                    for chosen_maintainer in maintainer_scores[score]:
-                        top_maintainer = chosen_maintainer
-                        top_maintainers.add(chosen_maintainer)
-                    break
-                    
-            self.component_maintainers[component_name]["all"] = maintainers
-            self.component_maintainers[component_name]["top_multiple"] = top_maintainers
-            self.component_maintainers[component_name]["top"] = top_maintainer
-
-
-
-    
-    def _initiate_view(self, view_conf_id):
-        self.view_conf_id = view_conf_id
-        self.all_arches = self.query.arches_in_view(view_conf_id)
-
-        self.workload_ids = self.query.workloads_in_view(view_conf_id, None)
-
-        self.pkg_entries = {}
-        self.srpm_entries = {}
-        self.component_maintainers = {}
-
-        self.runtime_rpm_names = set()
-        self.runtime_srpm_names = set()
-
-        self.buildroot_rpm_names = set()
-        self.buildroot_srpm_names = set()
-
-        self.buildroot_only_rpm_names = set()
-        self.buildroot_only_srpm_names = set()
-
-        self.all_rpm_names = set()
-        self.all_srpm_names = set()
-
-        self.buildroot_pkgs = {}
-        # {
-        #   "RPM_NAME": {
-        #       "source_name": "SRPM_NAME",
-        #       "required_by": set(
-        #           "RPM_NAME", 
-        #           "RPM_NAME", 
-        #       ),
-        #       "required_by_srpms": set(
-        #           "SRPM_NAME",
-        #           "SRPM_NAME",
-        #       ),
-        #   } 
-        # }
-
-
-        ### Initiate: self.runtime_rpm_names
-        for arch in self.all_arches:
-            self.runtime_rpm_names.update(self.query.pkgs_in_view(view_conf_id, arch, output_change="binary_names"))
-
-
-        ### Initiate: self.runtime_srpm_names
-        for arch in self.all_arches:
-            self.runtime_srpm_names.update(self.query.pkgs_in_view(view_conf_id, arch, output_change="source_names"))
-        
-
-        ### Initiate: self.buildroot_pkgs
-        build_dependencies = {}
-        for arch in self.all_arches:
-            for pkg_name, pkg_data in self.query.view_buildroot_pkgs(view_conf_id, arch).items():
-                if pkg_name not in build_dependencies:
-                    build_dependencies[pkg_name] = {}
-                    build_dependencies[pkg_name]["required_by"] = set()
-                build_dependencies[pkg_name]["required_by"] = build_dependencies[pkg_name]["required_by"].union(pkg_data["required_by"])
-        
-        buildroot_pkg_relations = {}
-        for buildroot_pkg_relations_conf_id, buildroot_pkg_relations_conf in self.query.configs["buildroot_pkg_relations"].items():
-            if view_conf_id == buildroot_pkg_relations_conf["view_id"]:
-                arch = buildroot_pkg_relations_conf["arch"]
-                arch_buildroot_pkg_relations = buildroot_pkg_relations_conf["pkg_relations"]
-
-                for pkg_id, pkg_data in arch_buildroot_pkg_relations.items():
-                    pkg_name = pkg_id_to_name(pkg_id)
-                    if pkg_name not in buildroot_pkg_relations:
-                        buildroot_pkg_relations[pkg_name] = {}
-                        buildroot_pkg_relations[pkg_name]["source_name"] = pkg_data["source_name"]
-                        buildroot_pkg_relations[pkg_name]["required_by"] = set()
-                    for required_by_pkg_id in pkg_data["required_by"]:
-                        required_by_pkg_name = pkg_id_to_name(required_by_pkg_id)
-                        buildroot_pkg_relations[pkg_name]["required_by"].add(required_by_pkg_name)
-
-        for pkg_name, pkg in buildroot_pkg_relations.items():
-            if pkg_name not in build_dependencies:
-                continue
-            
-            self.buildroot_pkgs[pkg_name] = {}
-            self.buildroot_pkgs[pkg_name]["source_name"] = pkg["source_name"]
-            self.buildroot_pkgs[pkg_name]["required_by"] = pkg["required_by"]
-            self.buildroot_pkgs[pkg_name]["required_by_srpms"] = build_dependencies[pkg_name]["required_by"]
-
-
-        ### Initiate: self.buildroot_srpm_names
-        for pkg_name, pkg in self.buildroot_pkgs.items():
-            self.buildroot_srpm_names.add(pkg["source_name"])
-        
-
-        ### Initiate: self.buildroot_rpm_names
-        self.buildroot_rpm_names = set(self.buildroot_pkgs.keys())
-        
-
-        ### Initiate: Other lists
-        self.all_rpm_names = self.runtime_rpm_names.union(self.buildroot_rpm_names)
-        self.all_srpm_names = self.runtime_srpm_names.union(self.buildroot_srpm_names)
-        self.buildroot_only_rpm_names = self.buildroot_rpm_names.difference(self.runtime_rpm_names)
-        self.buildroot_only_srpm_names = self.buildroot_srpm_names.difference(self.runtime_srpm_names)
-
-
-        ### Initiate: self.pkg_entries
-        for pkg_name in self.all_rpm_names:
-            self.pkg_entries[pkg_name] = {}
-            self.pkg_entries[pkg_name]["name"] = pkg_name
-            for layer in range(0, self.MAX_LAYER + 1):
-                for level in range(0, self.MAX_LEVEL + 1):
-                    if layer == 0:
-                        level_name = "level{}".format(level)
-                        self.pkg_entries[pkg_name][level_name] = {}
-                        self.pkg_entries[pkg_name][level_name]["workload_requirements"] = {}
-                    else:
-                        level_name = "level{}{}".format(layer, level)
-                        self.pkg_entries[pkg_name][level_name] = {}
-                        self.pkg_entries[pkg_name][level_name]["build_source_names"] = set()
-        
-
-        ### Initiate: self.srpm_entries
-        for srpm_name in self.all_srpm_names:
-            self.srpm_entries[srpm_name] = {}
-            self.srpm_entries[srpm_name]["ownership"] = {}
-            for layer in range(0, self.MAX_LAYER + 1):
-                for level in range(0, self.MAX_LEVEL + 1):
-                    if layer == 0:
-                        level_name = "level{}".format(level)
-                        self.srpm_entries[srpm_name]["ownership"][level_name] = {}
-                    else:
-                        level_name = "level{}{}".format(layer, level)
-                        self.srpm_entries[srpm_name]["ownership"][level_name] = {}
-
-
-        ### Initiate: self.component_maintainers
-        for srpm_name in self.all_srpm_names:
-            self.component_maintainers[srpm_name] = {}
-            self.component_maintainers[srpm_name]["all"] = {}
-            self.component_maintainers[srpm_name]["top_multiple"] = set()
-            self.component_maintainers[srpm_name]["top"] = None
-
-
-
-    def _pkg_relations_ids_to_names(self, pkg_relations):
-        if not pkg_relations:
-            return pkg_relations
-        
-        pkg_relations_names = {}
-
-        for pkg_id, pkg in pkg_relations.items():
-            pkg_name = pkg_id_to_name(pkg_id)
-
-            pkg_relations_names[pkg_name] = {}
-            pkg_relations_names[pkg_name]["required_by"] = set()
-
-            for required_by_pkg_id in pkg["required_by"]:
-                required_by_pkg_name = pkg_id_to_name(required_by_pkg_id)
-                pkg_relations_names[pkg_name]["required_by"].add(required_by_pkg_name)
-        
-        return pkg_relations_names
-
-
-    def _process_layer_zero_entries(self):
-        # This is first done on an RPM level. Starts with level 0 == required,
-        # assigns them based on who required them. Then moves on to level 1 == 1st
-        # level depepdencies, and assigns them based on who pulled them in in
-        # the above layer. And it goes deeper and deeper until MAX_LEVEL.
-        # 
-        # The second part of the function then takes this data from RPMs and
-        # copies them over to their SRPMs. When multiple RPMs belong to a single
-        # SRPM, it merges it.
-        # 
-
-        # 
-        # Part 1: RPMs
-        #  
-    
-
-        workload_ids = self.query.workloads_in_view(self.view_conf_id, None)
-
-        for workload_id in workload_ids:
-            workload = self.query.data["workloads"][workload_id]
-            workload_conf_id = workload["workload_conf_id"]
-            workload_conf = self.query.configs["workloads"][workload_conf_id]
-            workload_maintainer = workload_conf["maintainer"]
-            
-            pkgs = self.query.workload_pkgs_id(workload_id)
-            pkg_relations_ids = workload["pkg_relations"]
-
-            pkg_relations = self._pkg_relations_ids_to_names(pkg_relations_ids)
-
-
-            # Packages on level 0 == required
-            level0_pkg_names = {}
-
-            # This will initially hold all packages.
-            # When figuring out levels, I'll process each package just once.
-            # And for that I'll be removing them from this set as I go.
-            remaining_pkg_names = set()
-            
-            for pkg in pkgs:
-                pkg_name = pkg["name"]
-
-                remaining_pkg_names.add(pkg_name)
-
-                if "source_name" not in self.pkg_entries[pkg_name]:
-                    self.pkg_entries[pkg_name]["source_name"] = pkg["source_name"]
-        
-                # Is this package level 1?
-                if workload_id in pkg["q_required_in"]:
-                    if workload_conf_id not in self.pkg_entries[pkg_name]["level0"]["workload_requirements"]:
-                        self.pkg_entries[pkg_name]["level0"]["workload_requirements"][workload_conf_id] = set()
-                    #level0_pkg_names.add(pkg_name)
-                    if pkg_name not in level0_pkg_names:
-                        level0_pkg_names[pkg_name] = set()
-                    level0_pkg_names[pkg_name].add((None, pkg_name))
-                    remaining_pkg_names.remove(pkg_name)
-            
-
-            # Initialize sets for all levels
-            pkg_names_level = []
-            pkg_names_level.append(level0_pkg_names)
-
-            # Starting at level 1, because level 0 is already done (that's required packages)
-            for current_level in range(1, self.MAX_LEVEL + 1):
-
-                #1..
-                #pkg_names_level.append(set())
-                pkg_names_level.append({})
-
-                for pkg_name in remaining_pkg_names.copy():
-                    pkg = self.pkg_entries[pkg_name]
-
-                    # is pkg required by higher_pkg_name (which is level 1)?
-                    # (== is higher_pkg_name in a list of packages that pkg is required by?)
-                    # then pkg is level 2
-                    for higher_pkg_name in pkg_names_level[current_level - 1]:
-                        if higher_pkg_name in pkg_relations[pkg_name]["required_by"]:
-                            #pkg_names_level[current_level].add(pkg_name)
-                            if pkg_name not in pkg_names_level[current_level]:
-                                pkg_names_level[current_level][pkg_name] = set()
-                            pkg_names_level[current_level][pkg_name].add((higher_pkg_name, pkg_name))
-
-                            try:
-                                remaining_pkg_names.remove(pkg_name)
-                            except KeyError:
-                                pass
-            
-            # Some might remain for weird reasons
-            for pkg_name in remaining_pkg_names:
-                #pkg_names_level[self.MAX_LEVEL].add(pkg_name)
-                if pkg_name not in pkg_names_level[self.MAX_LEVEL]:
-                    pkg_names_level[self.MAX_LEVEL][pkg_name] = set()
-
-
-            for current_level in range(0, self.MAX_LEVEL + 1):
-                level_name = "level{num}".format(num=str(current_level))
-
-                for pkg_name in self.pkg_entries:
-                    pkg = self.pkg_entries[pkg_name]
-
-                    if pkg_name in pkg_names_level[current_level]:
-
-                        if workload_conf_id not in self.pkg_entries[pkg_name][level_name]["workload_requirements"]:
-                            self.pkg_entries[pkg_name][level_name]["workload_requirements"][workload_conf_id] = set()
-                        
-                        self.pkg_entries[pkg_name][level_name]["workload_requirements"][workload_conf_id].update(pkg_names_level[current_level][pkg_name])
-
-        # 
-        # Part 2: SRPMs
-        # 
-
-        for pkg_name, pkg in self.pkg_entries.items():
-            if "source_name" not in pkg:
-                continue
-
-            source_name = pkg["source_name"]
-
-            for current_level in range(0, self.MAX_LEVEL + 1):
-                level_name = "level{num}".format(num=str(current_level))
-                
-                for workload_conf_id, pkg_names_requiring_this in pkg[level_name]["workload_requirements"].items():
-                    maintainer = self.query.configs["workloads"][workload_conf_id]["maintainer"]
-                    if maintainer not in self.srpm_entries[source_name]["ownership"][level_name]:
-                        self.srpm_entries[source_name]["ownership"][level_name][maintainer] = {}
-                        self.srpm_entries[source_name]["ownership"][level_name][maintainer]["workloads"] = {}
-                        self.srpm_entries[source_name]["ownership"][level_name][maintainer]["pkg_names"] = set()
-                        self.srpm_entries[source_name]["ownership"][level_name][maintainer]["pkg_count"] = 0
-                    
-                    if workload_conf_id not in self.srpm_entries[source_name]["ownership"][level_name][maintainer]["workloads"]:
-                        self.srpm_entries[source_name]["ownership"][level_name][maintainer]["workloads"][workload_conf_id] = set()
-                    
-                    self.srpm_entries[source_name]["ownership"][level_name][maintainer]["workloads"][workload_conf_id].add(pkg_name)
-
-                    self.srpm_entries[source_name]["ownership"][level_name][maintainer]["pkg_names"].update(pkg_names_requiring_this)
-                    self.srpm_entries[source_name]["ownership"][level_name][maintainer]["pkg_count"] = len(self.srpm_entries[source_name]["ownership"][level_name][maintainer]["pkg_names"])
-
-
-def perform_additional_analyses(query):
-
-    for view_conf_id in query.configs["views"]:
-        view_conf = query.configs["views"][view_conf_id]
-
-        # This function is now only used for the obsolete dep_tracker build strategy
-        if view_conf["type"] == "compose" and view_conf["buildroot_strategy"] == "dep_tracker":
-
-            if "views" not in query.computed_data:
-                query.computed_data["views"] = {}
-
-            if not view_conf_id in query.computed_data["views"]:
-                query.computed_data["views"][view_conf_id] = {}
-
-            # Resolve ownership recommendations
-            # This is currently only supported for compose views, not addon views
-
-            if view_conf["type"] == "compose":
-
-                ownership_engine = OwnershipEngine(query)
-                component_maintainers = ownership_engine.process_view(view_conf_id)
-
-                query.computed_data["views"][view_conf_id]["srpm_maintainers"] = component_maintainers
-                query.computed_data["views"][view_conf_id]["ownership_recommendations"] = ownership_engine.srpm_entries
-
-
 
 
 
@@ -8410,23 +7381,18 @@ def main():
     settings["global_refresh_time_started"] = datetime.datetime.now().strftime("%-d %B %Y %H:%M UTC")
 
 
-    # -------------------------------------------------
-    # Stage 2: Additional analysis
-    # -------------------------------------------------
-
-    query = Query(data, configs, settings)
-
-    perform_additional_analyses(query)
-
     # measuring time of execution
     time_analysis_time = datetime_now_string()
 
 
     # -------------------------------------------------
-    # Stage 3: Generating pages and data outputs
+    # Stage 2: Generating pages and data outputs
     # -------------------------------------------------
+    
+    query = Query(data, configs, settings)
 
     generate_pages(query)
+    generate_data_files(query)
     generate_historic_data(query)
 
 

@@ -48,7 +48,6 @@ data:
   # Choose from:
   #   * none (default)
   #   * root_logs 
-  #   * dep_tracker (obsolete)
   #
   # (optional field)
   buildroot_strategy: none
