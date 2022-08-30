@@ -24,8 +24,6 @@ cd $WORK_DIR
 git clone https://github.com/minimization/content-resolver || exit 1
 cd content-resolver || exit 1
 git clone https://github.com/minimization/content-resolver-input || exit 1
-git clone https://github.com/minimization/content-resolver-input-additional || exit 1
-cp -f content-resolver-input-additional/configs/* content-resolver-input/configs/
 
 # Local output dir. Includes a dir for the history data, too.
 mkdir -p $WORK_DIR/content-resolver/out/history || exit 1
