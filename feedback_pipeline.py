@@ -1399,6 +1399,37 @@ class Analyzer():
             log("")
 
         return pkgs
+    
+    def _analyze_repos(self):
+        self.data["repos"] = {}
+        for _,repo in self.configs["repos"].items():
+            repo_id = repo["id"]
+            self.data["pkgs"][repo_id] = {}
+            self.data["repos"][repo_id] = {}
+            for arch in repo["source"]["architectures"]:
+                self.data["pkgs"][repo_id][arch] = self._analyze_pkgs(repo, arch)
+            
+            # Reading the optional composeinfo
+            self.data["repos"][repo_id]["compose_date"] = None
+            self.data["repos"][repo_id]["compose_days_ago"] = 0
+            if repo["source"]["composeinfo"]:
+                # At this point, this is all I can do. Hate me or not, it gets us
+                # what we need and won't brake anything in case things go badly. 
+                try:
+                    with urllib.request.urlopen(repo["source"]["composeinfo"]) as response:
+                        composeinfo_raw_response = response.read()
+
+                    composeinfo_data = json.loads(composeinfo_raw_response)
+                    self.data["repos"][repo_id]["composeinfo"] = composeinfo_data
+
+                    compose_date = datetime.datetime.strptime(composeinfo_data["payload"]["compose"]["date"], "%Y%m%d").date()
+                    self.data["repos"][repo_id]["compose_date"] = compose_date.strftime("%Y-%m-%d")
+
+                    date_now = datetime.datetime.now().date()
+                    self.data["repos"][repo_id]["compose_days_ago"] = (date_now - compose_date).days
+
+                except:
+                    pass
 
     def _analyze_package_relations(self, dnf_query, package_placeholders = None):
         relations = {}
@@ -4348,41 +4379,11 @@ class Analyzer():
             # List of supported arches
             all_arches = self.settings["allowed_arches"]
 
-            # Packages
+            # Repos
             log("")
-            log("=====  Analyzing Repos & Packages =====")
+            log("=====  Analyzing Repos =====")
             log("")
-            self.data["repos"] = {}
-            for _,repo in self.configs["repos"].items():
-                repo_id = repo["id"]
-                self.data["pkgs"][repo_id] = {}
-                self.data["repos"][repo_id] = {}
-                for arch in repo["source"]["architectures"]:
-                    self.data["pkgs"][repo_id][arch] = self._analyze_pkgs(repo, arch)
-                
-                # Reading the optional composeinfo
-                self.data["repos"][repo_id]["compose_date"] = None
-                self.data["repos"][repo_id]["compose_days_ago"] = 0
-                if repo["source"]["composeinfo"]:
-                    # At this point, this is all I can do. Hate me or not, it gets us
-                    # what we need and won't brake anything in case things go badly. 
-                    try:
-                        with urllib.request.urlopen(repo["source"]["composeinfo"]) as response:
-                            composeinfo_raw_response = response.read()
-
-                        composeinfo_data = json.loads(composeinfo_raw_response)
-                        self.data["repos"][repo_id]["composeinfo"] = composeinfo_data
-
-                        compose_date = datetime.datetime.strptime(composeinfo_data["payload"]["compose"]["date"], "%Y%m%d").date()
-                        self.data["repos"][repo_id]["compose_date"] = compose_date.strftime("%Y-%m-%d")
-
-                        date_now = datetime.datetime.now().date()
-                        self.data["repos"][repo_id]["compose_days_ago"] = (date_now - compose_date).days
-
-                    except:
-                        pass
-
-                    
+            self._analyze_repos()
 
             # Environments
             log("")
@@ -4441,17 +4442,17 @@ class Analyzer():
             log("")
             self._add_buildroot_to_views()
 
-            # Unwanted packages
-            log("")
-            log("=====  Adding Unwanted Packages to Views =====")
-            log("")
-            self._add_unwanted_packages_to_views()
-
             # Generate combined views for all arches
             log("")
             log("=====  Generating views_all_arches =====")
             log("")
             self. _generate_views_all_arches()
+
+            # Unwanted packages
+            log("")
+            log("=====  Adding Unwanted Packages to Views =====")
+            log("")
+            self._add_unwanted_packages_to_views()
 
             # Recommend package maintainers in views
             log("")
@@ -5689,7 +5690,9 @@ class Query():
 ###############################################################################
 ### Generating html pages! ####################################################
 ###############################################################################
-
+#
+# def generate_pages(query)
+#
 
 def _generate_html_page(template_name, template_data, page_name, settings):
     log("Generating the '{page_name}' page...".format(
@@ -5719,25 +5722,6 @@ def _generate_html_page(template_name, template_data, page_name, settings):
     ))
     with open(os.path.join(output, filename), "w") as file:
         file.write(page)
-    
-    log("  Done!")
-    log("")
-
-
-def _generate_json_file(data, page_name, settings):
-    log("Generating the '{page_name}' JSON page...".format(
-        page_name=page_name
-    ))
-
-    output = settings["output"]
-
-    filename = ("{page_name}.json".format(
-        page_name=page_name.replace(":", "--")
-    ))
-    log("  Writing file...  ({filename})".format(
-        filename=filename
-    ))
-    dump_data(os.path.join(output, filename), data)
     
     log("  Done!")
     log("")
@@ -6202,7 +6186,126 @@ def _generate_view_pages(query):
             _generate_html_page("view_srpm", template_data, page_name, query.settings)
 
 
-def _generate_a_flat_list_file(data_list, file_name, settings):
+
+def _dump_all_data(query):
+    log("Dumping all data...")
+
+    data = {}
+    data["data"] = query.data
+    data["configs"] = query.configs
+    data["settings"] = query.settings
+    data["computed_data"] = query.computed_data
+
+    file_name = "data.json"
+    file_path = os.path.join(query.settings["output"], file_name)
+    dump_data(file_path, data)
+
+    log("  Done!")
+    log("")
+
+
+def generate_pages(query):
+
+    log("")
+    log("###############################################################################")
+    log("### Generating html pages! ####################################################")
+    log("###############################################################################")
+    log("")
+
+    # Create the jinja2 thingy
+    template_loader = jinja2.FileSystemLoader(searchpath="./templates/")
+    template_env = jinja2.Environment(
+        loader=template_loader,
+        trim_blocks=True,
+        lstrip_blocks=True
+    )
+    query.settings["jinja2_template_env"] = template_env
+
+    # Copy static files
+    log("Copying static files...")
+    src_static_dir = os.path.join("templates", "_static")
+    output_static_dir = os.path.join(query.settings["output"])
+    subprocess.run(["cp", "-R", src_static_dir, output_static_dir])
+    log("  Done!")
+    log("")
+
+    # Generate the landing page
+    _generate_html_page("homepage", None, "index", query.settings)
+
+    # Generate the main menu page
+    _generate_html_page("results", None, "results", query.settings)
+
+    # Generate config pages
+    _generate_config_pages(query)
+
+    # Generate the top-level results pages
+    template_data = {
+        "query": query
+    }
+    _generate_html_page("repos", template_data, "repos", query.settings)
+    _generate_html_page("envs", template_data, "envs", query.settings)
+    _generate_html_page("workloads", template_data, "workloads", query.settings)
+    _generate_html_page("labels", template_data, "labels", query.settings)
+    _generate_html_page("views", template_data, "views", query.settings)
+    _generate_html_page("maintainers", template_data, "maintainers", query.settings)
+    
+    # Generate repo pages
+    _generate_repo_pages(query)
+
+    # Generate maintainer pages
+    _generate_maintainer_pages(query)
+
+    # Generate env_overview pages
+    _generate_env_pages(query)
+
+    # Generate workload_overview pages
+    _generate_workload_pages(query)
+
+    # Generate view pages
+    _generate_view_pages(query)
+
+    # Dump all data
+    # The data is now pretty huge and not really needed anyway
+    #if not query.settings["use_cache"]:
+    #    _dump_all_data(query)
+
+    # Generate the errors page
+    template_data = {
+        "query": query
+    }
+    _generate_html_page("errors", template_data, "errors", query.settings)
+
+
+
+
+
+###############################################################################
+### Generating data files! ####################################################
+###############################################################################
+#
+# def generate_data_files(query)
+#
+
+def _generate_json_file(data, page_name, settings):
+    log("Generating the '{page_name}' JSON file...".format(
+        page_name=page_name
+    ))
+
+    output = settings["output"]
+
+    filename = ("{page_name}.json".format(
+        page_name=page_name.replace(":", "--")
+    ))
+    log("  Writing file...  ({filename})".format(
+        filename=filename
+    ))
+    dump_data(os.path.join(output, filename), data)
+    
+    log("  Done!")
+    log("")
+
+
+def _generate_txt_file(data_list, file_name, settings):
 
     file_contents = "\n".join(data_list)
 
@@ -6332,7 +6435,7 @@ def _generate_view_lists(query):
                     view_conf_id=view_conf_id,
                     arch=arch
                 )
-                _generate_a_flat_list_file(sorted(list(list_content)), file_name, query.settings)
+                _generate_txt_file(sorted(list(list_content)), file_name, query.settings)
 
                 # Populate the all-arch lists
                 if list_name not in all_arches_lists:
@@ -6347,96 +6450,131 @@ def _generate_view_lists(query):
                 list_name=list_name,
                 view_conf_id=view_conf_id
             )
-            _generate_a_flat_list_file(sorted(list(list_content)), file_name, query.settings)
-
-
-def _dump_all_data(query):
-    log("Dumping all data...")
-
-    data = {}
-    data["data"] = query.data
-    data["configs"] = query.configs
-    data["settings"] = query.settings
-    data["computed_data"] = query.computed_data
-
-    file_name = "data.json"
-    file_path = os.path.join(query.settings["output"], file_name)
-    dump_data(file_path, data)
-
-    log("  Done!")
-    log("")
-
-
-def generate_pages(query):
-
-    log("")
-    log("###############################################################################")
-    log("### Generating html pages! ####################################################")
-    log("###############################################################################")
-    log("")
-
-    # Create the jinja2 thingy
-    template_loader = jinja2.FileSystemLoader(searchpath="./templates/")
-    template_env = jinja2.Environment(
-        loader=template_loader,
-        trim_blocks=True,
-        lstrip_blocks=True
-    )
-    query.settings["jinja2_template_env"] = template_env
-
-    # Copy static files
-    log("Copying static files...")
-    src_static_dir = os.path.join("templates", "_static")
-    output_static_dir = os.path.join(query.settings["output"])
-    subprocess.run(["cp", "-R", src_static_dir, output_static_dir])
-    log("  Done!")
-    log("")
-
-    # Generate the landing page
-    _generate_html_page("homepage", None, "index", query.settings)
-
-    # Generate the main menu page
-    _generate_html_page("results", None, "results", query.settings)
-
-    # Generate config pages
-    _generate_config_pages(query)
-
-    # Generate the top-level results pages
-    template_data = {
-        "query": query
-    }
-    _generate_html_page("repos", template_data, "repos", query.settings)
-    _generate_html_page("envs", template_data, "envs", query.settings)
-    _generate_html_page("workloads", template_data, "workloads", query.settings)
-    _generate_html_page("labels", template_data, "labels", query.settings)
-    _generate_html_page("views", template_data, "views", query.settings)
-    _generate_html_page("maintainers", template_data, "maintainers", query.settings)
+            _generate_txt_file(sorted(list(list_content)), file_name, query.settings)
     
-    # Generate repo pages
-    _generate_repo_pages(query)
+    log("Done!")
+    log("")
 
-    # Generate maintainer pages
-    _generate_maintainer_pages(query)
 
-    # Generate env_overview pages
-    _generate_env_pages(query)
+def _generate_env_json_files(query):
 
-    # Generate workload_overview pages
-    _generate_workload_pages(query)
+    log("Generating JSON files for environments...")
+    
+    # == envs
+    log("")
+    log("Envs:")
+    for env_conf_id, env_conf in query.configs["envs"].items():
 
-    # Generate view pages
-    _generate_view_pages(query)
+        # === Config
 
-    # Dump all data
-    # The data is now pretty huge and not really needed anyway
-    #if not query.settings["use_cache"]:
-    #    _dump_all_data(query)
+        log("")
+        log("  Config for: {}".format(env_conf_id))
 
-    # Generate the errors page
-    template_data = {
-        "query": query
-    }
-    _generate_html_page("errors", template_data, "errors", query.settings)
+        # Where to save
+        data_name = "env-conf--{env_conf_id_slug}".format(
+            env_conf_id_slug = query.url_slug_id(env_conf_id)
+        )
+
+        # What to save
+        output_data = {}
+        output_data["id"] = env_conf_id
+        output_data["type"] = "env_conf"
+        output_data["data"] = query.configs["envs"][env_conf_id]
+
+        # And save it
+        _generate_json_file(output_data, data_name, query.settings)
+
+
+        # === Results
+
+        for env_id in query.envs(env_conf_id, None, None, list_all=True):
+            env = query.data["envs"][env_id]
+
+            log("  Results: {}".format(env_id))
+
+            # Where to save
+            data_name = "env--{env_id_slug}".format(
+                env_id_slug = query.url_slug_id(env_id)
+            )
+
+            # What to save
+            output_data = {}
+            output_data["id"] = env_id
+            output_data["type"] = "env"
+            output_data["data"] = query.data["envs"][env_id]
+            output_data["pkg_query"] = query.env_pkgs_id(env_id)
+
+            # And save it
+            _generate_json_file(output_data, data_name, query.settings)
+
+    log("  Done!")
+    log("")
+
+
+def _generate_workload_json_files(query):
+
+    log("Generating JSON files for workloads...")
+
+    # == Workloads
+    log("")
+    log("Workloads:")
+    for workload_conf_id, workload_conf in query.configs["workloads"].items():
+
+        # === Config
+
+        log("")
+        log("  Config for: {}".format(workload_conf_id))
+
+        # Where to save
+        data_name = "workload-conf--{workload_conf_id_slug}".format(
+            workload_conf_id_slug = query.url_slug_id(workload_conf_id)
+        )
+
+        # What to save
+        output_data = {}
+        output_data["id"] = workload_conf_id
+        output_data["type"] = "workload_conf"
+        output_data["data"] = query.configs["workloads"][workload_conf_id]
+
+        # And save it
+        _generate_json_file(output_data, data_name, query.settings)
+
+
+        # === Results
+
+        for workload_id in query.workloads(workload_conf_id, None, None, None, list_all=True):
+            workload = query.data["workloads"][workload_id]
+
+            log("  Results: {}".format(workload_id))
+
+            # Where to save
+            data_name = "workload--{workload_id_slug}".format(
+                workload_id_slug = query.url_slug_id(workload_id)
+            )
+
+            # What to save
+            output_data = {}
+            output_data["id"] = workload_id
+            output_data["type"] = "workload"
+            output_data["data"] = query.data["workloads"][workload_id]
+            output_data["pkg_query"] = query.workload_pkgs_id(workload_id)
+
+            # And save it
+            _generate_json_file(output_data, data_name, query.settings)
+
+    log("  Done!")
+    log("")
+
+
+def _generate_maintainers_json_file(query):
+
+    log("Generating the maintainers json file...")
+
+    maintainer_data = query.maintainers()
+    _generate_json_file(maintainer_data, "maintainers", query.settings)
+
+    log("  Done!")
+    log("")
 
 
 def generate_data_files(query):
@@ -6450,10 +6588,14 @@ def generate_data_files(query):
     # Generate the package lists for views
     _generate_view_lists(query)
 
+    # Generate the JSON files for envs 
+    _generate_env_json_files(query)
+
+    # Generate the JSON files for workloads 
+    _generate_workload_json_files(query)
+
     # Generate data for the top-level results pages
-    log("Generating the maintainers json file...")
-    maintainer_data = query.maintainers()
-    _generate_json_file(maintainer_data, "maintainers", query.settings)
+    _generate_maintainers_json_file(query)
 
 
 
@@ -6462,289 +6604,9 @@ def generate_data_files(query):
 ###############################################################################
 ### Historic Data #############################################################
 ###############################################################################
-
-
-def _save_package_history(query):
-    # This is generating historic (and present) package lists
-    # Data for the historic charts is the function below
-
-    log("Generating current package history lists...")
-
-
-    # /history/
-    # /history/2020-week_28/
-    # /history/2020-week_28/workload--WORKLOAD_ID.json
-    # /history/2020-week_28/workload-conf--WORKLOAD_CONF_ID.json
-    # /history/2020-week_28/env--ENV_ID.json
-    # /history/2020-week_28/env-conf--ENV_CONF_ID.json
-    # /history/2020-week_28/view--VIEW_CONF_ID.json
-
-    # Where to save it
-    year = datetime.datetime.now().strftime("%Y")
-    week = datetime.datetime.now().strftime("%W")
-    date = str(datetime.datetime.now().strftime("%Y-%m-%d"))
-
-    output_dir = os.path.join(query.settings["output"], "history")
-    output_subdir = "{year}-week_{week}".format(
-        year=year,
-        week=week
-    )
-    subprocess.run(["mkdir", "-p", os.path.join(output_dir, output_subdir)])
-
-    # Also save the current data to the standard output dir
-    current_version_output_dir = query.settings["output"]
-
-    # == Workloads
-    log("")
-    log("Workloads:")
-    for workload_conf_id, workload_conf in query.configs["workloads"].items():
-
-        # === Config
-
-        log("")
-        log("  Config for: {}".format(workload_conf_id))
-
-        # Where to save
-        filename = "workload-conf--{workload_conf_id_slug}.json".format(
-            workload_conf_id_slug = query.url_slug_id(workload_conf_id)
-        )
-        file_path = os.path.join(output_dir, output_subdir, filename)
-        current_version_file_path = os.path.join(current_version_output_dir, filename)
-
-        # What to save
-        output_data = {}
-        output_data["date"] = date
-        output_data["id"] = workload_conf_id
-        output_data["type"] = "workload_conf"
-        output_data["data"] = query.configs["workloads"][workload_conf_id]
-
-        # And save it
-        log("    Saving in: {file_path}".format(
-            file_path=file_path
-        ))
-        dump_data(file_path, output_data)
-
-        # Also save the current data to the standard output dir
-        log("    Saving in: {current_version_file_path}".format(
-            current_version_file_path=current_version_file_path
-        ))
-        dump_data(current_version_file_path, output_data)
-
-
-        # === Results
-
-        for workload_id in query.workloads(workload_conf_id, None, None, None, list_all=True):
-            workload = query.data["workloads"][workload_id]
-
-            log("  Results: {}".format(workload_id))
-
-            # Where to save
-            filename = "workload--{workload_id_slug}.json".format(
-                workload_id_slug = query.url_slug_id(workload_id)
-            )
-            file_path = os.path.join(output_dir, output_subdir, filename)
-            current_version_file_path = os.path.join(current_version_output_dir, filename)
-
-            # What to save
-            output_data = {}
-            output_data["date"] = date
-            output_data["id"] = workload_id
-            output_data["type"] = "workload"
-            output_data["data"] = query.data["workloads"][workload_id]
-            output_data["pkg_query"] = query.workload_pkgs_id(workload_id)
-
-            # And save it
-            log("    Saving in: {file_path}".format(
-                file_path=file_path
-            ))
-            dump_data(file_path, output_data)
-
-            # Also save the current data to the standard output dir
-            log("    Saving in: {current_version_file_path}".format(
-                current_version_file_path=current_version_file_path
-            ))
-            dump_data(current_version_file_path, output_data)
-    
-    # == envs
-    log("")
-    log("Envs:")
-    for env_conf_id, env_conf in query.configs["envs"].items():
-
-        # === Config
-
-        log("")
-        log("  Config for: {}".format(env_conf_id))
-
-        # Where to save
-        filename = "env-conf--{env_conf_id_slug}.json".format(
-            env_conf_id_slug = query.url_slug_id(env_conf_id)
-        )
-        file_path = os.path.join(output_dir, output_subdir, filename)
-        current_version_file_path = os.path.join(current_version_output_dir, filename)
-
-        # What to save
-        output_data = {}
-        output_data["date"] = date
-        output_data["id"] = env_conf_id
-        output_data["type"] = "env_conf"
-        output_data["data"] = query.configs["envs"][env_conf_id]
-
-        # And save it
-        log("    Saving in: {file_path}".format(
-            file_path=file_path
-        ))
-        dump_data(file_path, output_data)
-
-        # Also save the current data to the standard output dir
-        log("    Saving in: {current_version_file_path}".format(
-            current_version_file_path=current_version_file_path
-        ))
-        dump_data(current_version_file_path, output_data)
-
-
-        # === Results
-
-        for env_id in query.envs(env_conf_id, None, None, list_all=True):
-            env = query.data["envs"][env_id]
-
-            log("  Results: {}".format(env_id))
-
-            # Where to save
-            filename = "env--{env_id_slug}.json".format(
-                env_id_slug = query.url_slug_id(env_id)
-            )
-            file_path = os.path.join(output_dir, output_subdir, filename)
-            current_version_file_path = os.path.join(current_version_output_dir, filename)
-
-            # What to save
-            output_data = {}
-            output_data["date"] = date
-            output_data["id"] = env_id
-            output_data["type"] = "env"
-            output_data["data"] = query.data["envs"][env_id]
-            output_data["pkg_query"] = query.env_pkgs_id(env_id)
-
-            # And save it
-            log("    Saving in: {file_path}".format(
-                file_path=file_path
-            ))
-            dump_data(file_path, output_data)
-
-            # Also save the current data to the standard output dir
-            log("    Saving in: {current_version_file_path}".format(
-                current_version_file_path=current_version_file_path
-            ))
-            dump_data(current_version_file_path, output_data)
-    
-    # == views
-    log("")
-    log("views:")
-    for view_conf_id, view_conf in query.configs["views"].items():
-
-        # === Config
-
-        log("")
-        log("  Config for: {}".format(view_conf_id))
-
-        # Where to save
-        filename = "view-conf--{view_conf_id_slug}.json".format(
-            view_conf_id_slug = query.url_slug_id(view_conf_id)
-        )
-        file_path = os.path.join(output_dir, output_subdir, filename)
-        current_version_file_path = os.path.join(current_version_output_dir, filename)
-
-        # What to save
-        output_data = {}
-        output_data["date"] = date
-        output_data["id"] = view_conf_id
-        output_data["type"] = "view_conf"
-        output_data["data"] = query.configs["views"][view_conf_id]
-
-        # And save it
-        log("    Saving in: {file_path}".format(
-            file_path=file_path
-        ))
-        dump_data(file_path, output_data)
-
-        # Also save the current data to the standard output dir
-        log("    Saving in: {current_version_file_path}".format(
-            current_version_file_path=current_version_file_path
-        ))
-        dump_data(current_version_file_path, output_data)
-
-
-        # === Results
-
-        for arch in query.arches_in_view(view_conf_id):
-
-            log("  Results: {}".format(env_id))
-
-            view_id = "{view_conf_id}:{arch}".format(
-                view_conf_id=view_conf_id,
-                arch=arch
-            )
-
-            # Where to save
-            filename = "view--{view_id_slug}.json".format(
-                view_id_slug = query.url_slug_id(view_id)
-            )
-            file_path = os.path.join(output_dir, output_subdir, filename)
-            current_version_file_path = os.path.join(current_version_output_dir, filename)
-
-            # What to save
-            output_data = {}
-            output_data["date"] = date
-            output_data["id"] = view_id
-            output_data["type"] = "view"
-            output_data["workload_ids"] = query.workloads_in_view(view_conf_id, arch)
-            output_data["pkg_query"] = query.pkgs_in_view(view_conf_id, arch)
-            output_data["unwanted_pkg"] = query.view_unwanted_pkgs(view_conf_id, arch)
-            
-
-            # And save it
-            log("    Saving in: {file_path}".format(
-                file_path=file_path
-            ))
-            dump_data(file_path, output_data)
-
-            # Also save the current data to the standard output dir
-            log("    Saving in: {current_version_file_path}".format(
-                current_version_file_path=current_version_file_path
-            ))
-            dump_data(current_version_file_path, output_data)
-
-
-            # == Also, save the buildroot data
-
-            # Where to save
-            filename = "view-buildroot--{view_id_slug}.json".format(
-                view_id_slug = query.url_slug_id(view_id)
-            )
-            file_path = os.path.join(output_dir, output_subdir, filename)
-            current_version_file_path = os.path.join(current_version_output_dir, filename)
-
-            # What to save
-            output_data = {}
-            output_data["date"] = date
-            output_data["id"] = view_id
-            output_data["type"] = "view-buildroot"
-            output_data["pkgs"] = query.view_buildroot_pkgs(view_conf_id, arch)
-
-            # And save it
-            log("    Saving in: {file_path}".format(
-                file_path=file_path
-            ))
-            dump_data(file_path, output_data)
-
-            # Also save the current data to the standard output dir
-            log("    Saving in: {current_version_file_path}".format(
-                current_version_file_path=current_version_file_path
-            ))
-            dump_data(current_version_file_path, output_data)
-
-
-    log("  Done!")
-    log("")
+#
+# def generate_historic_data(query)
+#
 
 
 def _save_current_historic_data(query):
@@ -6875,28 +6737,6 @@ def _read_historic_data(query):
     log("")
 
 
-def _save_json_data_entry(entry_name, entry_data, settings):
-    log("Generating data entry for {entry_name}".format(
-        entry_name=entry_name
-    ))
-
-    output = settings["output"]
-
-    filename = ("{entry_name}.json".format(
-        entry_name=entry_name.replace(":", "--")
-    ))
-
-    log("  Writing file...  ({filename})".format(
-        filename=filename
-    ))
-
-    with open(os.path.join(output, filename), "w") as file:
-        json.dump(entry_data, file)
-    
-    log("  Done!")
-    log("")
-
-
 def _generate_chartjs_data(historic_data, query):
 
     # Data for workload pages
@@ -6937,7 +6777,7 @@ def _generate_chartjs_data(historic_data, query):
         entry_name = "chartjs-data--workload--{workload_id}".format(
             workload_id=workload_id
         )
-        _save_json_data_entry(entry_name, entry_data, query.settings)
+        _generate_json_file(entry_data, entry_name, query.settings)
     
     # Data for workload overview pages
     for workload_conf_id in query.workloads(None,None,None,None,output_change="workload_conf_ids"):
@@ -6985,7 +6825,7 @@ def _generate_chartjs_data(historic_data, query):
                 workload_conf_id=workload_conf_id,
                 repo_id=repo_id
             )
-            _save_json_data_entry(entry_name, entry_data, query.settings)
+            _generate_json_file(entry_data, entry_name, query.settings)
     
     # Data for workload cmp arches pages
     for workload_conf_id in query.workloads(None,None,None,None,output_change="workload_conf_ids"):
@@ -7037,7 +6877,7 @@ def _generate_chartjs_data(historic_data, query):
                     env_conf_id=env_conf_id,
                     repo_id=repo_id
                 )
-                _save_json_data_entry(entry_name, entry_data, query.settings)
+                _generate_json_file(entry_data, entry_name, query.settings)
     
     # Data for workload cmp envs pages
     for workload_conf_id in query.workloads(None,None,None,None,output_change="workload_conf_ids"):
@@ -7089,7 +6929,7 @@ def _generate_chartjs_data(historic_data, query):
                     repo_id=repo_id,
                     arch=arch
                 )
-                _save_json_data_entry(entry_name, entry_data, query.settings)
+                _generate_json_file(entry_data, entry_name, query.settings)
     
     # Data for env pages
     for env_id in query.envs(None, None, None, list_all=True):
@@ -7130,7 +6970,7 @@ def _generate_chartjs_data(historic_data, query):
         entry_name = "chartjs-data--env--{env_id}".format(
             env_id=env_id
         )
-        _save_json_data_entry(entry_name, entry_data, query.settings)
+        _generate_json_file(entry_data, entry_name, query.settings)
     
     # Data for env overview pages
     for env_conf_id in query.envs(None,None,None,output_change="env_conf_ids"):
@@ -7178,7 +7018,7 @@ def _generate_chartjs_data(historic_data, query):
                 env_conf_id=env_conf_id,
                 repo_id=repo_id
             )
-            _save_json_data_entry(entry_name, entry_data, query.settings)
+            _generate_json_file(entry_data, entry_name, query.settings)
     
     # Data for env cmp arches pages
     for env_conf_id in query.envs(None,None,None,output_change="env_conf_ids"):
@@ -7226,7 +7066,7 @@ def _generate_chartjs_data(historic_data, query):
                 env_conf_id=env_conf_id,
                 repo_id=repo_id
             )
-            _save_json_data_entry(entry_name, entry_data, query.settings)
+            _generate_json_file(entry_data, entry_name, query.settings)
     
     # Data for view pages 
     for view_conf_id in query.configs["views"].keys():
@@ -7317,7 +7157,7 @@ def _generate_chartjs_data(historic_data, query):
         entry_name = "chartjs-data--view--{view_conf_id}".format(
             view_conf_id=view_conf_id
         )
-        _save_json_data_entry(entry_name, entry_data, query.settings)
+        _generate_json_file(entry_data, entry_name, query.settings)
 
 
 def generate_historic_data(query):
@@ -7326,9 +7166,6 @@ def generate_historic_data(query):
     log("### Historic Data #############################################################")
     log("###############################################################################")
     log("")
-
-    # Save historic package lists
-    _save_package_history(query)
 
     # Step 1: Save current data
     _save_current_historic_data(query)
@@ -7359,8 +7196,9 @@ def main():
     time_started = datetime_now_string()
 
     settings = load_settings()
-
     
+    settings["global_refresh_time_started"] = datetime.datetime.now().strftime("%-d %B %Y %H:%M UTC")
+
 
 
     if settings["use_cache"]:
@@ -7376,10 +7214,6 @@ def main():
             dump_data("cache_data.json", data)
 
     
-    
-
-    settings["global_refresh_time_started"] = datetime.datetime.now().strftime("%-d %B %Y %H:%M UTC")
-
 
     # measuring time of execution
     time_analysis_time = datetime_now_string()
