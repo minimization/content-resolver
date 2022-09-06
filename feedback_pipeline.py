@@ -5959,10 +5959,17 @@ def _generate_maintainer_pages(query):
             "maintainer": maintainer
         }
 
+        # Overview page
         page_name = "maintainer--{maintainer}".format(
             maintainer=maintainer
         )
-        _generate_html_page("maintainer", template_data, page_name, query.settings)
+        _generate_html_page("maintainer_overview", template_data, page_name, query.settings)
+
+        # My Workloads page
+        page_name = "maintainer-workloads--{maintainer}".format(
+            maintainer=maintainer
+        )
+        _generate_html_page("maintainer_workloads", template_data, page_name, query.settings)
 
     log("  Done!")
     log("")
@@ -6566,6 +6573,30 @@ def _generate_workload_json_files(query):
     log("")
 
 
+def _generate_view_json_files(query):
+
+    log("Generating JSON files for views...")
+    for view_conf_id, view_conf in query.configs["views"].items():
+        view_all_arches = query.data["views_all_arches"][view_conf_id]
+
+        # Where to save
+        data_name = "view-packages--{view_id_slug}".format(
+            view_id_slug = query.url_slug_id(view_conf_id)
+        )
+
+        # What to save
+        output_data = {}
+        output_data["id"] = view_conf_id
+        output_data["pkgs"] = view_all_arches["pkgs_by_nevr"]
+
+        # And save it
+        _generate_json_file(output_data, data_name, query.settings)
+
+
+    log("  Done!")
+    log("")
+
+
 def _generate_maintainers_json_file(query):
 
     log("Generating the maintainers json file...")
@@ -6593,6 +6624,9 @@ def generate_data_files(query):
 
     # Generate the JSON files for workloads 
     _generate_workload_json_files(query)
+
+    # Generate the JSON files for views
+    _generate_view_json_files(query)
 
     # Generate data for the top-level results pages
     _generate_maintainers_json_file(query)
