@@ -6587,7 +6587,23 @@ def _generate_view_json_files(query):
         # What to save
         output_data = {}
         output_data["id"] = view_conf_id
-        output_data["pkgs"] = view_all_arches["pkgs_by_nevr"]
+        output_data["pkgs"] = {}
+
+        keys_to_save = [
+            "name",
+            "source_name",
+            "arches",
+            "placeholder",
+            "hard_dependency_of_pkg_nevrs",
+            "weak_dependency_of_pkg_nevrs",
+            "level_number"
+        ]
+
+        for pkg_id, pkg in view_all_arches["pkgs_by_nevr"].items():
+            output_data["pkgs"][pkg_id] = {}
+
+            for key in keys_to_save:
+                output_data["pkgs"][pkg_id][key] = pkg[key]
 
         # And save it
         _generate_json_file(output_data, data_name, query.settings)
