@@ -910,7 +910,7 @@ def get_configs(settings):
 
 
                 # === Case: Repository config ===
-                if document["document"] == "feedback-pipeline-repository":
+                if document["document"] in ["content-resolver-repository", "feedback-pipeline-repository"]:
                     if document["version"] == 1:
                         configs["repos"][document_id] = _load_config_repo(document_id, document, settings)
                     
@@ -918,32 +918,32 @@ def get_configs(settings):
                         configs["repos"][document_id] = _load_config_repo_v2(document_id, document, settings)
 
                 # === Case: Environment config ===
-                if document["document"] == "feedback-pipeline-environment":
+                if document["document"] in ["content-resolver-environment", "feedback-pipeline-environment"]:
                     configs["envs"][document_id] = _load_config_env(document_id, document, settings)
 
                 # === Case: Workload config ===
-                if document["document"] == "feedback-pipeline-workload":
+                if document["document"] in ["content-resolver-workload", "feedback-pipeline-workload"]:
                     configs["workloads"][document_id] = _load_config_workload(document_id, document, settings)
                 
                 # === Case: Label config ===
-                if document["document"] == "feedback-pipeline-label":
+                if document["document"] in ["content-resolver-label", "feedback-pipeline-label"]:
                     configs["labels"][document_id] = _load_config_label(document_id, document, settings)
 
                 # === Case: View config ===
                 #  (Also including the legacy "feedback-pipeline-compose-view" for backwards compatibility)
-                if document["document"] in ["feedback-pipeline-view", "feedback-pipeline-compose-view"]:
+                if document["document"] in ["content-resolver-view", "content-resolver-compose-view", "feedback-pipeline-view", "feedback-pipeline-compose-view"]:
                     configs["views"][document_id] = _load_config_compose_view(document_id, document, settings)
 
                 # === Case: View addon config ===
-                if document["document"] == "feedback-pipeline-view-addon":
+                if document["document"] in ["content-resolver-view-addon", "feedback-pipeline-view-addon"]:
                     configs["views"][document_id] = _load_config_addon_view(document_id, document, settings)
 
                 # === Case: Unwanted config ===
-                if document["document"] == "feedback-pipeline-unwanted":
+                if document["document"] in ["content-resolver-unwanted", "feedback-pipeline-unwanted"]:
                     configs["unwanteds"][document_id] = _load_config_unwanted(document_id, document, settings)
 
                 # === Case: Buildroot config ===
-                if document["document"] == "feedback-pipeline-buildroot":
+                if document["document"] in ["content-resolver-buildroot", "feedback-pipeline-buildroot"]:
                     configs["buildroots"][document_id] = _load_config_buildroot(document_id, document, settings)
 
         except ConfigError as err:
@@ -3759,6 +3759,7 @@ class Analyzer():
                             view_all_arches[key][identifier]["evr"] = package["evr"]
                             view_all_arches[key][identifier]["source_name"] = package["source_name"]
                             view_all_arches[key][identifier]["arches"] = set()
+                            view_all_arches[key][identifier]["arches_arches"] = {}
                             view_all_arches[key][identifier]["reponame_per_arch"] = {}
                             view_all_arches[key][identifier]["highest_priority_reponames_per_arch"] = {}
                             view_all_arches[key][identifier]["category"] = None
@@ -3768,6 +3769,10 @@ class Analyzer():
                         view_all_arches[key][identifier]["arches"].add(arch)
                         view_all_arches[key][identifier]["reponame_per_arch"][arch] = package["reponame"]
                         view_all_arches[key][identifier]["highest_priority_reponames_per_arch"][arch] = package["highest_priority_reponames"]
+
+                        if arch not in view_all_arches[key][identifier]["arches_arches"]:
+                            view_all_arches[key][identifier]["arches_arches"][arch] = set()
+                        view_all_arches[key][identifier]["arches_arches"][arch].add(package["arch"])
 
                         self._populate_pkg_or_srpm_relations_fields(view_all_arches[key][identifier], package, type="rpm", view=view)
 
@@ -6592,10 +6597,11 @@ def _generate_view_json_files(query):
         keys_to_save = [
             "name",
             "source_name",
-            "arches",
+            "arches_arches",
             "placeholder",
             "hard_dependency_of_pkg_nevrs",
             "weak_dependency_of_pkg_nevrs",
+            "in_workload_conf_ids_req",
             "level_number"
         ]
 
