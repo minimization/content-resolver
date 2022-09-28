@@ -2873,6 +2873,9 @@ class Analyzer():
                 if koji_log["dir"] == arch or koji_log["dir"] == "noarch":
                     koji_log_path = koji_log["path"]
         
+        if not koji_log_path:
+            return []
+
         root_log_url = "{koji_files_url}/{koji_log_path}".format(
             koji_files_url=koji_files_url,
             koji_log_path=koji_log_path
