@@ -4450,17 +4450,17 @@ class Analyzer():
             log("")
             self._add_buildroot_to_views()
 
-            # Generate combined views for all arches
-            log("")
-            log("=====  Generating views_all_arches =====")
-            log("")
-            self. _generate_views_all_arches()
-
             # Unwanted packages
             log("")
             log("=====  Adding Unwanted Packages to Views =====")
             log("")
             self._add_unwanted_packages_to_views()
+
+            # Generate combined views for all arches
+            log("")
+            log("=====  Generating views_all_arches =====")
+            log("")
+            self. _generate_views_all_arches()
 
             # Recommend package maintainers in views
             log("")
