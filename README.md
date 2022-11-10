@@ -124,7 +124,7 @@ $ podman run --rm -it --tmpfs /dnf_cachedir -v $(pwd):/workspace:z content-resol
 
 ```
 # mkdir -p output/history
-# ./feedback_pipeline.py --dnf-cache-dir /dnf_cachedir test_configs output
+# ./feedback_pipeline.py --dev-buildroot --dnf-cache-dir /dnf_cachedir test_configs output
 ```
 
 The output will be generated in the `output` directory. Open the `output/index.html` in your web browser of choice to see the result.
@@ -140,7 +140,7 @@ $ docker run --rm -it --tmpfs /dnf_cachedir -v $(pwd):/workspace content-resolve
 
 ```
 # mkdir -p output/history
-# ./feedback_pipeline.py --dnf-cache-dir /dnf_cachedir test_configs output
+# ./feedback_pipeline.py --dev-buildroot --dnf-cache-dir /dnf_cachedir test_configs output
 ```
 
 The output will be generated in the `output` directory. Open the `output/index.html` in your web browser of choice to see the result.
