@@ -1,0 +1,13 @@
+---
+document: feedback-pipeline-compose-view
+version: 1
+data:
+  name: ELN Package Set
+  description: You can think about it as Enterprise Linux Next. More info https://fedoraproject.org/wiki/ELN
+  maintainer: bakery
+  labels:
+  - eln
+  repository: repo-test
+  buildroot_strategy: dep_tracker
+  
+

@@ -1,0 +1,51 @@
+---
+# This configuration file defines a "Repository" in Feedback Pipeline.
+# https://tiny.distro.builders
+#
+# Repositories are the sources of the data.
+# Right now, they represent Fedora releases, but can be extended in the future.
+
+document: feedback-pipeline-repository
+version: 2
+data:
+  # id is the filename — that automatically prevents collisions for free!
+
+
+  ### MANDATORY FIELDS ###
+  
+  # Name is an identifier for humans
+  #
+  # (mandatory field)
+  name: Content Resolver Test
+  
+  # A short description, perhaps hinting the purpose
+  #
+  # (mandatory field)
+  description: Stable Repo used for testing
+
+  # Who maintains it? This is just a freeform string
+  # for humans to read. In Fedora, a FAS nick is recommended.
+  #
+  # (mandatory field)
+  maintainer: tdawson
+
+  # Where does this repository come from?
+  # Right now, only Fedora repositories are supported,
+  # defined by their releasever.
+  # 
+  # (mandatory field)
+  source:
+ 
+    repos:
+
+      everything:
+        baseurl: https://kojipkgs.fedoraproject.org/compose/34/Fedora-34-20210423.0/compose/Everything/$basearch/os/
+      
+      modular:
+        baseurl: https://kojipkgs.fedoraproject.org/compose/34/Fedora-34-20210423.0/compose//Modular/$basearch/os/
+
+    releasever: "34"
+
+    architectures:
+    - aarch64
+    - x86_64
