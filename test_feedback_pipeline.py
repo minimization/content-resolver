@@ -1,46 +1,47 @@
 #!/usr/bin/python3
 
 import feedback_pipeline
-import filecmp
+
+import collections
+import json
 import os
-from shutil import rmtree, copytree, ignore_patterns
 
-def create_mock_settings(settings={}):
-    settings["configs"] = "test_input"
-    settings["output"] = "output"
-    settings["use_cache"] = False
-    settings["dev_buildroot"] = True
-    settings["dnf_cache_dir_override"] = "/tmp/test_cr" 
-    settings["root_log_deps_cache_path"] = "cache_root_log_deps.json"
-    settings["max_subprocesses"] = 10
-    settings["allowed_arches"] = ["armv7hl", "aarch64", "ppc64le", "s390x", "x86_64"]
-    settings["weird_packages_that_can_not_be_installed"] = ["glibc32"]
-    settings["global_refresh_time_started"]= '28 November 2022 16:23 UTC'
+from jsondiff import diff
+from shutil import rmtree
 
-    return settings
 
-def test_mock_settings():
+def create_mock_argv(settings={}):
+    return [
+        "--dev-buildroot", "--dnf-cache-dir",
+        "/tmp/test_cr", "test_data/bash/input", "output"]
+
+# We need some of the keys sorted so that we can compare them
+# between runs
+def recursive_sort(data):
+    apply = lambda x: recursive_sort(x)
+    if isinstance(data, collections.Mapping):
+        return type(data)({k: apply(v) for k, v in data.items()})
+    elif isinstance(data, collections.Collection):
+        if all(isinstance(x, str) for x in  data):
+            return type(data)(sorted(list(data)))
+        return data
+    else:
+        return data
+
+def test_mock_argv():
     rmtree("output", ignore_errors=True)
     rmtree("json_output", ignore_errors=True)
     os.mkdir("output")
     os.mkdir("output/history")
+    feedback_pipeline.main(create_mock_argv())
+    files_to_check = os.scandir("test_data/bash/output")
+    for f in files_to_check:
+        with open(f.path) as t0:
+          js0 = recursive_sort(json.load(t0))
+        with open("output/"+f.name) as t1:
+          js1 = recursive_sort(json.load(t1))
 
-    settings = create_mock_settings()
-    configs = feedback_pipeline.get_configs(settings)
-    analyzer = feedback_pipeline.Analyzer(configs, settings)
-    data = analyzer.analyze_things()
-
-    feedback_pipeline.dump_data("cache_configs.json", configs)
-    feedback_pipeline.dump_data("cache_data.json", data)
-    query = feedback_pipeline.Query(data, configs, settings)
-    feedback_pipeline.generate_pages(query)
-    feedback_pipeline.generate_data_files(query)
-    feedback_pipeline.generate_historic_data(query)
-    copytree("output", "json_output", ignore=ignore_patterns('_static','*.html', '*.txt'))
-    comparison = filecmp.dircmp("json_output", "test_output")
-    assert comparison.left_only == []
-    assert comparison.right_only == []
-
+        assert diff(js0, js1) == {}, f"when comparing {f.path} and output/{f.name}"
 
 if __name__ == "__main__":
-    test_mock_settings()
+    test_mock_argv()
