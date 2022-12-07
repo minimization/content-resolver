@@ -24,7 +24,7 @@ jobs:
       run: dnf clean all
 
     - name: Run the build
-      run: ./feedback_pipeline.py test_configs output
+      run: ./feedback_pipeline.py --dev-buildroot test_configs output
     
     - name: Run tests
       run: |
