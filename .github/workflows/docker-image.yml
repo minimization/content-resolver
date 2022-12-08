@@ -23,6 +23,9 @@ jobs:
     - name: Clean up
       run: dnf clean all
 
+    - name: Create output dir
+      run: mkdir -p output/history
+
     - name: Run the build
       run: ./feedback_pipeline.py --dev-buildroot test_configs output
     
