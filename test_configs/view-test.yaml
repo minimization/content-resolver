@@ -6,7 +6,7 @@ data:
   description: Test package set based on F34
   maintainer: bakery
   labels:
-  - eln
+  - test
   repository: repo-test
   buildroot_strategy: dep_tracker
   
