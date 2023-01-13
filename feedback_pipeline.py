@@ -2729,7 +2729,7 @@ class Analyzer():
 
                 # The next installation is the build deps!
                 # So I start caring. Next state!
-                if "Executing command: ['/usr/bin/systemd-nspawn'" in file_line:
+                if "'/usr/bin/dnf', 'builddep'" in file_line:
                     state += 1
             
 
