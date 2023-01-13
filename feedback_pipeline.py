@@ -2729,7 +2729,7 @@ class Analyzer():
 
                 # The next installation is the build deps!
                 # So I start caring. Next state!
-                if "Executing command: ['/usr/bin/dnf', 'builddep'" in file_line:
+                if "'/usr/bin/dnf', 'builddep'" in file_line:
                     state += 1
             
 
@@ -2763,10 +2763,10 @@ class Analyzer():
             elif state == 3:
 
                 if "Installing dependencies:" in file_line:
-                    state += 1
+                    state = 2
 
                 elif "Transaction Summary" in file_line:
-                    state += 1
+                    state = 2
                     
                 else:
                     # I need to deal with the following thing...
