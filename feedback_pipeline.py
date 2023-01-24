@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 
-import argparse, yaml, tempfile, os, subprocess, json, jinja2, datetime, copy, re, dnf, pprint, urllib.request, sys, koji
+import argparse, yaml, tempfile, os, subprocess, json, jinja2, datetime, copy, re, dnf, pprint, urllib.request, sys, koji, htmlmin
 import concurrent.futures
 import rpm_showme as showme
 from functools import lru_cache
@@ -159,11 +159,13 @@ def load_settings(argv=None):
     parser.add_argument("--use-cache", dest="use_cache", action='store_true', help="Use local data instead of pulling Content Resolver. Saves a lot of time! Needs a 'cache_data.json' file at the same location as the script is at.")
     parser.add_argument("--dev-buildroot", dest="dev_buildroot", action='store_true', help="Buildroot grows pretty quickly. Use a fake one for development.")
     parser.add_argument("--dnf-cache-dir", dest="dnf_cache_dir_override", help="Override the dnf cache_dir.")
+    parser.add_argument("--htmlmin", dest="htmlmin", action='store_true', help="Run html minimiser while producing the pages.")
     args = parser.parse_args(argv)
 
     settings["configs"] = args.configs
     settings["output"] = args.output
     settings["use_cache"] = args.use_cache
+    settings["htmlmin"] = args.htmlmin
     settings["dev_buildroot"] = args.dev_buildroot
     settings["dnf_cache_dir_override"] = args.dnf_cache_dir_override
 
@@ -5720,6 +5722,13 @@ def _generate_html_page(template_name, template_data, page_name, settings):
     template_data["global_refresh_time_started"] = settings["global_refresh_time_started"]
 
     page = template.render(**template_data)
+
+    if settings["htmlmin"]:
+        try:
+            page = htmlmin.minify(page, remove_empty_space=True)
+        except Exception as e:
+            log("  Minification failed for...  ({})".format(filename))
+
 
     filename = ("{page_name}.html".format(
         page_name=page_name.replace(":", "--")

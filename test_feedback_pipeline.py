@@ -14,8 +14,9 @@ def feedback_pipeline_output():
     with tempfile.TemporaryDirectory() as tmp:
         os.mkdir(f"{tmp}/history")
         feedback_pipeline.main([
-            "--dev-buildroot", "--dnf-cache-dir",
-            "/tmp/test_cr", "test_configs", tmp])
+            "--dev-buildroot", "--htmlmin",
+            "--dnf-cache-dir", "/tmp/test_cr",
+            "test_configs", tmp])
         yield tmp
 
 
