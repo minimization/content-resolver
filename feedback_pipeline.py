@@ -1461,18 +1461,19 @@ class Analyzer():
                 )
                 recommended_by.add(dep_pkg_id)
             
-            for dep_pkg in dnf_query.filter(suggests=[pkg]):
-                dep_pkg_id = "{name}-{evr}.{arch}".format(
-                    name=dep_pkg.name,
-                    evr=dep_pkg.evr,
-                    arch=dep_pkg.arch
-                )
-                suggested_by.add(dep_pkg_id)
+            #for dep_pkg in dnf_query.filter(suggests=[pkg]):
+            #    dep_pkg_id = "{name}-{evr}.{arch}".format(
+            #        name=dep_pkg.name,
+            #        evr=dep_pkg.evr,
+            #        arch=dep_pkg.arch
+            #    )
+            #    suggested_by.add(dep_pkg_id)
             
             relations[pkg_id] = {}
             relations[pkg_id]["required_by"] = sorted(list(required_by))
             relations[pkg_id]["recommended_by"] = sorted(list(recommended_by))
-            relations[pkg_id]["suggested_by"] = sorted(list(suggested_by))
+            #relations[pkg_id]["suggested_by"] = sorted(list(suggested_by))
+            relations[pkg_id]["suggested_by"] = []
             relations[pkg_id]["source_name"] = pkg.source_name
             relations[pkg_id]["reponame"] = pkg.reponame
         
