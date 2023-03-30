@@ -1176,10 +1176,43 @@ class Analyzer():
         self.cache["root_log_deps"]["current"] = {}
         self.cache["root_log_deps"]["next"] = {}
 
+        self.metrics_data = []
+
         try:
             self.cache["root_log_deps"]["current"] = load_data(self.settings["root_log_deps_cache_path"])
         except FileNotFoundError:
             pass
+
+
+    def _record_metric(self, name):
+        this_record = {
+            "name": name,
+            "timestamp": datetime.datetime.now(),
+        }
+        self.metrics_data.append(this_record)
+
+
+    def print_metrics(self):
+        log("Additional metrics:")
+
+        counter = 0
+
+        for this_record in self.metrics_data:
+
+            if counter == 0:
+                prev_timestamp = this_record["timestamp"]
+            else:
+                self.metrics_data[counter-1]["timestamp"]
+
+            time_diff = this_record["timestamp"] - prev_timestamp
+
+            print("  {} (+{} mins): {}".format(
+                this_record["timestamp"].strftime("%H:%M:%S"),
+                str(int(time_diff.seconds/60)).zfill(3),
+                this_record["name"]
+            ))
+
+            counter += 1
 
     
     def _load_repo_cached(self, base, repo, arch):
@@ -3201,6 +3234,8 @@ class Analyzer():
 
     def _analyze_buildroot(self):
 
+        self._record_metric("started _analyze_buildroot()")
+
         self.data["buildroot"] = {}
         self.data["buildroot"]["koji_srpms"] = {}
         self.data["buildroot"]["koji_urls"] = {}
@@ -3234,6 +3269,8 @@ class Analyzer():
         while True:
             pass_counter += 1
 
+            self._record_metric("  started pass {}:".format(pass_counter))
+
             log("")
             log("== Buildroot resolution - pass {} ========".format(pass_counter))
             log("")
@@ -3247,12 +3284,18 @@ class Analyzer():
             # ... because it's interlinked.
             self._resolve_srpms_using_root_logs(pass_counter)
 
+            self._record_metric("    finished _resolve_srpms_using_root_logs")
+
             # And now resolving the actual buildroot
             self._analyze_srpm_buildroots(pass_counter)
+
+            self._record_metric("    finished _analyze_srpm_buildroots")
 
             # Resolving dependencies could have added new SRPMs into the mix that also
             # need their buildroots resolved! So let's find out if there are any
             new_srpms_count = self._expand_buildroot_srpms()
+
+            self._record_metric("    finished with new_srpms_count == {}".format(new_srpms_count))
 
             if not new_srpms_count:
                 log("")
@@ -4372,6 +4415,8 @@ class Analyzer():
         log("###############################################################################")
         log("")
 
+        self._record_metric("started analyze_things()")
+
         self.data["pkgs"] = {}
         self.data["envs"] = {}
         self.data["workloads"] = {}
@@ -4394,17 +4439,23 @@ class Analyzer():
             log("")
             self._analyze_repos()
 
+            self._record_metric("finished _analyze_repos()")
+
             # Environments
             log("")
             log("=====  Analyzing Environments =====")
             log("")
             self._analyze_envs()
 
+            self._record_metric("finished _analyze_envs()")
+
             # Workloads
             log("")
             log("=====  Analyzing Workloads =====")
             log("")
             self._analyze_workloads()
+
+            self._record_metric("finished _analyze_workloads()")
 
             # Views
             #
@@ -4421,6 +4472,8 @@ class Analyzer():
             log("=====  Analyzing Views =====")
             log("")
             self._analyze_views()
+
+            self._record_metric("finished _analyze_views()")
 
             # Buildroot
             # This is partially similar to workloads, because it's resolving
@@ -4440,6 +4493,8 @@ class Analyzer():
             log("")
             self._analyze_buildroot()
 
+            self._record_metric("finished _analyze_buildroot()")
+
             # Add buildroot packages to views
             # 
             # Further extends the following with buildroot packages:
@@ -4451,11 +4506,15 @@ class Analyzer():
             log("")
             self._add_buildroot_to_views()
 
+            self._record_metric("finished _add_buildroot_to_views()")
+
             # Unwanted packages
             log("")
             log("=====  Adding Unwanted Packages to Views =====")
             log("")
             self._add_unwanted_packages_to_views()
+
+            self._record_metric("finished _add_unwanted_packages_to_views()")
 
             # Generate combined views for all arches
             log("")
@@ -4463,17 +4522,24 @@ class Analyzer():
             log("")
             self. _generate_views_all_arches()
 
+            self._record_metric("finished _generate_views_all_arches()")
+
             # Recommend package maintainers in views
             log("")
             log("=====  Recommending maintainers =====")
             log("")
             self._recommend_maintainers()
 
+            self._record_metric("finished _recommend_maintainers()")
+
 
             # Finally, save the cache for next time
             dump_data(self.settings["root_log_deps_cache_path"], self.cache["root_log_deps"]["next"])
 
-            
+            self._record_metric("finished dumping the root log data cache")
+
+
+        self._record_metric("finished analyze_things()")           
 
         return self.data
 
@@ -7297,6 +7363,11 @@ def main():
     # measuring time of execution
     time_ended = datetime_now_string()
 
+    # Print extra metrics
+    if not settings["use_cache"]:
+        analyzer.print_metrics()
+
+    # Print base metrics
     log("")
     log("=============================")
     log("Feedback Pipeline build done!")
