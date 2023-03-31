@@ -117,7 +117,7 @@ To run the script, you'll need Python 3 and the following dependencies:
 
 ```
 $ podman build . -t content-resolver-env
-$ podman run --rm -it --tmpfs /dnf_cachedir -v $(pwd):/workspace:z content-resolver-env bash
+$ podman run --rm -it --cap-add CAP_SYS_CHROOT --tmpfs /dnf_cachedir -v $(pwd):/workspace:z content-resolver-env bash
 ```
 
 ... which starts a shell in the container. And inside the container:
