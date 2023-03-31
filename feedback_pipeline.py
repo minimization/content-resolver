@@ -1178,6 +1178,11 @@ class Analyzer():
 
         self.metrics_data = []
 
+        # When analysing buildroot, we don't need metadata about
+        # recommends. So this gets flipped and we don't collect them anymore.
+        # Saves more than an hour.
+        self._global_performance_hack_run_recommends_queries = True
+
         try:
             self.cache["root_log_deps"]["current"] = load_data(self.settings["root_log_deps_cache_path"])
         except FileNotFoundError:
@@ -1486,13 +1491,14 @@ class Analyzer():
                 )
                 required_by.add(dep_pkg_id)
 
-            for dep_pkg in dnf_query.filter(recommends=[pkg]):
-                dep_pkg_id = "{name}-{evr}.{arch}".format(
-                    name=dep_pkg.name,
-                    evr=dep_pkg.evr,
-                    arch=dep_pkg.arch
-                )
-                recommended_by.add(dep_pkg_id)
+            if self._global_performance_hack_run_recommends_queries:
+                for dep_pkg in dnf_query.filter(recommends=[pkg]):
+                    dep_pkg_id = "{name}-{evr}.{arch}".format(
+                        name=dep_pkg.name,
+                        evr=dep_pkg.evr,
+                        arch=dep_pkg.arch
+                    )
+                    recommended_by.add(dep_pkg_id)
             
             #for dep_pkg in dnf_query.filter(suggests=[pkg]):
             #    dep_pkg_id = "{name}-{evr}.{arch}".format(
@@ -3254,6 +3260,8 @@ class Analyzer():
 
 
     def _analyze_buildroot(self):
+
+        self._global_performance_hack_run_recommends_queries = False
 
         self._record_metric("started _analyze_buildroot()")
 
