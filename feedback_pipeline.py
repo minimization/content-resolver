@@ -2135,7 +2135,7 @@ class Analyzer():
             #log("")
 
         # How long do various parts take:
-        # 37 % - Loading RPMBD
+        # 37 % - populatind DNF's base.sack
         # 6 %  - resolving deps
         # 57 % - _analyze_package_relations with recommends
 
