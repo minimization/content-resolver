@@ -1860,6 +1860,8 @@ class Analyzer():
             #base.read_all_repos()
             self._load_repo_cached(base, repo, arch)
 
+            # 0 % 
+
             # Now I need to load the local RPMDB.
             # However, if the environment is empty, it wasn't created, so I need to treat
             # it differently. So let's check!
@@ -1891,6 +1893,8 @@ class Analyzer():
                     err_log(err)
                     raise RepoDownloadError(err)
             
+            # 36 %
+
             # Disabling modules
             if workload_conf["modules_disable"]:
                 try:
@@ -1939,6 +1943,7 @@ class Analyzer():
                 enabled_modules = set()
             workload["enabled_modules"] = list(enabled_modules)
 
+            # 37 %
 
             # Packages
             #log("  Adding packages...")
@@ -2060,6 +2065,8 @@ class Analyzer():
                 error_message = "\n".join(error_message_list)
                 workload["warnings"]["message"] = str(error_message)
 
+            # 37 %
+
             # Resolve dependencies
             #log("  Resolving dependencies...")
             try:
@@ -2071,10 +2078,11 @@ class Analyzer():
                 #log("")
                 return workload
 
+            # 43 %
+
             # DNF Query
             #log("  Creating a DNF Query object...")
             query_env = base.sack.query()
-            query_added = base.sack.query().filterm(pkg=base.transaction.install_set)
             pkgs_env = set(query_env.installed())
             pkgs_added = set(base.transaction.install_set)
             pkgs_all = set.union(pkgs_env, pkgs_added)
@@ -2104,8 +2112,12 @@ class Analyzer():
             
             for srpm_placeholder_name in srpm_placeholders:
                 workload["srpm_placeholder_names"].append(srpm_placeholder_name)
-            
+
+            # 43 %
+
             workload["pkg_relations"] = self._analyze_package_relations(query_all, package_placeholders)
+
+            # 100 %
             
             pkg_env_count = len(workload["pkg_env_ids"])
             pkg_added_count = len(workload["pkg_added_ids"])
@@ -2115,6 +2127,15 @@ class Analyzer():
             #    pkg_added_count=pkg_added_count
             #))
             #log("")
+
+        # How long do various parts take:
+        # 37 % - Loading RPMBD
+        # 6 %  - resolving deps
+        # 57 % - _analyze_package_relations with recommends
+
+        # Removing recommends from _analyze_package_relations 
+        # gets the total duration down to
+        # 64 %
 
         return workload
 
