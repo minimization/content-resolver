@@ -1865,7 +1865,7 @@ class Analyzer():
             # Now I need to load the local RPMDB.
             # However, if the environment is empty, it wasn't created, so I need to treat
             # it differently. So let's check!
-            if len(env_conf["packages"]) or len(env_conf["arch_packages"][arch]):
+            if len(env_conf["packages"]) or len(env_conf["arch_packages"][arch]) or len(env_conf["groups"]):
                 # It's not empty! Load local data.
                 base.fill_sack(load_system_repo=True)
             else:
