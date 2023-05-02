@@ -6683,10 +6683,16 @@ def _generate_view_json_files(query):
     for view_conf_id, view_conf in query.configs["views"].items():
         view_all_arches = query.data["views_all_arches"][view_conf_id]
 
+        # =================================================================
+        # view-packages
+        # =============
+
         # Where to save
         data_name = "view-packages--{view_id_slug}".format(
             view_id_slug = query.url_slug_id(view_conf_id)
         )
+
+        log("  {}".format(data_name))
 
         # What to save
         output_data = {}
@@ -6709,6 +6715,26 @@ def _generate_view_json_files(query):
 
             for key in keys_to_save:
                 output_data["pkgs"][pkg_id][key] = pkg[key]
+
+        # And save it
+        _generate_json_file(output_data, data_name, query.settings)
+
+        # =================================================================
+        # view-packages
+        # =============
+
+        # Where to save
+        data_name = "view-workloads--{view_id_slug}".format(
+            view_id_slug = query.url_slug_id(view_conf_id)
+        )
+
+        log("  {}".format(data_name))
+
+        # What to save
+        output_data = {}
+        output_data["id"] = view_conf_id
+        output_data["workloads"] = view_all_arches["workloads"]
+
 
         # And save it
         _generate_json_file(output_data, data_name, query.settings)
