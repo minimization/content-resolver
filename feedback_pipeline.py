@@ -499,6 +499,8 @@ def _load_config_workload(document_id, document, settings):
                 limit_arches = srpm.get("limit_arches", [])
                 rpms = srpm.get("rpms", [])
 
+                all_rpm_arches = set()
+
                 config["package_placeholders"]["srpms"][srpm_name] = {}
                 config["package_placeholders"]["srpms"][srpm_name]["name"] = srpm_name
                 config["package_placeholders"]["srpms"][srpm_name]["buildrequires"] = build_dependencies
@@ -515,6 +517,11 @@ def _load_config_workload(document_id, document, settings):
 
                     if limit_arches and rpm_limit_arches:
                         rpm_limit_arches = list(set(limit_arches) & set(rpm_limit_arches))
+                    
+                    elif limit_arches and not rpm_limit_arches:
+                        rpm_limit_arches = limit_arches
+                    
+                    all_rpm_arches.update(rpm_limit_arches)
 
                     config["package_placeholders"]["pkgs"][rpm_name] = {}
                     config["package_placeholders"]["pkgs"][rpm_name]["name"] = rpm_name
@@ -522,6 +529,10 @@ def _load_config_workload(document_id, document, settings):
                     config["package_placeholders"]["pkgs"][rpm_name]["requires"] = dependencies
                     config["package_placeholders"]["pkgs"][rpm_name]["limit_arches"] = rpm_limit_arches
                     config["package_placeholders"]["pkgs"][rpm_name]["srpm"] = srpm_name
+                
+                if not limit_arches and all_rpm_arches:
+                    config["package_placeholders"]["srpms"][srpm_name]["limit_arches"] = list(all_rpm_arches)
+
 
 
     return config
@@ -2093,7 +2104,43 @@ class Analyzer():
             pkgs_added = set(base.transaction.install_set)
             pkgs_all = set.union(pkgs_env, pkgs_added)
             query_all = base.sack.query().filterm(pkg=pkgs_all)
+
+            # Before we proceed with saving the results... there is a complication
+            # with package placeholders.
+            # Check whether some of the placeholders (both RPM and SRPM)
+            # are not already in the workload as real packages. In that case we'd need to
+            # fail the workload.
+            if srpm_placeholders or package_placeholders:
+                real_source_names = set()
+                real_pkg_names = set()
+
+                for pkg in query_all:
+                    real_source_names.add(pkg.source_name)
+                    real_pkg_names.add(pkg.name)
+                
+                for placeholder_src_name in srpm_placeholders:
+                    if placeholder_src_name in real_source_names:
+                        workload["succeeded"] = False
+                        workload["errors"]["message"] = "The {} placholder SRPM you requested has been pulled into the set " \
+                            "as a real SRPM as well. This is a conflicting situation and I can't proceed. Plase remove it " \
+                            "from the placeholder section. (This is an edge case and the solution to just skip it with a " \
+                            "warning is too complex, because all the placeholders and their dependencies are already part" \
+                            "of the resolved set. It woul need to go back and re-resolve things... Anyway... " \
+                            "Failing is all I can do now.)".format(placeholder_src_name)
+                        return workload
+                
+                for placeholder_pkg_name in package_placeholders:
+                    if placeholder_pkg_name in real_pkg_names:
+                        workload["succeeded"] = False
+                        workload["errors"]["message"] = "The {} placholder RPM you requested has been pulled into the set " \
+                            "as a real RPM as well. This is a conflicting situation and I can't proceed. Plase remove it " \
+                            "from the placeholder section. (This is an edge case and the solution to just skip it with a " \
+                            "warning is too complex, because all the placeholders and their dependencies are already part" \
+                            "of the resolved set. It woul need to go back and re-resolve things... Anyway... " \
+                            "Failing is all I can do now.)".format(placeholder_pkg_name)
+                        return workload
             
+            # OK all good so save stuff now
             for pkg in pkgs_env:
                 pkg_id = "{name}-{evr}.{arch}".format(
                     name=pkg.name,
