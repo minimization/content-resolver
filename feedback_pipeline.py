@@ -2104,41 +2104,6 @@ class Analyzer():
             pkgs_added = set(base.transaction.install_set)
             pkgs_all = set.union(pkgs_env, pkgs_added)
             query_all = base.sack.query().filterm(pkg=pkgs_all)
-
-            # Before we proceed with saving the results... there is a complication
-            # with package placeholders.
-            # Check whether some of the placeholders (both RPM and SRPM)
-            # are not already in the workload as real packages. In that case we'd need to
-            # fail the workload.
-            if srpm_placeholders or package_placeholders:
-                real_source_names = set()
-                real_pkg_names = set()
-
-                for pkg in query_all:
-                    real_source_names.add(pkg.source_name)
-                    real_pkg_names.add(pkg.name)
-                
-                for placeholder_src_name in srpm_placeholders:
-                    if placeholder_src_name in real_source_names:
-                        workload["succeeded"] = False
-                        workload["errors"]["message"] = "The {} placholder SRPM you requested has been pulled into the set " \
-                            "as a real SRPM as well. This is a conflicting situation and I can't proceed. Plase remove it " \
-                            "from the placeholder section. (This is an edge case and the solution to just skip it with a " \
-                            "warning is too complex, because all the placeholders and their dependencies are already part" \
-                            "of the resolved set. It woul need to go back and re-resolve things... Anyway... " \
-                            "Failing is all I can do now.)".format(placeholder_src_name)
-                        return workload
-                
-                for placeholder_pkg_name in package_placeholders:
-                    if placeholder_pkg_name in real_pkg_names:
-                        workload["succeeded"] = False
-                        workload["errors"]["message"] = "The {} placholder RPM you requested has been pulled into the set " \
-                            "as a real RPM as well. This is a conflicting situation and I can't proceed. Plase remove it " \
-                            "from the placeholder section. (This is an edge case and the solution to just skip it with a " \
-                            "warning is too complex, because all the placeholders and their dependencies are already part" \
-                            "of the resolved set. It woul need to go back and re-resolve things... Anyway... " \
-                            "Failing is all I can do now.)".format(placeholder_pkg_name)
-                        return workload
             
             # OK all good so save stuff now
             for pkg in pkgs_env:
