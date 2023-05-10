@@ -971,6 +971,8 @@ def get_configs(settings):
             log("  |  {}".format(message))
         log("  -------------------------------------------------------------------------")
         log("")
+        if settings.get("strict", False):
+            raise ConfigError("Config file errors encountered in strict mode")
     else:
         log("")
         log("  ✅ No serious errors found.")
@@ -986,7 +988,7 @@ def get_configs(settings):
     log("---------------------")
     log("")
     for json_file in os.listdir(directory):
-        # Only accept yaml files
+        # Only accept json files
         if not json_file.endswith(".json"):
             continue
         
@@ -1023,6 +1025,8 @@ def get_configs(settings):
             log("  |  {}".format(message))
         log("  -------------------------------------------------------------------------")
         log("")
+        if settings.get("strict", False):
+            raise ConfigError("Config file errors encountered in strict mode")
     else:
         log("")
         log("  ✅ No serious errors found.")
