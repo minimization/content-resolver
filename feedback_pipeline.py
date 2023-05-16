@@ -1707,7 +1707,19 @@ class Analyzer():
             # The transaction needs us to download all the packages. :(
             # So let's do that to make it happy.
             log("  Downloading packages...")
-            base.download_packages(base.transaction.install_set)
+            try:
+                base.download_packages(base.transaction.install_set)
+            except dnf.exceptions.DownloadError as err:
+                err_log("Failed to analyze environment '{env_conf}' from '{repo}' {arch}:".format(
+                        env_conf=env_conf["id"],
+                        repo=repo["id"],
+                        arch=arch
+                    ))
+                err_log("  - {err}".format(err=err))
+                env["succeeded"] = False
+                env["errors"]["message"] = str(err)
+                return env
+
             log("  Running DNF transaction, writing RPMDB...")
             try:
                 base.do_transaction()
