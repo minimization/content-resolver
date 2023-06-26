@@ -235,8 +235,8 @@ def _load_config_repo_v2(document_id, document, settings):
                     arch=arch))
                 continue
             config["source"]["architectures"].append(str(arch))
-    except KeyError:
-        raise ConfigError("'{file}.yaml' - There's something wrong with the mandatory fields. Sorry I don't have more specific info.".format(file=document_id))
+    except KeyError as kerr:
+        raise ConfigError("'{file}.yaml' - Could not read the mandatory field {key}".format(file=document_id, key=kerr.args[0]))
     
 
     for id, repo_data in document["data"]["source"]["repos"].items():
@@ -309,8 +309,8 @@ def _load_config_env(document_id, document, settings):
         for repo in document["data"]["labels"]:
             config["labels"].append(str(repo))
 
-    except KeyError:
-        raise ConfigError("'{file}.yaml' - There's something wrong with the mandatory fields. Sorry I don't have more specific info.".format(file=document_id))
+    except KeyError as kerr:
+        raise ConfigError("'{file}.yaml' - Could not read the mandatory field {key}".format(file=document_id, key=kerr.args[0]))
 
     # Step 2: Optional fields
 
@@ -373,8 +373,8 @@ def _load_config_workload(document_id, document, settings):
         for repo in document["data"]["labels"]:
             config["labels"].append(str(repo))
 
-    except KeyError:
-        raise ConfigError("'{file}.yaml' - There's something wrong with the mandatory fields. Sorry I don't have more specific info.".format(file=document_id))
+    except KeyError as kerr:
+        raise ConfigError("'{file}.yaml' - Could not read the mandatory field {key}".format(file=document_id, key=kerr.args[0]))
 
     # Step 2: Optional fields
 
@@ -554,8 +554,8 @@ def _load_config_label(document_id, document, settings):
         # for humans to read. In Fedora, a FAS nick is recommended.
         config["maintainer"] = str(document["data"]["maintainer"])
 
-    except KeyError:
-        raise ConfigError("'{file}.yaml' - There's something wrong with the mandatory fields. Sorry I don't have more specific info.".format(file=document_id))
+    except KeyError as kerr:
+        raise ConfigError("'{file}.yaml' - Could not read the mandatory field {key}".format(file=document_id, key=kerr.args[0]))
 
     # Step 2: Optional fields
     # none here
@@ -590,8 +590,8 @@ def _load_config_compose_view(document_id, document, settings):
         # Choose one repository that gets used as a source.
         config["repository"] = str(document["data"]["repository"])
 
-    except KeyError:
-        raise ConfigError("'{file}.yaml' - There's something wrong with the mandatory fields. Sorry I don't have more specific info.".format(file=document_id))
+    except KeyError as kerr:
+        raise ConfigError("'{file}.yaml' - Could not read the mandatory field {key}".format(file=document_id, key=kerr.args[0]))
 
     # Step 2: Optional fields
 
@@ -667,8 +667,8 @@ def _load_config_addon_view(document_id, document, settings):
         # Choose one repository that gets used as a source.
         config["base_view_id"] = str(document["data"]["base_view_id"])
 
-    except KeyError:
-        raise ConfigError("'{file}.yaml' - There's something wrong with the mandatory fields. Sorry I don't have more specific info.".format(file=document_id))
+    except KeyError as kerr:
+        raise ConfigError("'{file}.yaml' - Could not read the mandatory field {key}".format(file=document_id, key=kerr.args[0]))
     
     # Step 2: Optional fields
 
@@ -728,8 +728,8 @@ def _load_config_unwanted(document_id, document, settings):
         for repo in document["data"]["labels"]:
             config["labels"].append(str(repo))
     
-    except KeyError:
-        raise ConfigError("'{file}.yaml' - There's something wrong with the mandatory fields. Sorry I don't have more specific info.".format(file=document_id))
+    except KeyError as kerr:
+        raise ConfigError("'{file}.yaml' - Could not read the mandatory field {key}".format(file=document_id, key=kerr.args[0]))
     
     # Step 2: Optional fields
 
@@ -792,8 +792,8 @@ def _load_config_buildroot(document_id, document, settings):
         # What view is this for
         config["view_id"] = str(document["data"]["view_id"])
 
-    except KeyError:
-        raise ConfigError("'{file}.yaml' - There's something wrong with the mandatory fields. Sorry I don't have more specific info.".format(file=document_id))
+    except KeyError as kerr:
+        raise ConfigError("'{file}.yaml' - Could not read the mandatory field {key}".format(file=document_id, key=kerr.args[0]))
 
     # Step 2: Optional fields
     config["base_buildroot"] = {}
@@ -863,8 +863,8 @@ def _load_json_data_buildroot_pkg_relations(document_id, document, settings):
         #pkg_relations
         config["pkg_relations"] = document["data"]["pkgs"]
         
-    except KeyError:
-        raise ConfigError("'{file}.yaml' - There's something wrong with the mandatory fields. Sorry I don't have more specific info.".format(file=document_id))
+    except KeyError as kerr:
+        raise ConfigError("'{file}.yaml' - Could not read the mandatory field {key}".format(file=document_id, key=kerr.args[0]))
     
     return config
 
