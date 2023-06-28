@@ -2818,7 +2818,7 @@ class Analyzer():
 
                 # The next installation is the build deps!
                 # So I start caring. Next state!
-                if "'/usr/bin/dnf', 'builddep'" in file_line:
+                if "'builddep', '--installroot'" in file_line:
                     state += 1
             
 
