@@ -356,6 +356,25 @@ def _load_config_workload(document_id, document, settings):
 
     # Step 1: Mandatory fields
     try:
+        if "data" not in document:
+            raise ConfigError(f"Missing 'data' field in {document_id}")
+
+        for key in document["data"]:
+            if key not in [
+                "arch_packages",
+                "description",
+                "groups",
+                "labels",
+                "maintainer",
+                "modules_disable",
+                "modules_enabled",
+                "name",
+                "options",
+                "package_placeholders",
+                "packages",
+            ]:
+                raise ConfigError(f"Unknown key '{key}' in 'data' section of {document_id}")
+
         # Name is an identifier for humans
         config["name"] = str(document["data"]["name"])
 
@@ -711,6 +730,21 @@ def _load_config_unwanted(document_id, document, settings):
 
     # Step 1: Mandatory fields
     try:
+        if "data" not in document:
+            raise ConfigError(f"Missing 'data' field in {document_id}")
+
+        for key in document["data"]:
+            if key not in [
+                "description",
+                "labels",
+                "maintainer",
+                "name",
+                "unwanted_arch_packages",
+                "unwanted_arch_source_packages",
+                "unwanted_packages",
+                "unwanted_source_packages",
+            ]:
+                raise ConfigError(f"Unknown key '{key}' in 'data' section of {document_id}")
         # Name is an identifier for humans
         config["name"] = str(document["data"]["name"])
 
@@ -921,6 +955,28 @@ def get_configs(settings):
 
 
                 # === Case: Repository config ===
+                if document["document"] not in [
+                    "content-resolver-buildroot",
+                    "content-resolver-compose-view",
+                    "content-resolver-environment",
+                    "content-resolver-label",
+                    "content-resolver-repository",
+                    "content-resolver-unwanted",
+                    "content-resolver-view",
+                    "content-resolver-view-addon",
+                    "content-resolver-workload",
+                    "feedback-pipeline-buildroot",
+                    "feedback-pipeline-compose-view",
+                    "feedback-pipeline-environment",
+                    "feedback-pipeline-label",
+                    "feedback-pipeline-repository",
+                    "feedback-pipeline-unwanted",
+                    "feedback-pipeline-view",
+                    "feedback-pipeline-view-addon",
+                    "feedback-pipeline-workload",
+                ]:
+                    raise ConfigError(f"Unknown document type: {document['document']}")
+
                 if document["document"] in ["content-resolver-repository", "feedback-pipeline-repository"]:
                     if document["version"] == 1:
                         configs["repos"][document_id] = _load_config_repo(document_id, document, settings)

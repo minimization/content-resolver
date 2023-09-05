@@ -8,7 +8,7 @@ jobs:
   setup_and_test:
     runs-on: ubuntu-latest
     container: 
-      image: registry.fedoraproject.org/fedora:37
+      image: registry.fedoraproject.org/fedora:38
     steps:
     
     - name: Checkout code
