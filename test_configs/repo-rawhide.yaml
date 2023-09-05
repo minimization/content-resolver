@@ -40,9 +40,6 @@ data:
 
       everything:
         baseurl: https://kojipkgs.fedoraproject.org/compose/rawhide/latest-Fedora-Rawhide/compose/Everything/$basearch/os/
-      
-      modular:
-        baseurl: https://kojipkgs.fedoraproject.org/compose/rawhide/latest-Fedora-Rawhide/compose/Modular/$basearch/os/
 
     releasever: "rawhide"
 
