@@ -730,6 +730,21 @@ def _load_config_unwanted(document_id, document, settings):
 
     # Step 1: Mandatory fields
     try:
+        if "data" not in document:
+            raise ConfigError(f"Missing 'data' field in {document_id}")
+
+        for key in document["data"]:
+            if key not in [
+                "description",
+                "labels",
+                "maintainer",
+                "name",
+                "unwanted_arch_packages",
+                "unwanted_arch_source_packages",
+                "unwanted_packages",
+                "unwanted_source_packages",
+            ]:
+                raise ConfigError(f"Unknown key '{key}' in 'data' section of {document_id}")
         # Name is an identifier for humans
         config["name"] = str(document["data"]["name"])
 
