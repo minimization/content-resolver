@@ -356,6 +356,25 @@ def _load_config_workload(document_id, document, settings):
 
     # Step 1: Mandatory fields
     try:
+        if "data" not in document:
+            raise ConfigError(f"Missing 'data' field in {document_id}")
+
+        for key in document["data"]:
+            if key not in [
+                "arch_packages",
+                "description",
+                "groups",
+                "labels",
+                "maintainer",
+                "modules_disable",
+                "modules_enabled",
+                "name",
+                "options",
+                "package_placeholders",
+                "packages",
+            ]:
+                raise ConfigError(f"Unknown key '{key}' in 'data' section of {document_id}")
+
         # Name is an identifier for humans
         config["name"] = str(document["data"]["name"])
 
