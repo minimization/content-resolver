@@ -921,6 +921,28 @@ def get_configs(settings):
 
 
                 # === Case: Repository config ===
+                if document["document"] not in [
+                    "content-resolver-buildroot",
+                    "content-resolver-compose-view",
+                    "content-resolver-environment",
+                    "content-resolver-label",
+                    "content-resolver-repository",
+                    "content-resolver-unwanted",
+                    "content-resolver-view",
+                    "content-resolver-view-addon",
+                    "content-resolver-workload",
+                    "feedback-pipeline-buildroot",
+                    "feedback-pipeline-compose-view",
+                    "feedback-pipeline-environment",
+                    "feedback-pipeline-label",
+                    "feedback-pipeline-repository",
+                    "feedback-pipeline-unwanted",
+                    "feedback-pipeline-view",
+                    "feedback-pipeline-view-addon",
+                    "feedback-pipeline-workload",
+                ]:
+                    raise ConfigError(f"Unknown document type: {document['document']}")
+
                 if document["document"] in ["content-resolver-repository", "feedback-pipeline-repository"]:
                     if document["version"] == 1:
                         configs["repos"][document_id] = _load_config_repo(document_id, document, settings)
