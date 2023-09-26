@@ -6,6 +6,25 @@
 
 {% include "maintainer_menu.html" %}
 
-TBD 
+
+<h2>This page layout is currently being worked on.  It will look better soon.</h2>
+
+{% for workload_conf_id in query.workloads(None,None,None,None,output_change="workload_conf_ids") %}
+{% if query.configs.workloads[workload_conf_id].maintainer == maintainer %}
+{% for repo_id in query.workloads(workload_conf_id,None,None,None,output_change="repo_ids") %}
+<b><a class="card-link" href="workload-overview--{{workload_conf_id}}--{{repo_id}}.html">
+{{query.configs.workloads[workload_conf_id].name}} - {{query.configs.repos[repo_id].id}} </a></b>
+<ul>
+        {% for package in query.configs.workloads[workload_conf_id].packages %}
+        <li>{{package}}</li>
+        {% endfor %}
+
+</ul>
+{% endfor %}
+{% endif %}
+{% endfor %}
+
+</div>
+
 
 {% endblock %}
