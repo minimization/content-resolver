@@ -11,12 +11,13 @@
 
 {% for workload_conf_id in query.workloads(None,None,None,None,output_change="workload_conf_ids") %}
 {% if query.configs.workloads[workload_conf_id].maintainer == maintainer %}
-{% for repo_id in query.workloads(workload_conf_id,None,None,None,output_change="repo_ids") %}
-<b><a class="card-link" href="workload-overview--{{workload_conf_id}}--{{repo_id}}.html">
-{{query.configs.workloads[workload_conf_id].name}} - {{query.configs.repos[repo_id].id}} </a></b>
+{% for repo_id in query.configs.workloads[workload_conf_id].labels %}
+<b><a class="card-link" href="workload-overview--{{workload_conf_id}}--repo-{{repo_id}}.html">
+{{query.configs.workloads[workload_conf_id].name}} - {{repo_id}} </a></b>
 <ul>
+
         {% for package in query.configs.workloads[workload_conf_id].packages %}
-        <li>{{package}}</li>
+        <li><a class="card-link" href="view-rpm--view-{{repo_id}}--{{package}}.html">{{package}}</a></li>
         {% endfor %}
 
 </ul>
