@@ -9,17 +9,30 @@
 
 <h2>This page layout is currently being worked on.  It will look better soon.</h2>
 
+{% set maintainer_namespace = namespace() %}
+{% set maintainer_namespace.package_list=[] %}
 {% for workload_conf_id in query.workloads(None,None,None,None,output_change="workload_conf_ids") %}
 {% if query.configs.workloads[workload_conf_id].maintainer == maintainer %}
 {% for repo_id in query.configs.workloads[workload_conf_id].labels %}
+{% set maintainer_namespace.package_list=[] %}
+{% for package in query.configs.workloads[workload_conf_id].packages %}
+    {% if package not in maintainer_namespace.package_list %}
+        {% set maintainer_namespace.package_list = maintainer_namespace.package_list + [package] %}
+    {% endif %}
+{% endfor %}
+{% for parch in query.configs.workloads[workload_conf_id].arch_packages %}
+    {% for package in query.configs.workloads[workload_conf_id].arch_packages[parch] %}
+        {% if package not in maintainer_namespace.package_list %}
+            {% set maintainer_namespace.package_list = maintainer_namespace.package_list + [package] %}
+        {% endif %}
+    {% endfor %}
+{% endfor %}
 <b><a class="card-link" href="workload-overview--{{workload_conf_id}}--repo-{{repo_id}}.html">
 {{query.configs.workloads[workload_conf_id].name}} - {{repo_id}} </a></b>
 <ul>
-
-        {% for package in query.configs.workloads[workload_conf_id].packages %}
-        <li><a class="card-link" href="view-rpm--view-{{repo_id}}--{{package}}.html">{{package}}</a></li>
-        {% endfor %}
-
+    {% for package in maintainer_namespace.package_list %}
+    <li><a class="card-link" href="view-rpm--view-{{repo_id}}--{{package}}.html">{{package}}</a></li>
+    {% endfor %}
 </ul>
 {% endfor %}
 {% endif %}
