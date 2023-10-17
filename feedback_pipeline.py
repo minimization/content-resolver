@@ -6804,7 +6804,45 @@ def _generate_view_json_files(query):
         _generate_json_file(output_data, data_name, query.settings)
 
         # =================================================================
-        # view-packages
+        # view-srpms (components, including ownership recommendations)
+        # =============
+
+        # Where to save
+        data_name = "view-sources--{view_id_slug}".format(
+            view_id_slug = query.url_slug_id(view_conf_id)
+        )
+
+        log("  {}".format(data_name))
+
+        # What to save
+        output_data = {}
+        output_data["id"] = view_conf_id
+        output_data["srpms"] = {}
+
+        keys_to_save = [
+            "name",
+            "arches",
+            "best_maintainers",
+            "level_number",
+            "in_workload_conf_ids_env",
+            "in_workload_conf_ids_req",
+            "in_workload_conf_ids_dep",
+            "in_buildroot_of_srpm_name_req",
+            "in_buildroot_of_srpm_name_dep",
+            "level_number",
+        ]
+
+        for srpm_name, srpm in view_all_arches["source_pkgs_by_name"].items():
+            output_data["srpms"][srpm_name] = {}
+
+            for key in keys_to_save:
+                output_data["srpms"][srpm_name][key] = srpm[key]
+
+        # And save it
+        _generate_json_file(output_data, data_name, query.settings)
+
+        # =================================================================
+        # view-workloads
         # =============
 
         # Where to save

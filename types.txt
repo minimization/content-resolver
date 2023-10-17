@@ -161,7 +161,7 @@ data["views_all_arches"][view_conf_id]["pkgs_by_name"][pkg_name]...
 data["views_all_arches"][view_conf_id]["pkgs_by_nevr"][pkg_nevr]...
 data["views_all_arches"][view_conf_id]["source_pkgs_by_name"][srpm_name]...
     ... ["name"]
-    ... ["source_name"]
+    ... ["source_name"]  (not in in "source_pkgs_by_name")
     ... ["arches"]
     ... ["unwanted_completely_in_list_ids"]
     ... ["unwanted_buildroot_in_list_ids"]
@@ -180,6 +180,7 @@ data["views_all_arches"][view_conf_id]["source_pkgs_by_name"][srpm_name]...
     ... ["in_buildroot_of_srpm_name_all"]
     ... ["in_buildroot_of_srpm_name_req"]
     ... ["in_buildroot_of_srpm_name_dep"]
+    ... ["best_maintainers"]
     ... ["maintainer_recommendation"]
 
     ... ["maintainer_recommendation_details"][level][sublevel][maintainer]["reasons"] = set()
