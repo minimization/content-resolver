@@ -2884,8 +2884,9 @@ class Analyzer():
 
                 # "Package already installed" indicates it's directly required,
                 # so save it.
+                # DNF5 quotes the NVR in that statement, where DNF4 did not.
                 if "is already installed." in file_line:
-                    pkg_name = file_line.split()[3].rsplit("-",2)[0]
+                    pkg_name = file_line.split()[3].strip('"').rsplit("-",2)[0]
                     required_pkgs.append(pkg_name)
 
                 # That's all! Next state!
@@ -2955,7 +2956,8 @@ class Analyzer():
                         continue
 
                     elif len(file_line.split()) == 5:
-                        if file_line.split()[4] in ["B", "k", "M", "G"]:
+                        # DNF5 uses B/KiB/MiB/GiB, DNF4 uses B/k/M/G
+                        if file_line.split()[4] in ["B", "KiB", "k", "MiB", "M", "GiB", "G"]:
                             continue
                         else:
                             pkg_name = file_line.split()[2]
