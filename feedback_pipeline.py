@@ -2884,22 +2884,37 @@ class Analyzer():
 
                 # "Package already installed" indicates it's directly required,
                 # so save it.
-                # DNF5 quotes the NVR in that statement, where DNF4 did not.
+                # DNF5 does this after "Repositories loaded" and quotes the NVR;
+                # DNF4 does this before "Dependencies resolved" without the quotes.
                 if "is already installed." in file_line:
                     pkg_name = file_line.split()[3].strip('"').rsplit("-",2)[0]
                     required_pkgs.append(pkg_name)
 
-                # That's all! Next state!
+                # That's all! Next state! (DNF4)
                 elif "Dependencies resolved." in file_line:
                     state += 1
-            
+
+                # That's all! Next state! (DNF5)
+                elif "Repositories loaded." in file_line:
+                    state += 1
+
 
             # 2/
             # going through the log right before the first package name
             elif state == 2:
 
+                # "Package already installed" indicates it's directly required,
+                # so save it.
+                # DNF5 does this after "Repositories loaded" and quotes the NVR;
+                # DNF4 does this before "Dependencies resolved" without the quotes.
+                if "is already installed." in file_line:
+                    pkg_name = file_line.split()[3].strip('"').rsplit("-",2)[0]
+                    required_pkgs.append(pkg_name)
+
                 # The next line will be the first package. Next state!
-                if "Installing:" in file_line:
+                # DNF5 reports "Installing: ## packages" in the Transaction Summary,
+                # which we need to ignore
+                if "Installing:" in file_line and len(file_line.split()) == 3:
                     state += 1
             
 
