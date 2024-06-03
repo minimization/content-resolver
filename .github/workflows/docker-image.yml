@@ -8,11 +8,11 @@ jobs:
   setup_and_test:
     runs-on: ubuntu-latest
     container: 
-      image: registry.fedoraproject.org/fedora:38
+      image: registry.fedoraproject.org/fedora:40
     steps:
     
     - name: Checkout code
-      uses: actions/checkout@v2
+      uses: actions/checkout@v4
 
     - name: Update GPG keys
       run: dnf -y update fedora-gpg-keys
