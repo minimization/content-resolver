@@ -2,8 +2,8 @@
 document: feedback-pipeline-repository
 version: 2
 data:
-  name: Fedora ELN (backed by rawhide)
-  description: Fedora ELN with rawhide as a backup for missing packages
+  name: Fedora ELN Extras (backed by rawhide)
+  description: Fedora ELN Extras, based on ELN with rawhide as a backup for missing packages
   maintainer: asamalik
   source:
 
@@ -78,6 +78,12 @@ data:
         limit_arches: ["ppc64le", "x86_64"]
         priority: 2
 
+      Extras:
+        baseurl: https://odcs.fedoraproject.org/composes/production/latest-Fedora-ELN/compose/Extras/$basearch/os/
+        koji_api_url: https://koji.fedoraproject.org/kojihub
+        koji_files_url: https://kojipkgs.fedoraproject.org
+        exclude: ["exim", "esmtp", "opensmtpd", "esmtp-local-delivery"]
+        priority: 3
       
       Rawhide:
         baseurl: https://kojipkgs.fedoraproject.org/compose/rawhide/latest-Fedora-Rawhide/compose/Everything/$basearch/os/
