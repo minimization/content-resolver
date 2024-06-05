@@ -78,6 +78,12 @@ data:
         limit_arches: ["ppc64le", "x86_64"]
         priority: 2
 
+      Extras:
+        baseurl: https://odcs.fedoraproject.org/composes/production/latest-Fedora-ELN/compose/Extras/$basearch/os/
+        koji_api_url: https://koji.fedoraproject.org/kojihub
+        koji_files_url: https://kojipkgs.fedoraproject.org
+        exclude: ["exim", "esmtp", "opensmtpd", "esmtp-local-delivery"]
+        priority: 3
       
       Rawhide:
         baseurl: https://kojipkgs.fedoraproject.org/compose/rawhide/latest-Fedora-Rawhide/compose/Everything/$basearch/os/
