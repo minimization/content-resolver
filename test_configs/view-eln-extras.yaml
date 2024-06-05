@@ -35,11 +35,6 @@ data:
   # (mandatory field)
   base_view_id: view-eln
 
-  # ID of the repositories where this addon and its base are shipped.
-  #
-  # (mandatory field)
-  repository: repo-eln-extras
-
   # Labels connect things together.
   # Workloads get installed in environments with the same label.
   # They also get included in views with the same label.
