@@ -71,25 +71,6 @@ data:
   options:
   - option
 
-  # Disable module streams.
-  # The following modules get disabled before any
-  # packages are installed, or before any modules
-  # are enabled.
-  # This is useful for switching default module
-  # streams off, for example.
-  modules_disable:
-  - module1:stream
-  - module2
-
-  # Enable module streams.
-  # The following modules get enabled before
-  # any packages get installed.
-  # So to analyze a module, enable it here first,
-  # and then list its packages in the "packages"
-  # section.
-  modules_enable:
-  - module:stream
-
   # Analyze a group
   groups:
   - core

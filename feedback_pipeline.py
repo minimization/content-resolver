@@ -366,8 +366,6 @@ def _load_config_workload(document_id, document, settings):
                 "groups",
                 "labels",
                 "maintainer",
-                "modules_disable",
-                "modules_enabled",
                 "name",
                 "options",
                 "package_placeholders",
@@ -447,17 +445,6 @@ def _load_config_workload(document_id, document, settings):
         if "strict" in document["data"]["options"]:
             config["options"].append("strict")
     
-    # Disable module streams.
-    config["modules_disable"] = []
-    if "modules_disable" in document["data"]:
-        for module in document["data"]["modules_disable"]:
-            config["modules_disable"].append(module)
-    
-    # Enable module streams.
-    config["modules_enable"] = []
-    if "modules_enable" in document["data"]:
-        for module in document["data"]["modules_enable"]:
-            config["modules_enable"].append(module)
     
     # Comps groups
     config["groups"] = []
@@ -1887,8 +1874,6 @@ class Analyzer():
         workload["pkg_placeholder_ids"] = []
         workload["srpm_placeholder_names"] = []
 
-        workload["enabled_modules"] = []
-
         workload["pkg_relations"] = []
 
         workload["errors"] = {}
@@ -1982,56 +1967,6 @@ class Analyzer():
                     err_log(err)
                     raise RepoDownloadError(err)
             
-            # 36 %
-
-            # Disabling modules
-            if workload_conf["modules_disable"]:
-                try:
-                    #log("  Disabling modules...")
-                    module_base = dnf.module.module_base.ModuleBase(base)
-                    module_base.disable(workload_conf["modules_disable"])
-                except dnf.exceptions.MarkingErrors as err:
-                    workload["succeeded"] = False
-                    workload["errors"]["message"] = str(err)
-                    #log("  Failed!  (Error message will be on the workload results page.")
-                    #log("")
-                    return workload
-
-
-            # Enabling modules
-            if workload_conf["modules_enable"]:
-                try:
-                    #log("  Enabling modules...")
-                    module_base = dnf.module.module_base.ModuleBase(base)
-                    module_base.enable(workload_conf["modules_enable"])
-                except dnf.exceptions.MarkingErrors as err:
-                    workload["succeeded"] = False
-                    workload["errors"]["message"] = str(err)
-                    #log("  Failed!  (Error message will be on the workload results page.")
-                    #log("")
-                    return workload
-            
-            # Get a list of enabled modules
-            # The official DNF API doesn't support it. I got this from the DNF folks
-            # (thanks!) as a solution, but just keeping it in a generic try/except
-            # as it's not an official API. 
-            enabled_modules = set()
-            try:
-                all_modules = base._moduleContainer.getModulePackages()
-                for module in all_modules:
-                    if base._moduleContainer.isEnabled(module):
-                        module_name = module.getName()
-                        module_stream = module.getStream()
-                        module_nsv = "{module_name}:{module_stream}".format(
-                            module_name=module_name,
-                            module_stream=module_stream
-                        )
-                        enabled_modules.add(module_nsv)
-            except:
-                #log("  Something went wrong with getting a list of enabled modules. (This uses non-API DNF calls. Skipping.)")
-                enabled_modules = set()
-            workload["enabled_modules"] = list(enabled_modules)
-
             # 37 %
 
             # Packages
@@ -2579,7 +2514,6 @@ class Analyzer():
         view["workload_ids"] = []
         view["pkgs"] = {}
         view["source_pkgs"] = {}
-        view["modules"] = {}
 
         # Workloads
         for workload_id, workload in self.data["workloads"].items():
@@ -2681,27 +2615,6 @@ class Analyzer():
 
                 # Build requires
                 view["source_pkgs"][srpm_id]["placeholder_directly_required_pkg_names"] = workload_conf["package_placeholders"]["srpms"][srpm_name]["buildrequires"]
-            
-            # Oh! And modules
-            for module_id in workload["enabled_modules"]:
-
-                # Initiate
-                if module_id not in view["modules"]:
-                    view["modules"][module_id] = {}
-                    view["modules"][module_id]["id"] = module_id
-                    view["modules"][module_id]["in_workload_ids_all"] = set()
-                    view["modules"][module_id]["in_workload_ids_req"] = set()
-                    view["modules"][module_id]["in_workload_ids_dep"] = set()
-                
-                # It's in this workload
-                view["modules"][module_id]["in_workload_ids_all"].add(workload_id)
-                
-                # Is it required?
-                if module_id in workload_conf["modules_enable"]:
-                    view["modules"][module_id]["in_workload_ids_req"].add(workload_id)
-                else:
-                    view["modules"][module_id]["in_workload_ids_dep"].add(workload_id)
-
         
         # If this is an addon view, remove all packages that are already in the parent view
         if view_conf["type"] == "addon":
@@ -2718,7 +2631,6 @@ class Analyzer():
 
         # Done with packages!
         log("  Includes {} packages.".format(len(view["pkgs"])))
-        log("  Includes {} modules.".format(len(view["modules"])))
 
         # But not with source packages, that's an entirely different story!
         for pkg_id, pkg in view["pkgs"].items():
@@ -3295,8 +3207,6 @@ class Analyzer():
                     fake_workload_conf["labels"] = []
                     fake_workload_conf["id"] = srpm_id
                     fake_workload_conf["options"] = []
-                    fake_workload_conf["modules_disable"] = []
-                    fake_workload_conf["modules_enable"] = []
                     fake_workload_conf["packages"] = srpm["directly_required_pkg_names"]
                     fake_workload_conf["groups"] = []
                     fake_workload_conf["package_placeholders"] = {}
@@ -3839,8 +3749,6 @@ class Analyzer():
 
                 view_all_arches["source_pkgs_by_name"] = {}
 
-                view_all_arches["modules"] = {}
-
                 view_all_arches["numbers"] = {}
                 view_all_arches["numbers"]["pkgs"] = {}
                 view_all_arches["numbers"]["pkgs"]["runtime"] = 0
@@ -4009,14 +3917,6 @@ class Analyzer():
                         )
                         view_all_arches["source_pkgs_by_name"][source_name]["pkg_nevrs"].add(pkg_nevr)
                                             
-                    
-                    # Modules
-                    for module_id, module in view["modules"].items():
-
-                        if module_id not in view_all_arches["modules"]:
-                            view_all_arches["modules"][module_id] = {}
-                            view_all_arches["modules"][module_id]["id"] = module_id
-                            # ...
                 
 
                 # RPMs
@@ -4596,7 +4496,6 @@ class Analyzer():
             #    data["views"][view_id]["workload_ids"]
             #    data["views"][view_id]["pkgs"]
             #    data["views"][view_id]["source_pkgs"]
-            #    data["views"][view_id]["modules"]
             #
             log("")
             log("=====  Analyzing Views =====")
@@ -5797,38 +5696,6 @@ class Query():
 
 
     @lru_cache(maxsize = None)
-    def view_modules(self, view_conf_id, arch, maintainer=None):
-        workload_ids = self.workloads_in_view(view_conf_id, arch, maintainer)
-
-        modules = {}
-
-        for workload_id in workload_ids:
-            workload = self.data["workloads"][workload_id]
-            workload_conf_id = workload["workload_conf_id"]
-            workload_conf = self.configs["workloads"][workload_conf_id]
-
-            required_modules = workload_conf["modules_enable"]
-
-            for module_id in workload["enabled_modules"]:
-                if module_id not in modules:
-                    modules[module_id] = {}
-                    modules[module_id]["id"] = module_id
-                    modules[module_id]["q_in"] = set()
-                    modules[module_id]["q_required_in"] = set()
-                    modules[module_id]["q_dep_in"] = set()
-                
-                modules[module_id]["q_in"].add(workload_id)
-
-                if module_id in required_modules:
-                    modules[module_id]["q_required_in"].add(workload_id)
-                else:
-                    modules[module_id]["q_dep_in"].add(workload_id)
-                
-
-        return modules
-
-
-    @lru_cache(maxsize = None)
     def view_maintainers(self, view_conf_id, arch):
         workload_ids = self.workloads_in_view(view_conf_id, arch)
 
@@ -6314,12 +6181,6 @@ def _generate_view_pages(query):
             view_conf_id=view_conf_id
         )
         _generate_html_page("view_sources", template_data, page_name, query.settings)
-
-        # Generate the modules page
-        page_name = "view-modules--{view_conf_id}".format(
-            view_conf_id=view_conf_id
-        )
-        _generate_html_page("view_modules", template_data, page_name, query.settings)
 
         # Generate the unwanted packages page
         page_name = "view-unwanted--{view_conf_id}".format(

@@ -52,26 +52,6 @@
                 </div>
                 <div class="col-sm-3">
                     <dl>
-                        {% if workload_conf.modules_disable %}
-                        <dt> Modules to disable </dt>
-                        <dd>
-                            <ul class="list-unstyled list-packages">
-                                {% for module_stream in workload_conf.modules_disable | sort %}
-                                <li>{{module_stream}}</li>
-                                {% endfor %}
-                            </ul>
-                        </dd>
-                        {% endif %}
-                        {% if workload_conf.modules_enable %}
-                        <dt> Modules to enable </dt>
-                        <dd>
-                            <ul class="list-unstyled list-packages">
-                                {% for module_stream in workload_conf.modules_enable | sort %}
-                                <li>{{module_stream}}</li>
-                                {% endfor %}
-                            </ul>
-                        </dd>
-                        {% endif %}
                         <dt> Required Packages </dt>
                         <dd>
                             <ul class="list-unstyled list-packages">

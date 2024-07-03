@@ -104,26 +104,6 @@
             <div class="card w-100">
                 <h5 class="card-header"> Additional info </h5>
                 <div class="card-body">
-                    {% if workload_conf.modules_disable %}
-                    <dt> Disabled modules </dt>
-                    <dd>
-                        <ul class="list-unstyled list-packages">
-                            {% for module_stream in workload_conf.modules_disable | sort %}
-                            <li>{{module_stream}}</li>
-                            {% endfor %}
-                        </ul>
-                    </dd>
-                    {% endif %}
-                    {% if query.data.workloads[workload_id].enabled_modules %}
-                    <dt> Enabled modules </dt>
-                    <dd>
-                        <ul class="list-unstyled list-packages">
-                            {% for module_stream in query.data.workloads[workload_id].enabled_modules | sort %}
-                            <li>{{module_stream}}</li>
-                            {% endfor %}
-                        </ul>
-                    </dd>
-                    {% endif %}
                     <dl>
                         <dt>Configuration</dt>
                         <dd><a href="config-workload--{{workload_conf.id}}.html">{{workload_conf.id}}.yaml</a></dd>
