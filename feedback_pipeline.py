@@ -171,7 +171,7 @@ def load_settings():
 
     settings["max_subprocesses"] = 10
 
-    settings["allowed_arches"] = ["armv7hl", "aarch64", "ppc64le", "s390x", "x86_64"]
+    settings["allowed_arches"] = ["aarch64", "ppc64le", "s390x", "x86_64"]
 
     settings["weird_packages_that_can_not_be_installed"] = ["glibc32"]
 
