@@ -1,0 +1,13 @@
+---
+document: feedback-pipeline-compose-view
+version: 1
+data:
+  name: Test Package Set
+  description: Test package set based on F34
+  maintainer: bakery
+  labels:
+  - test
+  repository: repo-test
+  buildroot_strategy: dep_tracker
+  
+
