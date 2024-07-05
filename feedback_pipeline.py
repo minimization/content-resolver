@@ -171,7 +171,7 @@ def load_settings():
 
     settings["max_subprocesses"] = 10
 
-    settings["allowed_arches"] = ["armv7hl", "aarch64", "ppc64le", "s390x", "x86_64"]
+    settings["allowed_arches"] = ["aarch64", "ppc64le", "s390x", "x86_64"]
 
     settings["weird_packages_that_can_not_be_installed"] = ["glibc32"]
 
@@ -458,44 +458,7 @@ def _load_config_workload(document_id, document, settings):
     config["package_placeholders"]["pkgs"] = {}
     config["package_placeholders"]["srpms"] = {}
     if "package_placeholders" in document["data"]:
-
-        # So yeah, this is kind of awful but also brilliant.
-        # The old syntax of package placeholders was a dict,
-        # but the new one is a list. 
-        # So I can be backwards compatible!
-        #
-        # The old format
-        if isinstance(document["data"]["package_placeholders"], dict):
-            for pkg_name, pkg_data in document["data"]["package_placeholders"].items():
-                pkg_description = pkg_data.get("description", "Description not provided.")
-                pkg_requires = pkg_data.get("requires", [])
-                pkg_buildrequires = pkg_data.get("buildrequires", [])
-                limit_arches = pkg_data.get("limit_arches", None)
-                srpm = pkg_data.get("srpm", pkg_name)
-
-                config["package_placeholders"]["pkgs"][pkg_name] = {}
-                config["package_placeholders"]["pkgs"][pkg_name]["name"] = pkg_name
-                config["package_placeholders"]["pkgs"][pkg_name]["description"] = pkg_description
-                config["package_placeholders"]["pkgs"][pkg_name]["requires"] = pkg_requires
-                config["package_placeholders"]["pkgs"][pkg_name]["limit_arches"] = limit_arches
-                config["package_placeholders"]["pkgs"][pkg_name]["srpm"] = srpm
-
-                # Because the old format isn't great, it needs a srpm
-                # to be defined for every rpm, including the build requires.
-                # That can cause conflicts. 
-                # So the best thing (I think) is to just take the first one and ignore
-                # the others. This is better than nothing. And people should move
-                # to the new format anyway.
-                if srpm not in config["package_placeholders"]["srpms"]:
-                    config["package_placeholders"]["srpms"][srpm] = {}
-                    config["package_placeholders"]["srpms"][srpm]["name"] = srpm
-                    config["package_placeholders"]["srpms"][srpm]["buildrequires"] = pkg_buildrequires
-                    config["package_placeholders"]["srpms"][srpm]["limit_arches"] = limit_arches
-
-        
-        #
-        # The new format
-        elif isinstance(document["data"]["package_placeholders"], list):
+        if isinstance(document["data"]["package_placeholders"], list):
             for srpm in document["data"]["package_placeholders"]:
                 srpm_name = srpm["srpm_name"]
                 if not srpm_name:
