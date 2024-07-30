@@ -18,7 +18,7 @@ data:
   # Name is an identifier for humans
   #
   # (mandatory field)
-  name: ELN Environment
+  name: ELN Extras Environment
   
   # A short description, perhaps hinting the purpose
   #
@@ -35,7 +35,7 @@ data:
   #
   # (mandatory field)
   repositories:
-  - repo-eln
+  - repo-eln-extras
 
   # Packages defining this environment.
   # This list includes packages for all
@@ -52,8 +52,7 @@ data:
   # 
   # (mandatory field)
   labels:
-  - eln
-  - eln-but-not-included
+  - eln-extras
 
   ### OPTIONAL FIELDS ###
 
