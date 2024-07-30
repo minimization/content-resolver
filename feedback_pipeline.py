@@ -635,6 +635,7 @@ def _load_config_addon_view(document_id, document, settings):
 
         # Choose one repository that gets used as a source.
         config["base_view_id"] = str(document["data"]["base_view_id"])
+        config["repository"] = str(document["data"]["repository"])
 
     except KeyError:
         raise ConfigError("'{file}.yaml' - There's something wrong with the mandatory fields. Sorry I don't have more specific info.".format(file=document_id))
@@ -1081,7 +1082,6 @@ def get_configs(settings):
 
             
             # Ading some extra fields onto the addon view
-            configs["views"][view_conf_id]["repository"] = configs["views"][base_view_id]["repository"]
             configs["views"][view_conf_id]["architectures"] = configs["views"][base_view_id]["architectures"]
     
     # Adjust view architecture based on repository architectures
