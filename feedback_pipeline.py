@@ -2780,10 +2780,12 @@ class Analyzer():
 
                 # "Package already installed" indicates it's directly required,
                 # so save it.
-                # DNF5 does this after "Repositories loaded" and quotes the NVR;
-                # DNF4 does this before "Dependencies resolved" without the quotes.
+                # DNF4 does this before "Dependencies resolved" without the quotes;
+                # DNF5 does this after "Repositories loaded" and quotes the NVR, but
+                # sometimes prints this in the middle of a dependency line.
                 if "is already installed." in file_line:
-                    pkg_name = file_line.split()[3].strip('"').rsplit("-",2)[0]
+                    pkg_index = file_line.split().index("already") - 2
+                    pkg_name = file_line.split()[pkg_index].strip('"').rsplit("-",2)[0]
                     required_pkgs.append(pkg_name)
 
                 # The next line will be the first package. Next state!
@@ -2803,7 +2805,12 @@ class Analyzer():
 
                 elif "Transaction Summary" in file_line:
                     state = 2
-                    
+
+                # Sometimes DNF5 prints "Package ... is already installed" in middle of the output.
+                elif file_line.split()[2] == "Package" and file_line.split()[-1] == "installed.":
+                    pkg_name = file_line.split()[3].strip('"').rsplit("-",2)[0]
+                    required_pkgs.append(pkg_name)
+
                 else:
                     # I need to deal with the following thing...
                     #
@@ -2838,14 +2845,27 @@ class Analyzer():
                     #
                     # I can also anticipate both get long... that would mean I need to skip file_line.split() == 4.
 
-                    if len(file_line.split()) == 8 or len(file_line.split()) == 3:
+                    if len(file_line.split()) == 10 or len(file_line.split()) == 11:
+                        # Sometimes DNF5 prints "Package ... is already installed" in the middle of a line
+                        pkg_index = file_line.split().index("already") - 2
+                        pkg_name = file_line.split()[pkg_index].strip('"').rsplit("-",2)[0]
+                        required_pkgs.append(pkg_name)
+                        if pkg_index == 3:
+                            pkg_name = file_line.split()[7]
+                        else:
+                            pkg_name = file_line.split()[2]
+                        required_pkgs.append(pkg_name)
+
+                    # TODO: len(file_line.split()) == 9 ??
+
+                    elif len(file_line.split()) == 8 or len(file_line.split()) == 3:
                         pkg_name = file_line.split()[2]
                         required_pkgs.append(pkg_name)
 
                     elif len(file_line.split()) == 7 or len(file_line.split()) == 4:
                         continue
 
-                    elif len(file_line.split()) == 5:
+                    elif len(file_line.split()) == 6 or len(file_line.split()) == 5:
                         # DNF5 uses B/KiB/MiB/GiB, DNF4 uses B/k/M/G
                         if file_line.split()[4] in ["B", "KiB", "k", "MiB", "M", "GiB", "G"]:
                             continue
