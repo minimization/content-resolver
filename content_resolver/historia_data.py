@@ -2,8 +2,8 @@ import datetime
 import json
 import os
 import re
-from feedback_pipeline.data_generation import _generate_json_file
-from feedback_pipeline.utils import dump_data, err_log, log
+from content_resolver.data_generation import _generate_json_file
+from content_resolver.utils import dump_data, err_log, log
 
 
 def _save_current_historic_data(query):

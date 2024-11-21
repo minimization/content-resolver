@@ -1,7 +1,7 @@
 import os
 import subprocess
 import jinja2
-from feedback_pipeline.utils import dump_data, log
+from content_resolver.utils import dump_data, log
 
 
 def _generate_html_page(template_name, template_data, page_name, settings):

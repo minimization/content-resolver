@@ -1,8 +1,8 @@
 import tempfile, os, json, datetime, dnf, urllib.request, sys, koji
 
 import multiprocessing, asyncio
-from feedback_pipeline.utils import dump_data, load_data, log, err_log, pkg_id_to_name, size, workload_id_to_conf_id, url_to_id
-from feedback_pipeline.exceptions import RepoDownloadError, BuildGroupAnalysisError, KojiRootLogError, AnalysisError
+from content_resolver.utils import dump_data, load_data, log, err_log, pkg_id_to_name, size, workload_id_to_conf_id, url_to_id
+from content_resolver.exceptions import RepoDownloadError, BuildGroupAnalysisError, KojiRootLogError, AnalysisError
 
 
 def pkg_placeholder_name_to_id(placeholder_name):

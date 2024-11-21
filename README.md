@@ -106,7 +106,7 @@ Please use the `refresh.sh` script as a reference for deployment.
 
 ## Developer preview
 
-If you want to contribute and test your changes, run the `feedback_pipeline.py` script with test configs in the `test_configs` directory.
+If you want to contribute and test your changes, run the `content_resolver.py` script with test configs in the `test_configs` directory.
 
 To run the script, you'll need Python 3 and the following dependencies:
 
@@ -124,7 +124,7 @@ $ podman run --rm -it --cap-add CAP_SYS_CHROOT --tmpfs /dnf_cachedir -v $(pwd):/
 
 ```
 # mkdir -p output/history
-# ./feedback_pipeline.py --dev-buildroot --dnf-cache-dir /dnf_cachedir test_configs output
+# ./content_resolver.py --dev-buildroot --dnf-cache-dir /dnf_cachedir test_configs output
 ```
 
 The output will be generated in the `output` directory. Open the `output/index.html` in your web browser of choice to see the result.
@@ -140,7 +140,7 @@ $ docker run --rm -it --tmpfs /dnf_cachedir -v $(pwd):/workspace content-resolve
 
 ```
 # mkdir -p output/history
-# ./feedback_pipeline.py --dev-buildroot --dnf-cache-dir /dnf_cachedir test_configs output
+# ./content_resolver.py --dev-buildroot --dnf-cache-dir /dnf_cachedir test_configs output
 ```
 
 The output will be generated in the `output` directory. Open the `output/index.html` in your web browser of choice to see the result.

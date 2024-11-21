@@ -5,7 +5,7 @@
 
 from functools import lru_cache
 
-from feedback_pipeline.utils import pkg_id_to_name
+from content_resolver.utils import pkg_id_to_name
 
 
 class Query():

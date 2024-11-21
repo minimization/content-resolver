@@ -1,5 +1,5 @@
 import os
-from feedback_pipeline.utils import dump_data, log
+from content_resolver.utils import dump_data, log
 
 
 def _generate_json_file(data, page_name, settings):

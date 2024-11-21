@@ -27,7 +27,7 @@ jobs:
       run: mkdir -p output/history
 
     - name: Run the build
-      run: ./feedback_pipeline.py --dev-buildroot test_configs output
+      run: ./content_resolver.py --dev-buildroot test_configs output
     
     - name: Run tests
       run: |

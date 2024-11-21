@@ -1,13 +1,13 @@
 #!/usr/bin/python3
 
 import datetime
-from feedback_pipeline.analyzer import Analyzer
-from feedback_pipeline.data_generation import generate_data_files
-from feedback_pipeline.historia_data import generate_historic_data
-from feedback_pipeline.page_generation import generate_pages
-from feedback_pipeline.query import Query
-from feedback_pipeline.utils import load_data, log, datetime_now_string, dump_data
-from feedback_pipeline.config_manager import ConfigManager
+from content_resolver.analyzer import Analyzer
+from content_resolver.data_generation import generate_data_files
+from content_resolver.historia_data import generate_historic_data
+from content_resolver.page_generation import generate_pages
+from content_resolver.query import Query
+from content_resolver.utils import load_data, log, datetime_now_string, dump_data
+from content_resolver.config_manager import ConfigManager
 
 
 
