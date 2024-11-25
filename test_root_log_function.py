@@ -1,6 +1,6 @@
 #! /usr/bin/python3
 
-from feedback_pipeline import Analyzer
+from content_resolver.analyzer import Analyzer
 import sys
 import urllib
 

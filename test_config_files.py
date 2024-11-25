@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 
-import feedback_pipeline
+import content_resolver.config_manager
 
 def create_mock_settings():
     settings = {}
@@ -11,7 +11,8 @@ def create_mock_settings():
     return settings
   
 def main():
-    feedback_pipeline.get_configs(create_mock_settings())
+    config_manager = content_resolver.config_manager.ConfigManager()
+    config_manager.get_configs(create_mock_settings())
     
 if __name__ == "__main__":
     main()

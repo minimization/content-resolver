@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# This script runs the feedback_pipeline.py with the right configs and pushes out the results
+# This script runs the content_resolvere.py with the right configs and pushes out the results
 
 
 
@@ -41,7 +41,7 @@ echo ""
 echo "Building..."
 echo "$build_started"
 echo "(Logging into ~/logs/$build_started.log)"
-CMD="./feedback_pipeline.py --dnf-cache-dir /dnf_cachedir content-resolver-input/configs out" || exit 1
+CMD="./content_resolver.py --dnf-cache-dir /dnf_cachedir content-resolver-input/configs out" || exit 1
 podman run --rm -it --tmpfs /dnf_cachedir -v $WORK_DIR/content-resolver:/workspace:z localhost/asamalik/fedora-env $CMD > ~/logs/$build_started.log || exit 1
 
 # Save the root log cache
