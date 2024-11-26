@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 
-import content_resolver.config_manager
+from content_resolver.config_manager import ConfigManager
 
 def create_mock_settings():
     settings = {}
@@ -11,8 +11,8 @@ def create_mock_settings():
     return settings
   
 def main():
-    config_manager = content_resolver.config_manager.ConfigManager()
-    config_manager.get_configs(create_mock_settings())
+    config_manager = ConfigManager(create_mock_settings())
+    config_manager.get_configs()
     
 if __name__ == "__main__":
     main()
