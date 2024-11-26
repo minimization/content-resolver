@@ -8,7 +8,10 @@ from content_resolver.exceptions import SettingsError, ConfigError
 
 class ConfigManager:
     def __init__(self, config_file=None):
-        self.settings = self.load_settings()
+        if config_file is not None:
+            self.settings = config_file
+        else:
+            self.settings = self.load_settings()
 
 
     def load_settings(self):
