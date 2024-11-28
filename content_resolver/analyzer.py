@@ -1,4 +1,5 @@
 import tempfile, os, json, datetime, dnf, urllib.request, sys, koji
+import libdnf5
 
 import multiprocessing, asyncio
 from content_resolver.utils import dump_data, load_data, log, err_log, pkg_id_to_name, size, workload_id_to_conf_id, url_to_id
@@ -76,6 +77,48 @@ class Analyzer():
         except FileNotFoundError:
             pass
 
+        self.base = self._initialize_base()
+
+    # All of the bases have this set
+    def _initialize_base(self):
+        base = libdnf5.base.Base()
+        # base.setup()
+        base.get_config().debuglevel = 0
+        base.get_config().errorlevel = 0
+        base.get_config().logfilelevel = 0
+
+        return base
+
+    def _configure_base(self, repo, arch, env_conf_id=None):
+        # Local DNF cache
+        cachedir_name = "dnf_cachedir-{repo}-{arch}".format(
+            repo=repo["id"],
+            arch=arch
+        )
+        self.base.get_config().cachedir = os.path.join(self.tmp_dnf_cachedir, cachedir_name)
+
+        # Installroot
+        if env_conf_id:
+            root_name = "dnf_env_installroot-{env_conf}-{repo}-{arch}".format(
+                env_conf=env_conf_id,
+                repo=repo["id"],
+                arch=arch
+            )
+        else:
+            root_name = "dnf_generic_installroot-{repo}-{arch}".format(
+                repo=repo["id"],
+                arch=arch
+            )
+        self.base.get_config().installroot = os.path.join(self.tmp_installroots, root_name)
+
+        # Architecture
+        self.base.get_config().arch = arch
+        self.base.get_config().ignorearch = True
+
+        # Releasever
+        self.base.get_vars().set("releasever", repo["source"]["releasever"])
+
+        self.base.setup()
 
     def _record_metric(self, name):
         this_record = {
@@ -138,7 +181,7 @@ class Analyzer():
 
                 additional_repo = dnf.repo.Repo(
                     name=repo_name,
-                    parent_conf=base.conf
+                    parent_conf=self.base.get_config()
                 )
                 additional_repo.baseurl = repo_data["baseurl"]
                 additional_repo.priority = repo_data["priority"]
@@ -158,7 +201,7 @@ class Analyzer():
             self.global_dnf_repo_cache[repo_id][arch] = []
             for repo in base.repos.iter_enabled():
                 self.global_dnf_repo_cache[repo_id][arch].append(repo)
-    
+
 
     def _analyze_pkgs(self, repo, arch):
         log("Analyzing pkgs for {repo_name} ({repo_id}) {arch}".format(
@@ -166,163 +209,155 @@ class Analyzer():
                 repo_id=repo["id"],
                 arch=arch
             ))
+
+        self._configure_base(repo, arch)
+
+        repo_sack = self.base.get_repo_sack()
+
+
+        # TODO: fix repo and base stuff below here
+        # Maybe it would be possible we could create the repos from config or something?
+        for repo_name, repo_data in repo["source"]["repos"].items():
+            if repo_data["limit_arches"]:
+                if arch not in repo_data["limit_arches"]:
+                    log("  Skipping {} on {}".format(repo_name, arch))
+                    continue
+            log("  Including {}".format(repo_name))
+
+            additional_repo = repo_sack.create_repo(repo_name)
+            additional_repo.get_config().baseurl = repo_data["baseurl"]
+            additional_repo.get_config().priority = repo_data["priority"]
+            # log(additional_repo)
+            # self.base.repos.add(additional_repo)
+
+        # Additional repository (if configured)
+        #if repo["source"]["additional_repository"]:
+        #    additional_repo = dnf.repo.Repo(name="additional-repository",parent_conf=base.conf)
+        #    additional_repo.baseurl = [repo["source"]["additional_repository"]]
+        #    additional_repo.priority = 1
+        #    base.repos.add(additional_repo)
+
+        # Load repos
+        log("  Loading repos...")
+        #base.read_all_repos()
+
+
+        # At this stage, I need to get all packages from the repo listed.
+        # That also includes modular packages. Modular packages in non-enabled
+        # streams would be normally hidden. So I mark all the available repos as
+        # hotfix repos to make all packages visible, including non-enabled streams.
+        # TODO: for some reason the repo sack is empty here
+        # log(repo_sack.load_repos())
+        # log(repo_sack.update_and_load_enabled_repos(load_system=False))
+        # log(repo_sack.load_repos(libdnf5.repo.Repo.Type_AVAILABLE))
+        # for dnf_repo in repo_sack.load_repos():
+        #     log(repo_sack)
+        #     log(dnf_repo)
+        #     log(repo_sack.load_repos())
+        #     dnf_repo.get_config().module_hotfixes = True
+        repo_query = libdnf5.repo.RepoQuery(self.base)
+        for dnf_repo in repo_query:
+            dnf_repo.get_config().module_hotfixes = True
+
+        log("we got further lmao")
+        # This sometimes fails, so let's try at least N times
+        # before totally giving up!
+        MAX_TRIES = 10
+        attempts = 0
+        success = False
+        while attempts < MAX_TRIES:
+            try:
+                # The load_repos loads the enabled repos when givin a parameter
+                enabled_repos = [repo.id for repo in repo_sack.load_repos() if repo.is_enabled()]
+                repo_sack.load_repos(enabled_repos)
+                success = True
+                break
+            # TODO: libdnf5 doesn't have exceptions...
+            except:
+                attempts +=1
+                log("  Failed to download repodata. Trying again!")
+        if not success:
+            err = "Failed to download repodata while analyzing repo '{repo_name} ({repo_id}) {arch}".format(
+              repo_name=repo["name"],
+              repo_id=repo["id"],
+              arch=arch
+            )
+            err_log(err)
+            raise RepoDownloadError(err)
+
+        # DNF query
+        query = libdnf5.repo.RepoQuery(self.base)
+
+        # Get all packages
+        all_pkgs_set = set(query)
+        pkgs = {}
+        for pkg_object in all_pkgs_set:
+            pkg_nevra = "{name}-{evr}.{arch}".format(
+                name=pkg_object.name,
+                evr=pkg_object.evr,
+                arch=pkg_object.arch
+            )
+            pkg_nevr = "{name}-{evr}".format(
+                name=pkg_object.name,
+                evr=pkg_object.evr
+            )
+            pkg = {}
+            pkg["id"] = pkg_nevra
+            pkg["name"] = pkg_object.name
+            pkg["evr"] = pkg_object.evr
+            pkg["nevr"] = pkg_nevr
+            pkg["arch"] = pkg_object.arch
+            pkg["installsize"] = pkg_object.installsize
+            pkg["description"] = pkg_object.description
+            #pkg["provides"] = pkg_object.provides
+            #pkg["requires"] = pkg_object.requires
+            #pkg["recommends"] = pkg_object.recommends
+            #pkg["suggests"] = pkg_object.suggests
+            pkg["summary"] = pkg_object.summary
+            pkg["source_name"] = pkg_object.source_name
+            pkg["sourcerpm"] = pkg_object.sourcerpm
+            pkg["reponame"] = pkg_object.reponame
+
+            pkgs[pkg_nevra] = pkg
         
-        with dnf.Base() as base:
+        # There shouldn't be multiple packages of the same NVR
+        # But the world isn't as simple! So add all reponames
+        # to every package, in case it's in multiple repos
 
-            base.conf.debuglevel = 0
-            base.conf.errorlevel = 0
-            base.conf.logfilelevel = 0
+        repo_priorities = {}
+        for repo_name, repo_data in repo["source"]["repos"].items():
+            repo_priorities[repo_name] = repo_data["priority"]
 
-            # Local DNF cache
-            cachedir_name = "dnf_cachedir-{repo}-{arch}".format(
-                repo=repo["id"],
-                arch=arch
+        for pkg_object in all_pkgs_set:
+            pkg_nevra = "{name}-{evr}.{arch}".format(
+                name=pkg_object.name,
+                evr=pkg_object.evr,
+                arch=pkg_object.arch
             )
-            base.conf.cachedir = os.path.join(self.tmp_dnf_cachedir, cachedir_name)
+            reponame = pkg_object.reponame
 
-            # Generic installroot
-            root_name = "dnf_generic_installroot-{repo}-{arch}".format(
-                repo=repo["id"],
-                arch=arch
-            )
-            base.conf.installroot = os.path.join(self.tmp_installroots, root_name)
-
-            # Architecture
-            base.conf.arch = arch
-            base.conf.ignorearch = True
-
-            # Releasever
-            base.conf.substitutions['releasever'] = repo["source"]["releasever"]
-
-            for repo_name, repo_data in repo["source"]["repos"].items():
-                if repo_data["limit_arches"]:
-                    if arch not in repo_data["limit_arches"]:
-                        log("  Skipping {} on {}".format(repo_name, arch))
-                        continue
-                log("  Including {}".format(repo_name))
-
-                additional_repo = dnf.repo.Repo(
-                    name=repo_name,
-                    parent_conf=base.conf
-                )
-                additional_repo.baseurl = repo_data["baseurl"]
-                additional_repo.priority = repo_data["priority"]
-                base.repos.add(additional_repo)
-
-            # Additional repository (if configured)
-            #if repo["source"]["additional_repository"]:
-            #    additional_repo = dnf.repo.Repo(name="additional-repository",parent_conf=base.conf)
-            #    additional_repo.baseurl = [repo["source"]["additional_repository"]]
-            #    additional_repo.priority = 1
-            #    base.repos.add(additional_repo)
-
-            # Load repos
-            log("  Loading repos...")
-            #base.read_all_repos()
-
-
-            # At this stage, I need to get all packages from the repo listed.
-            # That also includes modular packages. Modular packages in non-enabled
-            # streams would be normally hidden. So I mark all the available repos as
-            # hotfix repos to make all packages visible, including non-enabled streams.
-            for dnf_repo in base.repos.all():
-                dnf_repo.module_hotfixes = True
-
-            # This sometimes fails, so let's try at least N times
-            # before totally giving up!
-            MAX_TRIES = 10
-            attempts = 0
-            success = False
-            while attempts < MAX_TRIES:
-                try:
-                    base.fill_sack(load_system_repo=False)
-                    success = True
-                    break
-                except dnf.exceptions.RepoError as err:
-                    attempts +=1
-                    log("  Failed to download repodata. Trying again!")
-            if not success:
-                err = "Failed to download repodata while analyzing repo '{repo_name} ({repo_id}) {arch}".format(
-                repo_name=repo["name"],
-                repo_id=repo["id"],
-                arch=arch
-                )
-                err_log(err)
-                raise RepoDownloadError(err)
-
-            # DNF query
-            query = base.sack.query
-
-            # Get all packages
-            all_pkgs_set = set(query())
-            pkgs = {}
-            for pkg_object in all_pkgs_set:
-                pkg_nevra = "{name}-{evr}.{arch}".format(
-                    name=pkg_object.name,
-                    evr=pkg_object.evr,
-                    arch=pkg_object.arch
-                )
-                pkg_nevr = "{name}-{evr}".format(
-                    name=pkg_object.name,
-                    evr=pkg_object.evr
-                )
-                pkg = {}
-                pkg["id"] = pkg_nevra
-                pkg["name"] = pkg_object.name
-                pkg["evr"] = pkg_object.evr
-                pkg["nevr"] = pkg_nevr
-                pkg["arch"] = pkg_object.arch
-                pkg["installsize"] = pkg_object.installsize
-                pkg["description"] = pkg_object.description
-                #pkg["provides"] = pkg_object.provides
-                #pkg["requires"] = pkg_object.requires
-                #pkg["recommends"] = pkg_object.recommends
-                #pkg["suggests"] = pkg_object.suggests
-                pkg["summary"] = pkg_object.summary
-                pkg["source_name"] = pkg_object.source_name
-                pkg["sourcerpm"] = pkg_object.sourcerpm
-                pkg["reponame"] = pkg_object.reponame
-
-                pkgs[pkg_nevra] = pkg
+            if "all_reponames" not in pkgs[pkg_nevra]:
+                pkgs[pkg_nevra]["all_reponames"] = set()
             
-            # There shouldn't be multiple packages of the same NVR
-            # But the world isn't as simple! So add all reponames
-            # to every package, in case it's in multiple repos
+            pkgs[pkg_nevra]["all_reponames"].add(reponame)
+        
+        for pkg_nevra, pkg in pkgs.items():
+            pkgs[pkg_nevra]["highest_priority_reponames"] = set()
 
-            repo_priorities = {}
-            for repo_name, repo_data in repo["source"]["repos"].items():
-                repo_priorities[repo_name] = repo_data["priority"]
-
-            for pkg_object in all_pkgs_set:
-                pkg_nevra = "{name}-{evr}.{arch}".format(
-                    name=pkg_object.name,
-                    evr=pkg_object.evr,
-                    arch=pkg_object.arch
-                )
-                reponame = pkg_object.reponame
-
-                if "all_reponames" not in pkgs[pkg_nevra]:
-                    pkgs[pkg_nevra]["all_reponames"] = set()
-                
-                pkgs[pkg_nevra]["all_reponames"].add(reponame)
+            all_repo_priorities = set()
+            for reponame in pkg["all_reponames"]:
+                all_repo_priorities.add(repo_priorities[reponame])
             
-            for pkg_nevra, pkg in pkgs.items():
-                pkgs[pkg_nevra]["highest_priority_reponames"] = set()
+            highest_repo_priority = sorted(list(all_repo_priorities))[0]
 
-                all_repo_priorities = set()
-                for reponame in pkg["all_reponames"]:
-                    all_repo_priorities.add(repo_priorities[reponame])
-                
-                highest_repo_priority = sorted(list(all_repo_priorities))[0]
+            for reponame in pkg["all_reponames"]:
+                if repo_priorities[reponame] == highest_repo_priority:
+                    pkgs[pkg_nevra]["highest_priority_reponames"].add(reponame)
 
-                for reponame in pkg["all_reponames"]:
-                    if repo_priorities[reponame] == highest_repo_priority:
-                        pkgs[pkg_nevra]["highest_priority_reponames"].add(reponame)
-
-            log("  Done!  ({pkg_count} packages in total)".format(
-                pkg_count=len(pkgs)
-            ))
-            log("")
+        log("  Done!  ({pkg_count} packages in total)".format(
+            pkg_count=len(pkgs)
+        ))
+        log("")
 
         return pkgs
     
@@ -467,166 +502,141 @@ class Analyzer():
         env["errors"]["non_existing_pkgs"] = []
 
         env["succeeded"] = True
+        
+        self._configure_base(repo, arch, env_conf["id"])
 
-        with dnf.Base() as base:
+        # Additional DNF Settings
+        self.base.get_config().tsflags.append('justdb')
+        self.base.get_config().tsflags.append('noscripts')
 
-            base.conf.debuglevel = 0
-            base.conf.errorlevel = 0
-            base.conf.logfilelevel = 0
+        # Environment config
+        if "include-weak-deps" not in env_conf["options"]:
+            self.base.get_config().install_weak_deps = False
+        if "include-docs" not in env_conf["options"]:
+            self.base.get_config().tsflags.append('nodocs')
 
-            # Local DNF cache
-            cachedir_name = "dnf_cachedir-{repo}-{arch}".format(
-                repo=repo["id"],
-                arch=arch
-            )
-            base.conf.cachedir = os.path.join(self.tmp_dnf_cachedir, cachedir_name)
+        # Load repos
+        #log("  Loading repos...")
+        #base.read_all_repos()
+        self._load_repo_cached(self.base, repo, arch)
 
-            # Environment installroot
-            root_name = "dnf_env_installroot-{env_conf}-{repo}-{arch}".format(
+        # This sometimes fails, so let's try at least N times
+        # before totally giving up!
+        # TODO: more base stuff i need to fix!
+        MAX_TRIES = 10
+        attempts = 0
+        success = False
+        while attempts < MAX_TRIES:
+            try:
+                base.fill_sack(load_system_repo=False)
+                success = True
+                break
+            except dnf.exceptions.RepoError as err:
+                attempts +=1
+                log("  Failed to download repodata. Trying again!")
+        if not success:
+            err = "Failed to download repodata while analyzing environment '{env_conf}' from '{repo}' {arch}:".format(
                 env_conf=env_conf["id"],
                 repo=repo["id"],
                 arch=arch
             )
-            base.conf.installroot = os.path.join(self.tmp_installroots, root_name)
+            err_log(err)
+            raise RepoDownloadError(err)
 
-            # Architecture
-            base.conf.arch = arch
-            base.conf.ignorearch = True
 
-            # Releasever
-            base.conf.substitutions['releasever'] = repo["source"]["releasever"]
+        # Packages
+        log("  Adding packages...")
+        for pkg in env_conf["packages"]:
+            try:
+                base.install(pkg)
+            except dnf.exceptions.MarkingError:
+                env["errors"]["non_existing_pkgs"].append(pkg)
+                continue
+        
+        # Groups
+        log("  Adding groups...")
+        if env_conf["groups"]:
+            base.read_comps(arch_filter=True)
+        for grp_spec in env_conf["groups"]:
+            group = base.comps.group_by_pattern(grp_spec)
+            if not group:
+                env["errors"]["non_existing_pkgs"].append(grp_spec)
+                continue
+            base.group_install(group.id, ['mandatory', 'default'])
 
-            # Additional DNF Settings
-            base.conf.tsflags.append('justdb')
-            base.conf.tsflags.append('noscripts')
-
-            # Environment config
-            if "include-weak-deps" not in env_conf["options"]:
-                base.conf.install_weak_deps = False
-            if "include-docs" not in env_conf["options"]:
-                base.conf.tsflags.append('nodocs')
-
-            # Load repos
-            #log("  Loading repos...")
-            #base.read_all_repos()
-            self._load_repo_cached(base, repo, arch)
-
-            # This sometimes fails, so let's try at least N times
-            # before totally giving up!
-            MAX_TRIES = 10
-            attempts = 0
-            success = False
-            while attempts < MAX_TRIES:
-                try:
-                    base.fill_sack(load_system_repo=False)
-                    success = True
-                    break
-                except dnf.exceptions.RepoError as err:
-                    attempts +=1
-                    log("  Failed to download repodata. Trying again!")
-            if not success:
-                err = "Failed to download repodata while analyzing environment '{env_conf}' from '{repo}' {arch}:".format(
+        # Architecture-specific packages
+        for pkg in env_conf["arch_packages"][arch]:
+            try:
+                base.install(pkg)
+            except dnf.exceptions.MarkingError:
+                env["errors"]["non_existing_pkgs"].append(pkg)
+                continue
+        
+        # Resolve dependencies
+        log("  Resolving dependencies...")
+        try:
+            base.resolve()
+        except dnf.exceptions.DepsolveError as err:
+            err_log("Failed to analyze environment '{env_conf}' from '{repo}' {arch}:".format(
                     env_conf=env_conf["id"],
                     repo=repo["id"],
                     arch=arch
-                )
-                err_log(err)
-                raise RepoDownloadError(err)
+                ))
+            err_log("  - {err}".format(err=err))
+            env["succeeded"] = False
+            env["errors"]["message"] = str(err)
+            return env
 
+        # Write the result into RPMDB.
+        # The transaction needs us to download all the packages. :(
+        # So let's do that to make it happy.
+        log("  Downloading packages...")
+        try:
+            base.download_packages(base.transaction.install_set)
+        except dnf.exceptions.DownloadError as err:
+            err_log("Failed to analyze environment '{env_conf}' from '{repo}' {arch}:".format(
+                    env_conf=env_conf["id"],
+                    repo=repo["id"],
+                    arch=arch
+                ))
+            err_log("  - {err}".format(err=err))
+            env["succeeded"] = False
+            env["errors"]["message"] = str(err)
+            return env
 
-            # Packages
-            log("  Adding packages...")
-            for pkg in env_conf["packages"]:
-                try:
-                    base.install(pkg)
-                except dnf.exceptions.MarkingError:
-                    env["errors"]["non_existing_pkgs"].append(pkg)
-                    continue
-            
-            # Groups
-            log("  Adding groups...")
-            if env_conf["groups"]:
-                base.read_comps(arch_filter=True)
-            for grp_spec in env_conf["groups"]:
-                group = base.comps.group_by_pattern(grp_spec)
-                if not group:
-                    env["errors"]["non_existing_pkgs"].append(grp_spec)
-                    continue
-                base.group_install(group.id, ['mandatory', 'default'])
+        log("  Running DNF transaction, writing RPMDB...")
+        try:
+            base.do_transaction()
+        except (dnf.exceptions.TransactionCheckError, dnf.exceptions.Error) as err:
+            err_log("Failed to analyze environment '{env_conf}' from '{repo}' {arch}:".format(
+                    env_conf=env_conf["id"],
+                    repo=repo["id"],
+                    arch=arch
+                ))
+            err_log("  - {err}".format(err=err))
+            env["succeeded"] = False
+            env["errors"]["message"] = str(err)
+            return env
 
-            # Architecture-specific packages
-            for pkg in env_conf["arch_packages"][arch]:
-                try:
-                    base.install(pkg)
-                except dnf.exceptions.MarkingError:
-                    env["errors"]["non_existing_pkgs"].append(pkg)
-                    continue
-            
-            # Resolve dependencies
-            log("  Resolving dependencies...")
-            try:
-                base.resolve()
-            except dnf.exceptions.DepsolveError as err:
-                err_log("Failed to analyze environment '{env_conf}' from '{repo}' {arch}:".format(
-                        env_conf=env_conf["id"],
-                        repo=repo["id"],
-                        arch=arch
-                    ))
-                err_log("  - {err}".format(err=err))
-                env["succeeded"] = False
-                env["errors"]["message"] = str(err)
-                return env
+        # DNF Query
+        log("  Creating a DNF Query object...")
+        query = base.sack.query().filterm(pkg=base.transaction.install_set)
 
-            # Write the result into RPMDB.
-            # The transaction needs us to download all the packages. :(
-            # So let's do that to make it happy.
-            log("  Downloading packages...")
-            try:
-                base.download_packages(base.transaction.install_set)
-            except dnf.exceptions.DownloadError as err:
-                err_log("Failed to analyze environment '{env_conf}' from '{repo}' {arch}:".format(
-                        env_conf=env_conf["id"],
-                        repo=repo["id"],
-                        arch=arch
-                    ))
-                err_log("  - {err}".format(err=err))
-                env["succeeded"] = False
-                env["errors"]["message"] = str(err)
-                return env
-
-            log("  Running DNF transaction, writing RPMDB...")
-            try:
-                base.do_transaction()
-            except (dnf.exceptions.TransactionCheckError, dnf.exceptions.Error) as err:
-                err_log("Failed to analyze environment '{env_conf}' from '{repo}' {arch}:".format(
-                        env_conf=env_conf["id"],
-                        repo=repo["id"],
-                        arch=arch
-                    ))
-                err_log("  - {err}".format(err=err))
-                env["succeeded"] = False
-                env["errors"]["message"] = str(err)
-                return env
-
-            # DNF Query
-            log("  Creating a DNF Query object...")
-            query = base.sack.query().filterm(pkg=base.transaction.install_set)
-
-            for pkg in query:
-                pkg_id = "{name}-{evr}.{arch}".format(
-                    name=pkg.name,
-                    evr=pkg.evr,
-                    arch=pkg.arch
-                )
-                env["pkg_ids"].append(pkg_id)
-            
-            env["pkg_relations"] = self._analyze_package_relations(query)
-
-            log("  Done!  ({pkg_count} packages in total)".format(
-                pkg_count=len(env["pkg_ids"])
-            ))
-            log("")
+        for pkg in query:
+            pkg_id = "{name}-{evr}.{arch}".format(
+                name=pkg.name,
+                evr=pkg.evr,
+                arch=pkg.arch
+            )
+            env["pkg_ids"].append(pkg_id)
         
+        env["pkg_relations"] = self._analyze_package_relations(query)
+
+        log("  Done!  ({pkg_count} packages in total)".format(
+            pkg_count=len(env["pkg_ids"])
+        ))
+        log("")
+    
         return env
 
 
@@ -724,274 +734,246 @@ class Analyzer():
         # It can only have labels that are in both the workload_conf and the env_conf
         workload["labels"] = list(set(workload_conf["labels"]) & set(env_conf["labels"]))
 
-        with dnf.Base() as base:
+        self._configure_base(repo, arch, env_conf["id"])
 
-            base.conf.debuglevel = 0
-            base.conf.errorlevel = 0
-            base.conf.logfilelevel = 0
+        # Environment config
+        if "include-weak-deps" not in workload_conf["options"]:
+            self.base.get_config().install_weak_deps = False
+        if "include-docs" not in workload_conf["options"]:
+            self.base.get_config().tsflags.append('nodocs')
 
-            # Local DNF cache
-            cachedir_name = "dnf_cachedir-{repo}-{arch}".format(
-                repo=repo["id"],
-                arch=arch
-            )
-            base.conf.cachedir = os.path.join(self.tmp_dnf_cachedir, cachedir_name)
+        # Load repos
+        #log("  Loading repos...")
+        #base.read_all_repos()
+        self._load_repo_cached(self.base, repo, arch)
 
-            # Environment installroot
-            # Since we're not writing anything into the installroot,
-            # let's just use the base image's installroot!
-            root_name = "dnf_env_installroot-{env_conf}-{repo}-{arch}".format(
-                env_conf=env_conf["id"],
-                repo=repo["id"],
-                arch=arch
-            )
-            base.conf.installroot = os.path.join(self.tmp_installroots, root_name)
-
-            # Architecture
-            base.conf.arch = arch
-            base.conf.ignorearch = True
-
-            # Releasever
-            base.conf.substitutions['releasever'] = repo["source"]["releasever"]
-
-            # Environment config
-            if "include-weak-deps" not in workload_conf["options"]:
-                base.conf.install_weak_deps = False
-            if "include-docs" not in workload_conf["options"]:
-                base.conf.tsflags.append('nodocs')
-
-            # Load repos
-            #log("  Loading repos...")
-            #base.read_all_repos()
-            self._load_repo_cached(base, repo, arch)
-
-            # 0 % 
-
-            # Now I need to load the local RPMDB.
-            # However, if the environment is empty, it wasn't created, so I need to treat
-            # it differently. So let's check!
-            if len(env_conf["packages"]) or len(env_conf["arch_packages"][arch]) or len(env_conf["groups"]):
-                # It's not empty! Load local data.
-                base.fill_sack(load_system_repo=True)
-            else:
-                # It's empty. Treat it like we're using an empty installroot.
-                # This sometimes fails, so let's try at least N times
-                # before totally giving up!
-                MAX_TRIES = 10
-                attempts = 0
-                success = False
-                while attempts < MAX_TRIES:
-                    try:
-                        base.fill_sack(load_system_repo=False)
-                        success = True
-                        break
-                    except dnf.exceptions.RepoError as err:
-                        attempts +=1
-                        #log("  Failed to download repodata. Trying again!")
-                if not success:
-                    err = "Failed to download repodata while analyzing workload '{workload_id} on '{env_id}' from '{repo}' {arch}...".format(
-                            workload_id=workload_conf_id,
-                            env_id=env_conf_id,
-                            repo_name=repo["name"],
-                            repo=repo_id,
-                            arch=arch)
-                    err_log(err)
-                    raise RepoDownloadError(err)
-            
-            # 37 %
-
-            # Packages
-            #log("  Adding packages...")
-            for pkg in workload_conf["packages"]:
+        # 0 % 
+        # TODO: fix the repo stuff below here
+        # Now I need to load the local RPMDB.
+        # However, if the environment is empty, it wasn't created, so I need to treat
+        # it differently. So let's check!
+        if len(env_conf["packages"]) or len(env_conf["arch_packages"][arch]) or len(env_conf["groups"]):
+            # It's not empty! Load local data.
+            base.fill_sack(load_system_repo=True)
+        else:
+            # It's empty. Treat it like we're using an empty installroot.
+            # This sometimes fails, so let's try at least N times
+            # before totally giving up!
+            MAX_TRIES = 10
+            attempts = 0
+            success = False
+            while attempts < MAX_TRIES:
                 try:
-                    base.install(pkg)
-                except dnf.exceptions.MarkingError:
-                    if pkg in self.settings["weird_packages_that_can_not_be_installed"]:
-                        continue
-                    else:
-                        if "strict" in workload_conf["options"]:
-                            workload["errors"]["non_existing_pkgs"].append(pkg)
-                        else:
-                            workload["warnings"]["non_existing_pkgs"].append(pkg)
-                        continue
-            
-            # Groups
-            #log("  Adding groups...")
-            if workload_conf["groups"]:
-                base.read_comps(arch_filter=True)
-            for grp_spec in workload_conf["groups"]:
-                group = base.comps.group_by_pattern(grp_spec)
-                if not group:
-                    workload["errors"]["non_existing_pkgs"].append(grp_spec)
+                    base.fill_sack(load_system_repo=False)
+                    success = True
+                    break
+                except dnf.exceptions.RepoError as err:
+                    attempts +=1
+                    #log("  Failed to download repodata. Trying again!")
+            if not success:
+                err = "Failed to download repodata while analyzing workload '{workload_id} on '{env_id}' from '{repo}' {arch}...".format(
+                        workload_id=workload_conf_id,
+                        env_id=env_conf_id,
+                        repo_name=repo["name"],
+                        repo=repo_id,
+                        arch=arch)
+                err_log(err)
+                raise RepoDownloadError(err)
+        
+        # 37 %
+
+        # Packages
+        #log("  Adding packages...")
+        for pkg in workload_conf["packages"]:
+            try:
+                base.install(pkg)
+            except dnf.exceptions.MarkingError:
+                if pkg in self.settings["weird_packages_that_can_not_be_installed"]:
                     continue
-                base.group_install(group.id, ['mandatory', 'default'])
-            
-            
-                # TODO: Mark group packages as required... the following code doesn't work
-                #for pkg in group.packages_iter():
-                #    print(pkg.name)
-                #    workload_conf["packages"].append(pkg.name)
-                
-                    
-            
-            # Filter out the relevant package placeholders for this arch
-            package_placeholders = {}
-            for placeholder_name, placeholder_data in workload_conf["package_placeholders"]["pkgs"].items():
-                # If this placeholder is not limited to just a usbset of arches, add it
-                if not placeholder_data["limit_arches"]:
-                    package_placeholders[placeholder_name] = placeholder_data
-                # otherwise it is limited. In that case, only add it if the current arch is on its list
-                elif arch in placeholder_data["limit_arches"]:
-                    package_placeholders[placeholder_name] = placeholder_data
-            
-            # Same for SRPM placeholders
-            srpm_placeholders = {}
-            for placeholder_name, placeholder_data in workload_conf["package_placeholders"]["srpms"].items():
-                # If this placeholder is not limited to just a usbset of arches, add it
-                if not placeholder_data["limit_arches"]:
-                    srpm_placeholders[placeholder_name] = placeholder_data
-                # otherwise it is limited. In that case, only add it if the current arch is on its list
-                elif arch in placeholder_data["limit_arches"]:
-                    srpm_placeholders[placeholder_name] = placeholder_data
-
-            # Dependencies of package placeholders
-            #log("  Adding package placeholder dependencies...")
-            for placeholder_name, placeholder_data in package_placeholders.items():
-                for pkg in placeholder_data["requires"]:
-                    try:
-                        base.install(pkg)
-                    except dnf.exceptions.MarkingError:
-                        if "strict" in workload_conf["options"]:
-                            workload["errors"]["non_existing_placeholder_deps"].append(pkg)
-                        else:
-                            workload["warnings"]["non_existing_placeholder_deps"].append(pkg)
-                        continue
-
-            # Architecture-specific packages
-            for pkg in workload_conf["arch_packages"][arch]:
-                try:
-                    base.install(pkg)
-                except dnf.exceptions.MarkingError:
+                else:
                     if "strict" in workload_conf["options"]:
                         workload["errors"]["non_existing_pkgs"].append(pkg)
                     else:
                         workload["warnings"]["non_existing_pkgs"].append(pkg)
                     continue
-
-            if workload["errors"]["non_existing_pkgs"] or workload["errors"]["non_existing_placeholder_deps"]:
-                error_message_list = []
-                if workload["errors"]["non_existing_pkgs"]:
-                    error_message_list.append("The following required packages are not available:")
-                    for pkg_name in workload["errors"]["non_existing_pkgs"]:
-                        pkg_string = "  - {pkg_name}".format(
-                            pkg_name=pkg_name
-                        )
-                        error_message_list.append(pkg_string)
-                if workload["errors"]["non_existing_placeholder_deps"]:
-                    error_message_list.append("The following dependencies of package placeholders are not available:")
-                    for pkg_name in workload["errors"]["non_existing_placeholder_deps"]:
-                        pkg_string = "  - {pkg_name}".format(
-                            pkg_name=pkg_name
-                        )
-                        error_message_list.append(pkg_string)
-                error_message = "\n".join(error_message_list)
-                workload["succeeded"] = False
-                workload["errors"]["message"] = str(error_message)
-                #log("  Failed!  (Error message will be on the workload results page.")
-                #log("")
-                return workload
+        
+        # Groups
+        #log("  Adding groups...")
+        if workload_conf["groups"]:
+            base.read_comps(arch_filter=True)
+        for grp_spec in workload_conf["groups"]:
+            group = base.comps.group_by_pattern(grp_spec)
+            if not group:
+                workload["errors"]["non_existing_pkgs"].append(grp_spec)
+                continue
+            base.group_install(group.id, ['mandatory', 'default'])
+        
+        
+            # TODO: Mark group packages as required... the following code doesn't work
+            #for pkg in group.packages_iter():
+            #    print(pkg.name)
+            #    workload_conf["packages"].append(pkg.name)
             
-            if workload["warnings"]["non_existing_pkgs"] or workload["warnings"]["non_existing_placeholder_deps"]:
-                error_message_list = []
-                if workload["warnings"]["non_existing_pkgs"]:
-                    error_message_list.append("The following required packages are not available (and were skipped):")
-                    for pkg_name in workload["warnings"]["non_existing_pkgs"]:
-                        pkg_string = "  - {pkg_name}".format(
-                            pkg_name=pkg_name
-                        )
-                        error_message_list.append(pkg_string)
-                if workload["warnings"]["non_existing_placeholder_deps"]:
-                    error_message_list.append("The following dependencies of package placeholders are not available (and were skipped):")
-                    for pkg_name in workload["warnings"]["non_existing_placeholder_deps"]:
-                        pkg_string = "  - {pkg_name}".format(
-                            pkg_name=pkg_name
-                        )
-                        error_message_list.append(pkg_string)
-                error_message = "\n".join(error_message_list)
-                workload["warnings"]["message"] = str(error_message)
+                
+        
+        # Filter out the relevant package placeholders for this arch
+        package_placeholders = {}
+        for placeholder_name, placeholder_data in workload_conf["package_placeholders"]["pkgs"].items():
+            # If this placeholder is not limited to just a usbset of arches, add it
+            if not placeholder_data["limit_arches"]:
+                package_placeholders[placeholder_name] = placeholder_data
+            # otherwise it is limited. In that case, only add it if the current arch is on its list
+            elif arch in placeholder_data["limit_arches"]:
+                package_placeholders[placeholder_name] = placeholder_data
+        
+        # Same for SRPM placeholders
+        srpm_placeholders = {}
+        for placeholder_name, placeholder_data in workload_conf["package_placeholders"]["srpms"].items():
+            # If this placeholder is not limited to just a usbset of arches, add it
+            if not placeholder_data["limit_arches"]:
+                srpm_placeholders[placeholder_name] = placeholder_data
+            # otherwise it is limited. In that case, only add it if the current arch is on its list
+            elif arch in placeholder_data["limit_arches"]:
+                srpm_placeholders[placeholder_name] = placeholder_data
 
-            # 37 %
+        # Dependencies of package placeholders
+        #log("  Adding package placeholder dependencies...")
+        for placeholder_name, placeholder_data in package_placeholders.items():
+            for pkg in placeholder_data["requires"]:
+                try:
+                    base.install(pkg)
+                except dnf.exceptions.MarkingError:
+                    if "strict" in workload_conf["options"]:
+                        workload["errors"]["non_existing_placeholder_deps"].append(pkg)
+                    else:
+                        workload["warnings"]["non_existing_placeholder_deps"].append(pkg)
+                    continue
 
-            # Resolve dependencies
-            #log("  Resolving dependencies...")
+        # Architecture-specific packages
+        for pkg in workload_conf["arch_packages"][arch]:
             try:
-                base.resolve()
-            except dnf.exceptions.DepsolveError as err:
-                workload["succeeded"] = False
-                workload["errors"]["message"] = str(err)
-                #log("  Failed!  (Error message will be on the workload results page.")
-                #log("")
-                return workload
+                base.install(pkg)
+            except dnf.exceptions.MarkingError:
+                if "strict" in workload_conf["options"]:
+                    workload["errors"]["non_existing_pkgs"].append(pkg)
+                else:
+                    workload["warnings"]["non_existing_pkgs"].append(pkg)
+                continue
 
-            # 43 %
-
-            # DNF Query
-            #log("  Creating a DNF Query object...")
-            query_env = base.sack.query()
-            pkgs_env = set(query_env.installed())
-            pkgs_added = set(base.transaction.install_set)
-            pkgs_all = set.union(pkgs_env, pkgs_added)
-            query_all = base.sack.query().filterm(pkg=pkgs_all)
-            
-            # OK all good so save stuff now
-            for pkg in pkgs_env:
-                pkg_id = "{name}-{evr}.{arch}".format(
-                    name=pkg.name,
-                    evr=pkg.evr,
-                    arch=pkg.arch
-                )
-                workload["pkg_env_ids"].append(pkg_id)
-            
-            for pkg in pkgs_added:
-                pkg_id = "{name}-{evr}.{arch}".format(
-                    name=pkg.name,
-                    evr=pkg.evr,
-                    arch=pkg.arch
-                )
-                workload["pkg_added_ids"].append(pkg_id)
-
-            # No errors so far? That means the analysis has succeeded,
-            # so placeholders can be added to the list as well.
-            # (Failed workloads need to have empty results, that's why)
-            for placeholder_name in package_placeholders:
-                workload["pkg_placeholder_ids"].append(pkg_placeholder_name_to_id(placeholder_name))
-            
-            for srpm_placeholder_name in srpm_placeholders:
-                workload["srpm_placeholder_names"].append(srpm_placeholder_name)
-
-            # 43 %
-
-            workload["pkg_relations"] = self._analyze_package_relations(query_all, package_placeholders)
-
-            # 100 %
-            
-            pkg_env_count = len(workload["pkg_env_ids"])
-            pkg_added_count = len(workload["pkg_added_ids"])
-            #log("  Done!  ({pkg_count} packages in total. That's {pkg_env_count} in the environment, and {pkg_added_count} added.)".format(
-            #    pkg_count=str(pkg_env_count + pkg_added_count),
-            #    pkg_env_count=pkg_env_count,
-            #    pkg_added_count=pkg_added_count
-            #))
+        if workload["errors"]["non_existing_pkgs"] or workload["errors"]["non_existing_placeholder_deps"]:
+            error_message_list = []
+            if workload["errors"]["non_existing_pkgs"]:
+                error_message_list.append("The following required packages are not available:")
+                for pkg_name in workload["errors"]["non_existing_pkgs"]:
+                    pkg_string = "  - {pkg_name}".format(
+                        pkg_name=pkg_name
+                    )
+                    error_message_list.append(pkg_string)
+            if workload["errors"]["non_existing_placeholder_deps"]:
+                error_message_list.append("The following dependencies of package placeholders are not available:")
+                for pkg_name in workload["errors"]["non_existing_placeholder_deps"]:
+                    pkg_string = "  - {pkg_name}".format(
+                        pkg_name=pkg_name
+                    )
+                    error_message_list.append(pkg_string)
+            error_message = "\n".join(error_message_list)
+            workload["succeeded"] = False
+            workload["errors"]["message"] = str(error_message)
+            #log("  Failed!  (Error message will be on the workload results page.")
             #log("")
+            return workload
+        
+        if workload["warnings"]["non_existing_pkgs"] or workload["warnings"]["non_existing_placeholder_deps"]:
+            error_message_list = []
+            if workload["warnings"]["non_existing_pkgs"]:
+                error_message_list.append("The following required packages are not available (and were skipped):")
+                for pkg_name in workload["warnings"]["non_existing_pkgs"]:
+                    pkg_string = "  - {pkg_name}".format(
+                        pkg_name=pkg_name
+                    )
+                    error_message_list.append(pkg_string)
+            if workload["warnings"]["non_existing_placeholder_deps"]:
+                error_message_list.append("The following dependencies of package placeholders are not available (and were skipped):")
+                for pkg_name in workload["warnings"]["non_existing_placeholder_deps"]:
+                    pkg_string = "  - {pkg_name}".format(
+                        pkg_name=pkg_name
+                    )
+                    error_message_list.append(pkg_string)
+            error_message = "\n".join(error_message_list)
+            workload["warnings"]["message"] = str(error_message)
 
-        # How long do various parts take:
-        # 37 % - populatind DNF's base.sack
-        # 6 %  - resolving deps
-        # 57 % - _analyze_package_relations with recommends
+        # 37 %
 
-        # Removing recommends from _analyze_package_relations 
-        # gets the total duration down to
-        # 64 %
+        # Resolve dependencies
+        #log("  Resolving dependencies...")
+        try:
+            base.resolve()
+        except dnf.exceptions.DepsolveError as err:
+            workload["succeeded"] = False
+            workload["errors"]["message"] = str(err)
+            #log("  Failed!  (Error message will be on the workload results page.")
+            #log("")
+            return workload
+
+        # 43 %
+
+        # DNF Query
+        #log("  Creating a DNF Query object...")
+        query_env = base.sack.query()
+        pkgs_env = set(query_env.installed())
+        pkgs_added = set(base.transaction.install_set)
+        pkgs_all = set.union(pkgs_env, pkgs_added)
+        query_all = base.sack.query().filterm(pkg=pkgs_all)
+        
+        # OK all good so save stuff now
+        for pkg in pkgs_env:
+            pkg_id = "{name}-{evr}.{arch}".format(
+                name=pkg.name,
+                evr=pkg.evr,
+                arch=pkg.arch
+            )
+            workload["pkg_env_ids"].append(pkg_id)
+        
+        for pkg in pkgs_added:
+            pkg_id = "{name}-{evr}.{arch}".format(
+                name=pkg.name,
+                evr=pkg.evr,
+                arch=pkg.arch
+            )
+            workload["pkg_added_ids"].append(pkg_id)
+
+        # No errors so far? That means the analysis has succeeded,
+        # so placeholders can be added to the list as well.
+        # (Failed workloads need to have empty results, that's why)
+        for placeholder_name in package_placeholders:
+            workload["pkg_placeholder_ids"].append(pkg_placeholder_name_to_id(placeholder_name))
+        
+        for srpm_placeholder_name in srpm_placeholders:
+            workload["srpm_placeholder_names"].append(srpm_placeholder_name)
+
+        # 43 %
+
+        workload["pkg_relations"] = self._analyze_package_relations(query_all, package_placeholders)
+
+        # 100 %
+        
+        pkg_env_count = len(workload["pkg_env_ids"])
+        pkg_added_count = len(workload["pkg_added_ids"])
+        #log("  Done!  ({pkg_count} packages in total. That's {pkg_env_count} in the environment, and {pkg_added_count} added.)".format(
+        #    pkg_count=str(pkg_env_count + pkg_added_count),
+        #    pkg_env_count=pkg_env_count,
+        #    pkg_added_count=pkg_added_count
+        #))
+        #log("")
+
+    # How long do various parts take:
+    # 37 % - populatind DNF's base.sack
+    # 6 %  - resolving deps
+    # 57 % - _analyze_package_relations with recommends
+
+    # Removing recommends from _analyze_package_relations 
+    # gets the total duration down to
+    # 64 %
 
         return workload
 
