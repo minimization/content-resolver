@@ -18,7 +18,7 @@ jobs:
       run: dnf -y update fedora-gpg-keys
         
     - name: Install git and Python libraries
-      run: dnf -y install git-core python3-yaml python3-jinja2 python3-koji python3-pytest python3-flake8 python3-dnf
+      run: dnf -y install git-core python3-yaml python3-jinja2 python3-koji python3-pytest python3-flake8 python3-dnf libdnf5
     
     - name: Clean up
       run: dnf clean all
