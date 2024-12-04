@@ -210,12 +210,11 @@ class Analyzer():
                 arch=arch
             ))
 
+        # Set up the base here
         self._configure_base(repo, arch)
 
         repo_sack = self.base.get_repo_sack()
 
-
-        # TODO: fix repo and base stuff below here
         # Maybe it would be possible we could create the repos from config or something?
         for repo_name, repo_data in repo["source"]["repos"].items():
             if repo_data["limit_arches"]:
@@ -227,8 +226,6 @@ class Analyzer():
             additional_repo = repo_sack.create_repo(repo_name)
             additional_repo.get_config().baseurl = repo_data["baseurl"]
             additional_repo.get_config().priority = repo_data["priority"]
-            # log(additional_repo)
-            # self.base.repos.add(additional_repo)
 
         # Additional repository (if configured)
         #if repo["source"]["additional_repository"]:
@@ -246,33 +243,27 @@ class Analyzer():
         # That also includes modular packages. Modular packages in non-enabled
         # streams would be normally hidden. So I mark all the available repos as
         # hotfix repos to make all packages visible, including non-enabled streams.
-        # TODO: for some reason the repo sack is empty here
-        # log(repo_sack.load_repos())
-        # log(repo_sack.update_and_load_enabled_repos(load_system=False))
-        # log(repo_sack.load_repos(libdnf5.repo.Repo.Type_AVAILABLE))
-        # for dnf_repo in repo_sack.load_repos():
-        #     log(repo_sack)
-        #     log(dnf_repo)
-        #     log(repo_sack.load_repos())
-        #     dnf_repo.get_config().module_hotfixes = True
+        # TODO: since we do package query, do we still need this stuff?
         repo_query = libdnf5.repo.RepoQuery(self.base)
-        for dnf_repo in repo_query:
-            dnf_repo.get_config().module_hotfixes = True
 
-        log("we got further lmao")
-        # This sometimes fails, so let's try at least N times
-        # before totally giving up!
+        for dnf_repo in repo_query:
+                dnf_repo.get_config().module_hotfixes = True
+
+        # # This sometimes fails, so let's try at least N times
+        # # before totally giving up!
         MAX_TRIES = 10
         attempts = 0
         success = False
         while attempts < MAX_TRIES:
             try:
+                log(attempts)
                 # The load_repos loads the enabled repos when givin a parameter
-                enabled_repos = [repo.id for repo in repo_sack.load_repos() if repo.is_enabled()]
-                repo_sack.load_repos(enabled_repos)
+                # enabled_repos = [repo.id for repo in loaded_repos if repo.is_enabled()]
+                repo_query.filter_enabled(True)
+                repo_sack.load_repos()
                 success = True
                 break
-            # TODO: libdnf5 doesn't have exceptions...
+            # TODO: fix libdnf5 exceptions
             except:
                 attempts +=1
                 log("  Failed to download repodata. Trying again!")
@@ -285,38 +276,38 @@ class Analyzer():
             err_log(err)
             raise RepoDownloadError(err)
 
-        # DNF query
-        query = libdnf5.repo.RepoQuery(self.base)
+        # If we do a RepoQuery we can't access the info from the rpm, do a package query here instead!
+        query = libdnf5.rpm.PackageQuery(self.base)
 
         # Get all packages
         all_pkgs_set = set(query)
         pkgs = {}
         for pkg_object in all_pkgs_set:
-            pkg_nevra = "{name}-{evr}.{arch}".format(
-                name=pkg_object.name,
-                evr=pkg_object.evr,
-                arch=pkg_object.arch
-            )
+            # pkg_nevra = "{name}-{evr}.{arch}".format(
+            #     name=pkg_object.get_name(),
+            #     evr=pkg_object.get_evr(),
+            #     arch=pkg_object.get_arch()
+            # )
             pkg_nevr = "{name}-{evr}".format(
-                name=pkg_object.name,
-                evr=pkg_object.evr
+                name=pkg_object.get_name(),
+                evr=pkg_object.get_evr()
             )
             pkg = {}
-            pkg["id"] = pkg_nevra
-            pkg["name"] = pkg_object.name
-            pkg["evr"] = pkg_object.evr
+            pkg["id"] = pkg_object.get_nevra()
+            pkg["name"] = pkg_object.get_name()
+            pkg["evr"] = pkg_object.get_evr()
             pkg["nevr"] = pkg_nevr
-            pkg["arch"] = pkg_object.arch
-            pkg["installsize"] = pkg_object.installsize
-            pkg["description"] = pkg_object.description
+            pkg["arch"] = pkg_object.get_arch()
+            pkg["installsize"] = pkg_object.get_install_size()
+            pkg["description"] = pkg_object.get_description()
             #pkg["provides"] = pkg_object.provides
             #pkg["requires"] = pkg_object.requires
             #pkg["recommends"] = pkg_object.recommends
             #pkg["suggests"] = pkg_object.suggests
-            pkg["summary"] = pkg_object.summary
-            pkg["source_name"] = pkg_object.source_name
-            pkg["sourcerpm"] = pkg_object.sourcerpm
-            pkg["reponame"] = pkg_object.reponame
+            pkg["summary"] = pkg_object.get_summary()
+            pkg["source_name"] = pkg_object.get_source_name()
+            pkg["sourcerpm"] = pkg_object.get_sourcerpm()
+            pkg["reponame"] = pkg_object.get_repo_name()
 
             pkgs[pkg_nevra] = pkg
         
@@ -326,15 +317,17 @@ class Analyzer():
 
         repo_priorities = {}
         for repo_name, repo_data in repo["source"]["repos"].items():
+            log(repo_name)
             repo_priorities[repo_name] = repo_data["priority"]
 
         for pkg_object in all_pkgs_set:
-            pkg_nevra = "{name}-{evr}.{arch}".format(
-                name=pkg_object.name,
-                evr=pkg_object.evr,
-                arch=pkg_object.arch
-            )
-            reponame = pkg_object.reponame
+            # pkg_nevra = "{name}-{evr}.{arch}".format(
+            #     name=pkg_object.name,
+            #     evr=pkg_object.evr,
+            #     arch=pkg_object.arch
+            # )
+            pkg_nevra = pkg_object.get_nevra()
+            reponame = pkg_object.get_repo_name()
 
             if "all_reponames" not in pkgs[pkg_nevra]:
                 pkgs[pkg_nevra]["all_reponames"] = set()
