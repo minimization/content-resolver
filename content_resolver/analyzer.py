@@ -1201,7 +1201,7 @@ class Analyzer():
                                 repo_id=repo_id,
                                 arch=arch
                             )
-                            self.data["workloads"][workload_id] = _return_failed_workload_env_err(workload_conf, env_conf, repo, arch)
+                            self.data["workloads"][workload_id] = self._return_failed_workload_env_err(workload_conf, env_conf, repo, arch)
 
         asyncio.run(self._analyze_workloads_async(self.data["workloads"]))
 
@@ -3400,7 +3400,7 @@ class Analyzer():
             log("")
             log("=====  Generating views_all_arches =====")
             log("")
-            self. _generate_views_all_arches()
+            self._generate_views_all_arches()
 
             self._record_metric("finished _generate_views_all_arches()")
 
