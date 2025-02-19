@@ -44,8 +44,12 @@ echo "(Logging into ~/logs/$build_started.log)"
 CMD="./content_resolver.py --dnf-cache-dir /dnf_cachedir content-resolver-input/configs out" || exit 1
 podman run --rm -it --tmpfs /dnf_cachedir -v $WORK_DIR/content-resolver:/workspace:z localhost/asamalik/fedora-env $CMD > ~/cr/logs/$build_started.log || exit 1
 
+echo ""
+echo "Finished:$(date +"%Y-%m-%d-%H%M")"
 # Save the root log cache
+echo "Copying off json logs"
 cp $WORK_DIR/content-resolver/cache_root_log_deps.json $WORK_DIR/content-resolver/out/cache_root_log_deps.json || exit 1
 
 # Save the site
+echo "Copying off output"
 cp -r $WORK_DIR/content-resolver/out ~/cr/out/$build_started || exit 1
