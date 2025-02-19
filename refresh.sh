@@ -31,8 +31,9 @@ git clone -b no-c10s git@github.com:tdawson/content-resolver-input.git || exit 1
 # Local output dir. Includes a dir for the history data, too.
 mkdir -p $WORK_DIR/content-resolver/out/history || exit 1
 
-# make sure we have a log dir
-mkdir -p ~/logs/ || exit 1
+# make sure we have a log and output dir
+mkdir -p ~/cr/logs/ || exit 1
+mkdir -p ~/cr/out/ || exit 1
 
 # Build the site
 build_started=$(date +"%Y-%m-%d-%H%M")
@@ -41,8 +42,10 @@ echo "Building..."
 echo "$build_started"
 echo "(Logging into ~/logs/$build_started.log)"
 CMD="./content_resolver.py --dnf-cache-dir /dnf_cachedir content-resolver-input/configs out" || exit 1
-podman run --rm -it --tmpfs /dnf_cachedir -v $WORK_DIR/content-resolver:/workspace:z localhost/asamalik/fedora-env $CMD > ~/logs/$build_started.log || exit 1
+podman run --rm -it --tmpfs /dnf_cachedir -v $WORK_DIR/content-resolver:/workspace:z localhost/asamalik/fedora-env $CMD > ~/cr/logs/$build_started.log || exit 1
 
 # Save the root log cache
 cp $WORK_DIR/content-resolver/cache_root_log_deps.json $WORK_DIR/content-resolver/out/cache_root_log_deps.json || exit 1
 
+# Save the site
+cp -r $WORK_DIR/content-resolver/out ~/cr/out/$build_started || exit 1
