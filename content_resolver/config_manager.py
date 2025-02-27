@@ -512,6 +512,12 @@ class ConfigManager:
             for pkg in document["data"]["unwanted_packages"]:
                 config["unwanted_packages"].append(str(pkg))
 
+        # Buildroot strategy
+        config["buildroot_strategy"] = "none"
+        if "buildroot_strategy" in document["data"]:
+            if str(document["data"]["buildroot_strategy"]) in ["none", "root_logs"]:
+                config["buildroot_strategy"] = str(document["data"]["buildroot_strategy"])
+
         # Packages to be flagged as unwanted  on specific architectures
         config["unwanted_arch_packages"] = {}
         for arch in settings["allowed_arches"]:
