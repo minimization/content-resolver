@@ -53,3 +53,5 @@ cp $WORK_DIR/content-resolver/cache_root_log_deps.json $WORK_DIR/content-resolve
 # Save the site
 echo "Copying off output"
 cp -r $WORK_DIR/content-resolver/out ~/cr/out/$build_started || exit 1
+rm -f ~/cr/out/latest
+ln -s ~/cr/out/$build_started ~/cr/out/latest
