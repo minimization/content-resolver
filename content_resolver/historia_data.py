@@ -20,6 +20,7 @@ def _save_current_historic_data(query):
         week=week
     )
     output_dir = os.path.join(query.settings["output"], "history")
+    os.makedirs(output_dir, exist_ok=True)
     file_path = os.path.join(output_dir, filename)
 
     # What to save there
