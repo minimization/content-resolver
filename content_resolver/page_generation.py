@@ -1,6 +1,7 @@
 import os
 import subprocess
 import jinja2
+from content_resolver.data_generation import _generate_json_file
 from content_resolver.utils import dump_data, log
 
 
@@ -479,7 +480,8 @@ def _generate_view_pages(query):
                 pkg_name=pkg_name
             )
             _generate_html_page("view_rpm", template_data, page_name, query.settings)
-        
+            _generate_json_file(pkg, page_name, query.settings)
+
 
         # Generate the SRPM pages
         for srpm_name, srpm in view_all_arches["source_pkgs_by_name"].items():
@@ -495,6 +497,7 @@ def _generate_view_pages(query):
                 srpm_name=srpm_name
             )
             _generate_html_page("view_srpm", template_data, page_name, query.settings)
+            _generate_json_file(srpm, page_name, query.settings)
 
 
 
