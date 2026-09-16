@@ -230,7 +230,7 @@
                             <dl>
                                 <dt>Repository</dt>
                                 <dd>{{query.configs.repos[view_conf.repository].name}}</dd>
-        
+
                                 {% if query.data.repos[view_conf.repository].compose_date %}
                                 <dt>Compose Date</dt>
                                 <dd>
@@ -238,7 +238,7 @@
                                     ({{query.data.repos[view_conf.repository].compose_days_ago}} days ago)
                                 </dd>
                                 {% endif %}
-        
+
                                 <dt>Configuration</dt>
                                 <dd><a href="config-view--{{view_conf.id}}.html">{{view_conf.id}}.yaml</a></dd>
                             </dl>
@@ -503,24 +503,21 @@
             loadSnapshotForDate(dateStr);
         }
 
+        // Create date picker
+        function datePicker(selector, opts) {
+            return flatpickr(selector, Object.assign(
+                {enable: availableDates, dateFormat: 'Y-m-d'}, opts));
+        }
+
         if (typeof flatpickr !== 'undefined') {
             // Browse by date
-            browsePicker = flatpickr('#browse-date', {
-                enable: availableDates,
-                dateFormat: 'Y-m-d',
+            browsePicker = datePicker('#browse-date', {
                 onChange: function(selectedDates, dateStr) { handleBrowseDate(dateStr); }
             });
 
             // Compare two dates
-            comparePickerA = flatpickr('#compare-date-a', {
-                enable: availableDates,
-                dateFormat: 'Y-m-d'
-            });
-
-            comparePickerB = flatpickr('#compare-date-b', {
-                enable: availableDates,
-                dateFormat: 'Y-m-d'
-            });
+            comparePickerA = datePicker('#compare-date-a');
+            comparePickerB = datePicker('#compare-date-b');
         } else {
             document.getElementById('browse-date').addEventListener('change', function() {
                 handleBrowseDate(this.value);
@@ -601,7 +598,13 @@
                 '<p class="text-center text-muted">' + text + '</p>';
         }
 
-        // Fetch a daily snapshot by date and display its package lists
+        // Fetch a snapshot by date and return the view's entry
+        function fetchViewData(date) {
+            return axios.get('history/' + dailyDates[date])
+                .then(function(response) { return response.data.views['{{view_conf.id}}']; });
+        }
+
+        // Fetch a snapshot by date and display its package lists
         function loadSnapshotForDate(date) {
             // Look up filename from the date-to-filename map
             var filename = dailyDates[date];
@@ -612,11 +615,8 @@
                 return;
             }
 
-            // Fetch the snapshot
-            axios.get('history/' + filename)
-                .then(function(response) {
-                    // Extract this view's data from the snapshot
-                    var viewData = response.data.views['{{view_conf.id}}'];
+            fetchViewData(date)
+                .then(function(viewData) {
                     if (!viewData) {
                         showMessage('historic-pkg-lists', 'No data for this view in ' + date + '.');
                         return;
@@ -626,6 +626,22 @@
                 .catch(function() {
                     showMessage('historic-pkg-lists', 'Error loading package lists for ' + date + '.');
                 });
+        }
+
+        // View and download package lists links
+        function listLinks(key, list, date) {
+            if (!list || list.length === 0) {
+                return '<span class="text-muted">None</span>';
+            }
+            // "All Arches" opens as plain text in a new tab
+            return '<a class="card-link" href="#" '
+                +  'onclick="viewTxt(currentViewData[\'' + key + '\']); return false;">'
+                +  'All Arches</a> (' + list.length + ') '
+            // "Download .txt" triggers a file download
+                +  '<a class="card-link" href="#" '
+                +  'onclick="downloadTxt(\'' + key + '--' + date + '\', '
+                +  'currentViewData[\'' + key + '\']); return false;">'
+                +  'Download .txt</a>';
         }
 
         // Build HTML table for package lists
@@ -653,39 +669,13 @@
                 html += '<td rowspan=2 class="align-middle"> ' + section.label + ' </td>';
                 html += '<td rowspan=2 class="align-middle"> SRPM </td>';
                 html += '<td> Names </td>';
-                html += '<td>';
-                if (names && names.length > 0) {
-                    // "All Arches" opens as plain text in a new tab
-                    html += '<a class="card-link" href="#" '
-                         +  'onclick="viewTxt(currentViewData[\'' + section.nameKey + '\']); return false;">'
-                         +  'All Arches</a> (' + names.length + ') ';
-                    // "Download .txt" triggers a file download
-                    html += '<a class="card-link" href="#" '
-                         +  'onclick="downloadTxt(\'' + section.nameKey + '--' + date + '\', '
-                         +  'currentViewData[\'' + section.nameKey + '\']); return false;">'
-                         +  'Download .txt</a>';
-                } else {
-                    html += '<span class="text-muted">None</span>';
-                }
-                html += '</td>';
+                html += '<td>' + listLinks(section.nameKey, names, date) + '</td>';
                 html += '</tr>';
 
                 // NEVRs
                 html += '<tr>';
                 html += '<td> NEVRs </td>';
-                html += '<td>';
-                if (nevrs && nevrs.length > 0) {
-                    html += '<a class="card-link" href="#" '
-                         +  'onclick="viewTxt(currentViewData[\'' + section.nevrKey + '\']); return false;">'
-                         +  'All Arches</a> (' + nevrs.length + ') ';
-                    html += '<a class="card-link" href="#" '
-                         +  'onclick="downloadTxt(\'' + section.nevrKey + '--' + date + '\', '
-                         +  'currentViewData[\'' + section.nevrKey + '\']); return false;">'
-                         +  'Download .txt</a>';
-                } else {
-                    html += '<span class="text-muted">None</span>';
-                }
-                html += '</td>';
+                html += '<td>' + listLinks(section.nevrKey, nevrs, date) + '</td>';
                 html += '</tr>';
             });
 
@@ -714,7 +704,7 @@
             if ($.fn.DataTable.isDataTable('#table_packages')) {
                 $('#table_packages').DataTable().destroy();
             }
-            
+
             // Build table rows
             var rows = [];
             var maxLength = Math.max(onlyInA.length, onlyInB.length, inBoth.length);
@@ -742,7 +732,7 @@
                 + rows.join('')
                 + '</tbody>'
                 + '</table>';
-            
+
             // Initialize DataTable
             $('#table_packages').DataTable({
                 paging: false,
@@ -777,13 +767,13 @@
             }
 
             Promise.all([
-                axios.get('history/' + dailyDates[dateA]),
-                axios.get('history/' + dailyDates[dateB])
+                fetchViewData(dateA),
+                fetchViewData(dateB)
             ]).then(function(responses) {
-                var viewA = responses[0].data.views['{{view_conf.id}}'];
-                var viewB = responses[1].data.views['{{view_conf.id}}'];
+                var viewA = responses[0];
+                var viewB = responses[1];
                 if (!viewA || !viewB) {
-                    showMessage('compare-results', 
+                    showMessage('compare-results',
                         'No data for this view in ' + (!viewA ? dateA : dateB) + '.');
                     return;
                 }
