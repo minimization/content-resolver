@@ -2,7 +2,12 @@ import datetime
 import json
 import re
 import sys
+from contextlib import contextmanager
+from typing import Iterator
+
 import jinja2
+import libdnf5
+
 
 class SetEncoder(json.JSONEncoder):
     def default(self, obj):
@@ -67,3 +72,26 @@ def url_to_id(url):
 
 def datetime_now_string():
     return datetime.datetime.now().strftime("%m/%d/%Y, %H:%M:%S")
+
+
+@contextmanager
+def dnf5_base() -> Iterator[libdnf5.base.Base]:
+    """
+    Context manager wrapper for libdnf5.base.Base().
+
+    DNF5's Base class doesn't natively support the context manager protocol,
+    so this wrapper provides proper resource management.
+
+    Usage:
+        with dnf5_base() as base:
+            config = base.get_config()
+            # ... use base ...
+    """
+    base = libdnf5.base.Base()
+    try:
+        yield base
+    finally:
+        # DNF5 Base cleanup is handled by Python's garbage collector
+        # No explicit cleanup needed, but the finally block ensures
+        # proper exception handling and resource cleanup if needed in future
+        pass

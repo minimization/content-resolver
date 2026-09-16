@@ -23,8 +23,6 @@
     </div>
 </div>
 
-<br>
-
 <h3> Failed Workloads / Warnings </h3>
 
 
@@ -185,36 +183,6 @@
                 $('#table_packages_filter ').append($searchButton, $clearButton);
             }
         });
-
-
-        function plot_graph(chartData) {
-            const chLine = document.getElementById("chLine");
-            if (chLine) {
-                new Chart(chLine, {
-                    type: 'line',
-                    data: chartData,
-                    options: {
-                        scales: {
-                            y: {
-                                beginAtZero: true
-                            }
-                        },
-                        plugins: {
-                            legend: {
-                                display: false
-                            }
-                        },
-                        spanGaps: true,
-                        maintainAspectRatio: false
-                    }
-                });
-            }
-        }
-
-        axios.get('chartjs-data--view--{{view_conf.id}}--{{arch}}.json')
-            .then(response => {
-                plot_graph(response.data)
-            })
 
         var loadingDiv = document.getElementById("loading");
         loadingDiv.parentNode.removeChild(loadingDiv);

@@ -33,12 +33,13 @@ jobs:
       run: |
         dnf -y install \
           git \
+          python3-flake8 \
           python3-jinja2 \
           python3-koji \
-          python3-yaml \
-          python3-dnf \
+          python3-libdnf5 \
           python3-pytest \
-          python3-flake8
+          python3-pytest-cov \
+          python3-yaml
 
     - name: Clean up
       run: dnf clean all

@@ -1,6 +1,8 @@
 # Content Resolver
 
-Content Resolver makes it easy to define and inspect package sets of RPM-based Linux distribution.
+[![Content Resolver CI](https://github.com/fedora-eln/content-resolver/actions/workflows/docker-image.yml/badge.svg)](https://github.com/fedora-eln/content-resolver/actions/workflows/docker-image.yml)
+
+Content Resolver makes it easy to define and inspect package sets of RPM-based Linux distributions.
 
 You define what packages you need, and Content Resolver gives you the whole picture including all the dependencies. And it keeps it up-to-date as packages get updated over time.
 
@@ -11,6 +13,28 @@ Content Resolver also helps with minimisation efforts by showing detailed depend
 [See it live! (https://tiny.distro.builders)](https://tiny.distro.builders)
 
 ## Using Content Resolver
+
+### Code Structure
+
+Core functionality
+
+```
+content-resolver/
+├── content_resolver/
+│   ├── analyzer.py         # Core resolution engine (DNF5)
+│   ├── config_manager.py   # YAML config loading
+│   ├── data_generation.py  # Generate non HTML output
+│   ├── exceptions.py       # Custom exceptions
+│   ├── history_data.py     # Handle history for graph generation
+│   ├── page_generation.py  # Generate HTML output
+│   ├── query.py            # Internal data query mechanism
+│   └── utils.py            # Helper functions
+├── templates/              # Jinja2 HTML templates
+├── test_configs/           # Test configurations
+├── content_resolver.py     # Main entry point
+└── refresh.sh             # Production deployment script
+```
+
 
 ### Controlling Content Resolver
 
@@ -144,3 +168,61 @@ $ docker run --rm -it --tmpfs /dnf_cachedir -v $(pwd):/workspace content-resolve
 ```
 
 The output will be generated in the `output` directory. Open the `output/index.html` in your web browser of choice to see the result.
+
+### Resolution Process
+
+**Phase 1: Repository Analysis**
+```
+For each repository and architecture:
+  1. Create DNF5 Base with repository configuration
+  2. Apply repository priorities (1=highest)
+  3. Apply package exclude lists (e.g., rust-*-devel, golang-*-devel)
+  4. Load repository metadata
+  5. Query all available packages
+  6. Deduplicate by NEVRA (Name-Epoch:Version-Release.Arch)
+  7. Track which repo provides each package
+```
+
+**Phase 2: Environment Resolution**
+```
+For each environment:
+  1. Create DNF5 Goal with environment packages
+  2. Resolve dependencies using DNF5 transaction
+  3. Check transaction.get_problems() for conflicts
+  4. Extract installed packages (base environment)
+  5. Build package relationship graph
+```
+
+**Phase 3: Workload Resolution**
+```
+For each workload on top of each environment:
+  1. Load base environment packages
+  2. Add workload-specific packages to Goal
+  3. Resolve additional dependencies
+  4. Separate environment packages from added packages
+  5. Track which workloads require which packages
+```
+
+**Phase 4: Buildroot Resolution** (for views with `buildroot_strategy: root_logs`)
+```
+For each source package in the view:
+  1. Download Koji root.log via Koji API
+  2. Parse build dependencies from root log
+  3. Create fake workload with build dependencies
+  4. Resolve buildroot on top of build group
+  5. Track buildroot packages separately from runtime
+  6. Iterate until all transitive build deps resolved
+```
+
+### Repository Priority System
+
+Repositories are assigned priorities (1=highest, 5=lowest) to control package selection when multiple versions exist:
+
+```yaml
+BaseOS:     priority: 1  # Prefer packages from BaseOS
+AppStream:  priority: 1  # Prefer packages from AppStream
+CRB:        priority: 1  # CodeReady Builder
+Extras:     priority: 3  # Additional packages
+buildroot:  priority: 4  # Build-time only packages
+Rawhide:    priority: 5  # Fallback for missing packages
+```

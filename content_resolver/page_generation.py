@@ -6,17 +6,13 @@ from content_resolver.utils import dump_data, log
 
 
 def _generate_html_page(template_name, template_data, page_name, settings):
-    log("Generating the '{page_name}' page...".format(
-        page_name=page_name
-    ))
+    log(f"Generating the '{page_name}' page...")
 
     output = settings["output"]
 
     template_env = settings["jinja2_template_env"]
 
-    template = template_env.get_template("{template_name}.html".format(
-        template_name=template_name
-    ))
+    template = template_env.get_template(f"{template_name}.html")
 
     if not template_data:
         template_data = {}
@@ -24,16 +20,14 @@ def _generate_html_page(template_name, template_data, page_name, settings):
 
     page = template.render(**template_data)
 
-    filename = ("{page_name}.html".format(
-        page_name=page_name.replace(":", "--")
-    ))
+    # Prevent path traversal by extracting only the basename
+    safe_page_name = os.path.basename(page_name.replace(":", "--"))
+    filename = f"{safe_page_name}.html"
 
-    log("  Writing file...  ({filename})".format(
-        filename=filename
-    ))
+    log(f"  Writing file...  ({filename})")
     with open(os.path.join(output, filename), "w") as file:
         file.write(page)
-    
+
     log("  Done!")
     log("")
 
@@ -50,10 +44,7 @@ def _generate_workload_pages(query):
                 "repo_id": repo_id
             }
 
-            page_name = "workload-overview--{workload_conf_id}--{repo_id}".format(
-                workload_conf_id=workload_conf_id,
-                repo_id=repo_id
-            )
+            page_name = f"workload-overview--{workload_conf_id}--{repo_id}"
             _generate_html_page("workload_overview", template_data, page_name, query.settings)
     
     # Workload detail pages
@@ -79,13 +70,9 @@ def _generate_workload_pages(query):
             "repo": repo
         }
 
-        page_name = "workload--{workload_id}".format(
-            workload_id=workload_id
-        )
+        page_name = f"workload--{workload_id}"
         _generate_html_page("workload", template_data, page_name, query.settings)
-        page_name = "workload-dependencies--{workload_id}".format(
-            workload_id=workload_id
-        )
+        page_name = f"workload-dependencies--{workload_id}"
         _generate_html_page("workload_dependencies", template_data, page_name, query.settings)
     
     # Workload compare arches pages
@@ -122,11 +109,7 @@ def _generate_workload_pages(query):
                     "rows": rows
                 }
 
-                page_name = "workload-cmp-arches--{workload_conf_id}--{env_conf_id}--{repo_id}".format(
-                    workload_conf_id=workload_conf_id,
-                    env_conf_id=env_conf_id,
-                    repo_id=repo_id
-                )
+                page_name = f"workload-cmp-arches--{workload_conf_id}--{env_conf_id}--{repo_id}"
 
                 _generate_html_page("workload_cmp_arches", template_data, page_name, query.settings)
     
@@ -162,11 +145,7 @@ def _generate_workload_pages(query):
                     "rows": rows
                 }
 
-                page_name = "workload-cmp-envs--{workload_conf_id}--{repo_id}--{arch}".format(
-                    workload_conf_id=workload_conf_id,
-                    repo_id=repo_id,
-                    arch=arch
-                )
+                page_name = f"workload-cmp-envs--{workload_conf_id}--{repo_id}--{arch}"
 
                 _generate_html_page("workload_cmp_envs", template_data, page_name, query.settings)
     
@@ -185,10 +164,7 @@ def _generate_env_pages(query):
                 "repo_id": repo_id
             }
 
-            page_name = "env-overview--{env_conf_id}--{repo_id}".format(
-                env_conf_id=env_conf_id,
-                repo_id=repo_id
-            )
+            page_name = f"env-overview--{env_conf_id}--{repo_id}"
             _generate_html_page("env_overview", template_data, page_name, query.settings)
     
     # env detail pages
@@ -209,14 +185,10 @@ def _generate_env_pages(query):
             "repo": repo
         }
 
-        page_name = "env--{env_id}".format(
-            env_id=env_id
-        )
+        page_name = f"env--{env_id}"
         _generate_html_page("env", template_data, page_name, query.settings)
 
-        page_name = "env-dependencies--{env_id}".format(
-            env_id=env_id
-        )
+        page_name = f"env-dependencies--{env_id}"
         _generate_html_page("env_dependencies", template_data, page_name, query.settings)
     
     # env compare arches pages
@@ -249,10 +221,7 @@ def _generate_env_pages(query):
                 "rows": rows
             }
 
-            page_name = "env-cmp-arches--{env_conf_id}--{repo_id}".format(
-                env_conf_id=env_conf_id,
-                repo_id=repo_id
-            )
+            page_name = f"env-cmp-arches--{env_conf_id}--{repo_id}"
 
             _generate_html_page("env_cmp_arches", template_data, page_name, query.settings)
 
@@ -271,15 +240,11 @@ def _generate_maintainer_pages(query):
         }
 
         # Overview page
-        page_name = "maintainer--{maintainer}".format(
-            maintainer=maintainer
-        )
+        page_name = f"maintainer--{maintainer}"
         _generate_html_page("maintainer_overview", template_data, page_name, query.settings)
 
         # My Workloads page
-        page_name = "maintainer-workloads--{maintainer}".format(
-            maintainer=maintainer
-        )
+        page_name = f"maintainer-workloads--{maintainer}"
         _generate_html_page("maintainer_workloads", template_data, page_name, query.settings)
 
     log("  Done!")
@@ -294,9 +259,7 @@ def _generate_config_pages(query):
             "query": query,
             "conf_type": conf_type
         }
-        page_name = "configs_{conf_type}".format(
-            conf_type=conf_type
-        )
+        page_name = f"configs_{conf_type}"
         _generate_html_page("configs", template_data, page_name, query.settings)
 
     # Config repo pages
@@ -305,9 +268,7 @@ def _generate_config_pages(query):
             "query": query,
             "repo_conf": repo_conf
         }
-        page_name = "config-repo--{repo_id}".format(
-            repo_id=repo_id
-        )
+        page_name = f"config-repo--{repo_id}"
         _generate_html_page("config_repo", template_data, page_name, query.settings)
     
     # Config env pages
@@ -316,9 +277,7 @@ def _generate_config_pages(query):
             "query": query,
             "env_conf": env_conf
         }
-        page_name = "config-env--{env_conf_id}".format(
-            env_conf_id=env_conf_id
-        )
+        page_name = f"config-env--{env_conf_id}"
         _generate_html_page("config_env", template_data, page_name, query.settings)
 
     # Config workload pages
@@ -327,9 +286,7 @@ def _generate_config_pages(query):
             "query": query,
             "workload_conf": workload_conf
         }
-        page_name = "config-workload--{workload_conf_id}".format(
-            workload_conf_id=workload_conf_id
-        )
+        page_name = f"config-workload--{workload_conf_id}"
         _generate_html_page("config_workload", template_data, page_name, query.settings)
 
     # Config label pages
@@ -338,9 +295,7 @@ def _generate_config_pages(query):
             "query": query,
             "label_conf": label_conf
         }
-        page_name = "config-label--{label_conf_id}".format(
-            label_conf_id=label_conf_id
-        )
+        page_name = f"config-label--{label_conf_id}"
         _generate_html_page("config_label", template_data, page_name, query.settings)
 
     # Config view pages
@@ -349,9 +304,7 @@ def _generate_config_pages(query):
             "query": query,
             "view_conf": view_conf
         }
-        page_name = "config-view--{view_conf_id}".format(
-            view_conf_id=view_conf_id
-        )
+        page_name = f"config-view--{view_conf_id}"
         _generate_html_page("config_view", template_data, page_name, query.settings)
     
     # Config unwanted pages
@@ -360,9 +313,7 @@ def _generate_config_pages(query):
             "query": query,
             "unwanted_conf": unwanted_conf
         }
-        page_name = "config-unwanted--{unwanted_conf_id}".format(
-            unwanted_conf_id=unwanted_conf_id
-        )
+        page_name = f"config-unwanted--{unwanted_conf_id}"
         _generate_html_page("config_unwanted", template_data, page_name, query.settings)
 
     log("  Done!")
@@ -379,10 +330,7 @@ def _generate_repo_pages(query):
                 "repo": repo,
                 "arch": arch
             }
-            page_name = "repo--{repo_id}--{arch}".format(
-                repo_id=repo_id,
-                arch=arch
-            )
+            page_name = f"repo--{repo_id}--{arch}"
             _generate_html_page("repo", template_data, page_name, query.settings)
 
 
@@ -406,39 +354,27 @@ def _generate_view_pages(query):
         }
 
         # Generate the overview page
-        page_name = "view--{view_conf_id}".format(
-            view_conf_id=view_conf_id
-        )
+        page_name = f"view--{view_conf_id}"
         _generate_html_page("view_overview", template_data, page_name, query.settings)
 
         # Generate the packages page
-        page_name = "view-packages--{view_conf_id}".format(
-            view_conf_id=view_conf_id
-        )
+        page_name = f"view-packages--{view_conf_id}"
         _generate_html_page("view_packages", template_data, page_name, query.settings)
 
         # Generate the source packages page
-        page_name = "view-sources--{view_conf_id}".format(
-            view_conf_id=view_conf_id
-        )
+        page_name = f"view-sources--{view_conf_id}"
         _generate_html_page("view_sources", template_data, page_name, query.settings)
 
         # Generate the unwanted packages page
-        page_name = "view-unwanted--{view_conf_id}".format(
-            view_conf_id=view_conf_id
-        )
+        page_name = f"view-unwanted--{view_conf_id}"
         _generate_html_page("view_unwanted", template_data, page_name, query.settings)
 
         # Generate the workloads page
-        page_name = "view-workloads--{view_conf_id}".format(
-            view_conf_id=view_conf_id
-        )
+        page_name = f"view-workloads--{view_conf_id}"
         _generate_html_page("view_workloads", template_data, page_name, query.settings)
 
         # Generate the errors page
-        page_name = "view-errors--{view_conf_id}".format(
-            view_conf_id=view_conf_id
-        )
+        page_name = f"view-errors--{view_conf_id}"
         _generate_html_page("view_errors", template_data, page_name, query.settings)
 
 
@@ -447,10 +383,7 @@ def _generate_view_pages(query):
         # Generate the arch lists
         for arch in view_conf["architectures"]:
 
-            view_id = "{view_conf_id}:{arch}".format(
-                view_conf_id=view_conf_id,
-                arch=arch
-            )
+            view_id = f"{view_conf_id}:{arch}"
 
             view = query.data["views"][view_id]
 
@@ -460,10 +393,7 @@ def _generate_view_pages(query):
                 "view": view,
                 "arch": arch,
             }
-            page_name = "view--{view_conf_id}--{arch}".format(
-                view_conf_id=view_conf_id,
-                arch=arch
-            )
+            page_name = f"view--{view_conf_id}--{arch}"
             #_generate_html_page("view_packages", template_data, page_name, query.settings)
             # ...
 
@@ -477,10 +407,7 @@ def _generate_view_pages(query):
                 "view_all_arches": view_all_arches,
                 "pkg": pkg,
             }
-            page_name = "view-rpm--{view_conf_id}--{pkg_name}".format(
-                view_conf_id=view_conf_id,
-                pkg_name=pkg_name
-            )
+            page_name = f"view-rpm--{view_conf_id}--{pkg_name}"
             _generate_html_page("view_rpm", template_data, page_name, query.settings)
             _generate_json_file(pkg, page_name, query.settings)
 
@@ -494,10 +421,7 @@ def _generate_view_pages(query):
                 "view_all_arches": view_all_arches,
                 "srpm": srpm,
             }
-            page_name = "view-srpm--{view_conf_id}--{srpm_name}".format(
-                view_conf_id=view_conf_id,
-                srpm_name=srpm_name
-            )
+            page_name = f"view-srpm--{view_conf_id}--{srpm_name}"
             _generate_html_page("view_srpm", template_data, page_name, query.settings)
             _generate_json_file(srpm, page_name, query.settings)
 
