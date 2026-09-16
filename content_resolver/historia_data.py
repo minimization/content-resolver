@@ -14,12 +14,9 @@ def _save_current_historic_data_daily(query):
 
     # Where to save it
     now = datetime.datetime.now()
-    day_of_year = now.strftime("%j")
     year = now.strftime("%Y")
-    filename = "historic_data-{year}-day_{day}.json".format(
-        year=year,
-        day=day_of_year
-    )
+    day_of_year = now.strftime("%j")
+    filename = f"historic_data-{year}-day_{day_of_year}.json"
     output_dir = os.path.join(query.settings["output"], "history")
     os.makedirs(output_dir, exist_ok=True)
     file_path = os.path.join(output_dir, filename)
@@ -107,12 +104,9 @@ def _save_current_historic_data_daily_pkgs(query):
 
     # Where to save it
     now = datetime.datetime.now()
-    day_of_year = now.strftime("%j")
     year = now.strftime("%Y")
-    filename = "historic_data_pkgs-{year}-day_{day}.json".format(
-        year=year,
-        day=day_of_year
-    )
+    day_of_year = now.strftime("%j")
+    filename = f"historic_data_pkgs-{year}-day_{day_of_year}.json"
     output_dir = os.path.join(query.settings["output"], "history")
     os.makedirs(output_dir, exist_ok=True)
     file_path = os.path.join(output_dir, filename)
@@ -230,9 +224,7 @@ def _read_historic_data_daily(query):
                 document = json.load(file)
                 date = document["date"]
             except (KeyError, ValueError):
-                err_log("Invalid file in daily historic data: {filename}. Ignoring.".format(
-                    filename=filename
-                ))
+                err_log(f"Invalid file in daily historic data: {filename}. Ignoring.")
                 continue
 
             historic_data_daily[date] = document
@@ -257,12 +249,10 @@ def _list_historic_data_daily_pkgs_dates(query):
 
         try:
             date = datetime.datetime.strptime(
-                "{year}-{day}".format(year=year, day=day_of_year), "%Y-%j"
+                f"{year}-{day_of_year}", "%Y-%j"
             ).strftime("%Y-%m-%d")
         except ValueError:
-            err_log("Invalid file in daily package lists: {filename}. Ignoring.".format(
-                filename=filename
-            ))
+            err_log(f"Invalid file in daily package lists: {filename}. Ignoring.")
             continue
 
         dates[date] = filename
@@ -661,7 +651,7 @@ def _generate_chartjs_data(historic_data, query):
 def _merge_weekly_and_daily(historic_data_weekly, historic_data_daily):
 
     # Merge weekly and daily historic data as one continuous series for the chart
-    
+
     merged = {}
 
     for entry in historic_data_weekly.values():
