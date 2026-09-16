@@ -6,93 +6,6 @@ from content_resolver.data_generation import _generate_json_file
 from content_resolver.utils import dump_data, err_log, log
 
 
-def _save_current_historic_data(query):
-    # This is the historic data for charts
-    # Package lists are above 
-
-    log("Generating current historic data...")
-
-    # Where to save it
-    year = datetime.datetime.now().strftime("%Y")
-    week = datetime.datetime.now().strftime("%W")
-    filename = "historic_data-{year}-week_{week}.json".format(
-        year=year,
-        week=week
-    )
-    output_dir = os.path.join(query.settings["output"], "history")
-    os.makedirs(output_dir, exist_ok=True)
-    file_path = os.path.join(output_dir, filename)
-
-    # What to save there
-    history_data = {}
-    history_data["date"] = str(datetime.datetime.now().strftime("%Y-%m-%d"))
-    history_data["workloads"] = {}
-    history_data["envs"] = {}
-    history_data["repos"] = {}
-    history_data["views"] = {}
-
-    # Workloads
-    for workload_id in query.workloads(None,None,None,None,list_all=True):
-        workload = query.data["workloads"][workload_id]
-
-        if not workload["succeeded"]:
-            continue
-
-        workload_history = {}
-        workload_history["size"] = query.workload_size_id(workload_id)
-        workload_history["pkg_count"] = len(query.workload_pkgs_id(workload_id))
-
-        history_data["workloads"][workload_id] = workload_history
-    
-    # Environments
-    for env_id in query.envs(None,None,None,list_all=True):
-        env = query.data["envs"][env_id]
-
-        if not env["succeeded"]:
-            continue
-
-        env_history = {}
-        env_history["size"] = query.env_size_id(env_id)
-        env_history["pkg_count"] = len(query.env_pkgs_id(env_id))
-
-        history_data["envs"][env_id] = env_history
-
-    # Repositories
-    for repo_id in query.configs["repos"].keys():
-        history_data["repos"][repo_id] = {}
-
-        for arch, pkgs in query.data["pkgs"][repo_id].items():
-
-            repo_history = {}
-            repo_history["pkg_count"] = len(pkgs)
-            
-            history_data["repos"][repo_id][arch] = repo_history
-    
-    # Views (new)
-    for view_conf_id, view_conf in query.configs["views"].items():
-        view_all_arches = query.data["views_all_arches"][view_conf_id]
-
-        history_data["views"][view_conf_id] = {}
-
-        history_data["views"][view_conf_id]["srpm_count_env"] = view_all_arches["numbers"]["srpms"]["env"]
-        history_data["views"][view_conf_id]["srpm_count_req"] = view_all_arches["numbers"]["srpms"]["req"]
-        history_data["views"][view_conf_id]["srpm_count_dep"] = view_all_arches["numbers"]["srpms"]["dep"]
-
-        if view_all_arches["has_buildroot"]:
-            history_data["views"][view_conf_id]["srpm_count_build_base"] = view_all_arches["numbers"]["srpms"]["build_base"]
-            history_data["views"][view_conf_id]["srpm_count_build_level_1"] = view_all_arches["numbers"]["srpms"]["build_level_1"]
-            history_data["views"][view_conf_id]["srpm_count_build_level_2_plus"] = view_all_arches["numbers"]["srpms"]["build_level_2_plus"]
-
-    # And save it
-    log("  Saving in: {file_path}".format(
-        file_path=file_path
-    ))
-    dump_data(file_path, history_data)
-
-    log("  Done!")
-    log("")
-
-
 def _save_current_historic_data_daily(query):
     # Daily historic data for charts
     # Package lists are saved separately by _save_current_historic_data_daily_pkgs
@@ -819,7 +732,6 @@ def generate_historic_data(query):
     log("")
 
     # Step 1: Save current data
-    _save_current_historic_data(query)
     _save_current_historic_data_daily(query)
     _save_current_historic_data_daily_pkgs(query)
 
