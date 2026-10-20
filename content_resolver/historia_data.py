@@ -6,6 +6,19 @@ from content_resolver.data_generation import _generate_json_file
 from content_resolver.utils import dump_data, err_log, log
 
 
+def _daily_snapshot_file_path(query, prefix):
+    # Construct file path for daily snapshots
+
+    now = datetime.datetime.now()
+    year = now.strftime("%Y")
+    day_of_year = now.strftime("%j")
+    filename = f"{prefix}-{year}-day_{day_of_year}.json"
+    output_dir = os.path.join(query.settings["output"], "history")
+    os.makedirs(output_dir, exist_ok=True)
+    file_path = os.path.join(output_dir, filename)
+    return file_path, now
+
+
 def _save_current_historic_data_daily(query):
     # Daily historic data for charts
     # Package lists are saved separately by _save_current_historic_data_daily_pkgs
@@ -13,17 +26,11 @@ def _save_current_historic_data_daily(query):
     log("Generating current daily historic data...")
 
     # Where to save it
-    now = datetime.datetime.now()
-    year = now.strftime("%Y")
-    day_of_year = now.strftime("%j")
-    filename = f"historic_data-{year}-day_{day_of_year}.json"
-    output_dir = os.path.join(query.settings["output"], "history")
-    os.makedirs(output_dir, exist_ok=True)
-    file_path = os.path.join(output_dir, filename)
+    file_path, now = _daily_snapshot_file_path(query, "historic_data")
 
     # What to save there
     history_data = {
-        "date": str(now.strftime("%Y-%m-%d")),
+        "date": now.strftime("%Y-%m-%d"),
         "workloads": {},
         "envs": {},
         "repos": {},
@@ -103,17 +110,11 @@ def _save_current_historic_data_daily_pkgs(query):
     log("Generating current daily package lists...")
 
     # Where to save it
-    now = datetime.datetime.now()
-    year = now.strftime("%Y")
-    day_of_year = now.strftime("%j")
-    filename = f"historic_data_pkgs-{year}-day_{day_of_year}.json"
-    output_dir = os.path.join(query.settings["output"], "history")
-    os.makedirs(output_dir, exist_ok=True)
-    file_path = os.path.join(output_dir, filename)
+    file_path, now = _daily_snapshot_file_path(query, "historic_data_pkgs")
 
     # What to save there
     history_pkgs = {
-        "date": str(now.strftime("%Y-%m-%d")),
+        "date": now.strftime("%Y-%m-%d"),
         "views": {},
     }
 
@@ -148,12 +149,12 @@ def _save_current_historic_data_daily_pkgs(query):
 
         # Sorted for consistent output
         view_pkgs = {
-            "all_source_names": sorted(list(all_source_names)),
-            "all_source_nevrs": sorted(list(all_source_nevrs)),
-            "runtime_source_names": sorted(list(runtime_source_names)),
-            "runtime_source_nevrs": sorted(list(runtime_source_nevrs)),
-            "buildroot_source_names": sorted(list(buildroot_source_names)),
-            "buildroot_source_nevrs": sorted(list(buildroot_source_nevrs)),
+            "all_source_names": sorted(all_source_names),
+            "all_source_nevrs": sorted(all_source_nevrs),
+            "runtime_source_names": sorted(runtime_source_names),
+            "runtime_source_nevrs": sorted(runtime_source_nevrs),
+            "buildroot_source_names": sorted(buildroot_source_names),
+            "buildroot_source_nevrs": sorted(buildroot_source_nevrs),
         }
 
         history_pkgs["views"][view_conf_id] = view_pkgs
@@ -171,13 +172,11 @@ def _read_historic_data(query):
 
     directory = os.path.join(query.settings["output"], "history")
 
-    # Do some basic validation of the filename
-    all_filenames = os.listdir(directory)
-    valid_filenames = []
-    for filename in all_filenames:
-        if bool(re.match("historic_data-....-week_...json", filename)):
-            valid_filenames.append(filename)
-    valid_filenames.sort()
+    # Filter for weekly snapshot files
+    valid_filenames = sorted(
+        f for f in os.listdir(directory)
+        if re.match(r"historic_data-\d{4}-week_\d{2}\.json", f)
+    )
 
     # Get the data
     historic_data = {}
@@ -207,13 +206,11 @@ def _read_historic_data_daily(query):
 
     directory = os.path.join(query.settings["output"], "history")
 
-    # Filter for daily files only (not weekly)
-    all_filenames = os.listdir(directory)
-    valid_filenames = []
-    for filename in all_filenames:
-        if bool(re.match(r"historic_data-....-day_....json", filename)):
-            valid_filenames.append(filename)
-    valid_filenames.sort()
+    # Filter for daily snapshot files
+    valid_filenames = sorted(
+        f for f in os.listdir(directory)
+        if re.match(r"historic_data-\d{4}-day_\d{3}\.json", f)
+    )
 
     # Get the data
     historic_data_daily = {}
@@ -652,11 +649,8 @@ def _merge_weekly_and_daily(historic_data_weekly, historic_data_daily):
 
     # Merge weekly and daily historic data as one continuous series for the chart
 
-    merged = {}
-
-    for entry in historic_data_weekly.values():
-        # Keyed by date (not "YYYY-week_WW"), so both sort together
-        merged[entry["date"]] = entry
+    # Keyed by date (not "YYYY-week_WW"), so both sort together
+    merged = {entry["date"]: entry for entry in historic_data_weekly.values()}
 
     # Daily counts take priority (replaces any weekly snapshot sharing the same date)
     merged.update(historic_data_daily)
