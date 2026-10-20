@@ -6,27 +6,36 @@ from content_resolver.data_generation import _generate_json_file
 from content_resolver.utils import dump_data, err_log, log
 
 
-def _save_current_historic_data(query):
-    # This is the historic data for charts
-    # Package lists are above 
+def _daily_snapshot_file_path(query, prefix):
+    # Construct file path for daily snapshots
 
-    log("Generating current historic data...")
-
-    # Where to save it
-    year = datetime.datetime.now().strftime("%Y")
-    week = datetime.datetime.now().strftime("%W")
-    filename = f"historic_data-{year}-week_{week}.json"
+    now = datetime.datetime.now()
+    year = now.strftime("%Y")
+    day_of_year = now.strftime("%j")
+    filename = f"{prefix}-{year}-day_{day_of_year}.json"
     output_dir = os.path.join(query.settings["output"], "history")
     os.makedirs(output_dir, exist_ok=True)
     file_path = os.path.join(output_dir, filename)
+    return file_path, now
+
+
+def _save_current_historic_data_daily(query):
+    # Daily historic data for charts
+    # Package lists are saved separately by _save_current_historic_data_daily_pkgs
+
+    log("Generating current daily historic data...")
+
+    # Where to save it
+    file_path, now = _daily_snapshot_file_path(query, "historic_data")
 
     # What to save there
-    history_data = {}
-    history_data["date"] = str(datetime.datetime.now().strftime("%Y-%m-%d"))
-    history_data["workloads"] = {}
-    history_data["envs"] = {}
-    history_data["repos"] = {}
-    history_data["views"] = {}
+    history_data = {
+        "date": now.strftime("%Y-%m-%d"),
+        "workloads": {},
+        "envs": {},
+        "repos": {},
+        "views": {},
+    }
 
     # Workloads
     for workload_id in query.workloads(None,None,None,None,list_all=True):
@@ -35,12 +44,13 @@ def _save_current_historic_data(query):
         if not workload["succeeded"]:
             continue
 
-        workload_history = {}
-        workload_history["size"] = query.workload_size_id(workload_id)
-        workload_history["pkg_count"] = len(query.workload_pkgs_id(workload_id))
+        workload_history = {
+            "size": query.workload_size_id(workload_id),
+            "pkg_count": len(query.workload_pkgs_id(workload_id)),
+        }
 
         history_data["workloads"][workload_id] = workload_history
-    
+
     # Environments
     for env_id in query.envs(None,None,None,list_all=True):
         env = query.data["envs"][env_id]
@@ -48,9 +58,10 @@ def _save_current_historic_data(query):
         if not env["succeeded"]:
             continue
 
-        env_history = {}
-        env_history["size"] = query.env_size_id(env_id)
-        env_history["pkg_count"] = len(query.env_pkgs_id(env_id))
+        env_history = {
+            "size": query.env_size_id(env_id),
+            "pkg_count": len(query.env_pkgs_id(env_id)),
+        }
 
         history_data["envs"][env_id] = env_history
 
@@ -60,29 +71,97 @@ def _save_current_historic_data(query):
 
         for arch, pkgs in query.data["pkgs"][repo_id].items():
 
-            repo_history = {}
-            repo_history["pkg_count"] = len(pkgs)
-            
+            repo_history = {
+                "pkg_count": len(pkgs),
+            }
+
             history_data["repos"][repo_id][arch] = repo_history
-    
-    # Views (new)
+
+    # Views
     for view_conf_id, view_conf in query.configs["views"].items():
         view_all_arches = query.data["views_all_arches"][view_conf_id]
 
-        history_data["views"][view_conf_id] = {}
-
-        history_data["views"][view_conf_id]["srpm_count_env"] = view_all_arches["numbers"]["srpms"]["env"]
-        history_data["views"][view_conf_id]["srpm_count_req"] = view_all_arches["numbers"]["srpms"]["req"]
-        history_data["views"][view_conf_id]["srpm_count_dep"] = view_all_arches["numbers"]["srpms"]["dep"]
+        view_data = {
+            "srpm_count_env": view_all_arches["numbers"]["srpms"]["env"],
+            "srpm_count_req": view_all_arches["numbers"]["srpms"]["req"],
+            "srpm_count_dep": view_all_arches["numbers"]["srpms"]["dep"],
+        }
 
         if view_all_arches["has_buildroot"]:
-            history_data["views"][view_conf_id]["srpm_count_build_base"] = view_all_arches["numbers"]["srpms"]["build_base"]
-            history_data["views"][view_conf_id]["srpm_count_build_level_1"] = view_all_arches["numbers"]["srpms"]["build_level_1"]
-            history_data["views"][view_conf_id]["srpm_count_build_level_2_plus"] = view_all_arches["numbers"]["srpms"]["build_level_2_plus"]
+            view_data["srpm_count_build_base"] = view_all_arches["numbers"]["srpms"]["build_base"]
+            view_data["srpm_count_build_level_1"] = view_all_arches["numbers"]["srpms"]["build_level_1"]
+            view_data["srpm_count_build_level_2_plus"] = view_all_arches["numbers"]["srpms"]["build_level_2_plus"]
+
+        history_data["views"][view_conf_id] = view_data
 
     # And save it
     log(f"  Saving in: {file_path}")
     dump_data(file_path, history_data)
+
+    log("  Done!")
+    log("")
+
+
+def _save_current_historic_data_daily_pkgs(query):
+    # Daily package lists for browse and compare
+    # Kept separate from the daily counts so package list snapshots can be
+    # deleted for space, if needed, without impacting the chart data
+
+    log("Generating current daily package lists...")
+
+    # Where to save it
+    file_path, now = _daily_snapshot_file_path(query, "historic_data_pkgs")
+
+    # What to save there
+    history_pkgs = {
+        "date": now.strftime("%Y-%m-%d"),
+        "views": {},
+    }
+
+    for view_conf_id, view_conf in query.configs["views"].items():
+
+        # Sets remove duplicates across arches
+        all_source_names = set()
+        all_source_nevrs = set()
+        runtime_source_names = set()
+        runtime_source_nevrs = set()
+        buildroot_source_names = set()
+        buildroot_source_nevrs = set()
+
+        for arch in view_conf["architectures"]:
+            view_id = f"{view_conf_id}:{arch}"
+            view = query.data["views"][view_id]
+
+            for pkg_id, pkg in view["pkgs"].items():
+                source_name = pkg["source_name"]
+                source_nevr = pkg["sourcerpm"].rsplit(".src.rpm")[0]
+
+                all_source_names.add(source_name)
+                all_source_nevrs.add(source_nevr)
+
+                # Runtime if in a workload, buildroot-only otherwise
+                if pkg["in_workload_ids_all"]:
+                    runtime_source_names.add(source_name)
+                    runtime_source_nevrs.add(source_nevr)
+                else:
+                    buildroot_source_names.add(source_name)
+                    buildroot_source_nevrs.add(source_nevr)
+
+        # Sorted for consistent output
+        view_pkgs = {
+            "all_source_names": sorted(all_source_names),
+            "all_source_nevrs": sorted(all_source_nevrs),
+            "runtime_source_names": sorted(runtime_source_names),
+            "runtime_source_nevrs": sorted(runtime_source_nevrs),
+            "buildroot_source_names": sorted(buildroot_source_names),
+            "buildroot_source_nevrs": sorted(buildroot_source_nevrs),
+        }
+
+        history_pkgs["views"][view_conf_id] = view_pkgs
+
+    # And save it
+    log(f"  Saving in: {file_path}")
+    dump_data(file_path, history_pkgs)
 
     log("  Done!")
     log("")
@@ -93,13 +172,11 @@ def _read_historic_data(query):
 
     directory = os.path.join(query.settings["output"], "history")
 
-    # Do some basic validation of the filename
-    all_filenames = os.listdir(directory)
-    valid_filenames = []
-    for filename in all_filenames:
-        if bool(re.match("historic_data-....-week_...json", filename)):
-            valid_filenames.append(filename)
-    valid_filenames.sort()
+    # Filter for weekly snapshot files
+    valid_filenames = sorted(
+        f for f in os.listdir(directory)
+        if re.match(r"historic_data-\d{4}-week_\d{2}\.json", f)
+    )
 
     # Get the data
     historic_data = {}
@@ -120,6 +197,64 @@ def _read_historic_data(query):
             historic_data[key] = document
 
     return historic_data
+
+
+def _read_historic_data_daily(query):
+    # Read all daily snapshot files from output/history/
+
+    log("Reading daily historic data...")
+
+    directory = os.path.join(query.settings["output"], "history")
+
+    # Filter for daily snapshot files
+    valid_filenames = sorted(
+        f for f in os.listdir(directory)
+        if re.match(r"historic_data-\d{4}-day_\d{3}\.json", f)
+    )
+
+    # Get the data
+    historic_data_daily = {}
+
+    for filename in valid_filenames:
+        with open(os.path.join(directory, filename), "r") as file:
+            try:
+                document = json.load(file)
+                date = document["date"]
+            except (KeyError, ValueError):
+                err_log(f"Invalid file in daily historic data: {filename}. Ignoring.")
+                continue
+
+            historic_data_daily[date] = document
+
+    return historic_data_daily
+
+
+def _list_historic_data_daily_pkgs_dates(query):
+    # Map date to filename for daily package list files
+    # Only the filenames are read, the browser fetches the contents later
+
+    directory = os.path.join(query.settings["output"], "history")
+
+    dates = {}
+
+    for filename in sorted(os.listdir(directory)):
+        match = re.match(r"historic_data_pkgs-(....)-day_(...)\.json", filename)
+        if not match:
+            continue
+
+        year, day_of_year = match.groups()
+
+        try:
+            date = datetime.datetime.strptime(
+                f"{year}-{day_of_year}", "%Y-%j"
+            ).strftime("%Y-%m-%d")
+        except ValueError:
+            err_log(f"Invalid file in daily package lists: {filename}. Ignoring.")
+            continue
+
+        dates[date] = filename
+
+    return dates
 
 
 def _generate_chartjs_data(historic_data, query):
@@ -510,6 +645,19 @@ def _generate_chartjs_data(historic_data, query):
         _generate_json_file(entry_data, entry_name, query.settings)
 
 
+def _merge_weekly_and_daily(historic_data_weekly, historic_data_daily):
+
+    # Merge weekly and daily historic data as one continuous series for the chart
+
+    # Keyed by date (not "YYYY-week_WW"), so both sort together
+    merged = {entry["date"]: entry for entry in historic_data_weekly.values()}
+
+    # Daily counts take priority (replaces any weekly snapshot sharing the same date)
+    merged.update(historic_data_daily)
+
+    return dict(sorted(merged.items()))
+
+
 def generate_historic_data(query):
     log("")
     log("###############################################################################")
@@ -518,13 +666,19 @@ def generate_historic_data(query):
     log("")
 
     # Step 1: Save current data
-    _save_current_historic_data(query)
+    _save_current_historic_data_daily(query)
+    _save_current_historic_data_daily_pkgs(query)
 
     # Step 2: Read historic data
-    historic_data = _read_historic_data(query)
+    historic_data_weekly = _read_historic_data(query)
+    historic_data_daily = _read_historic_data_daily(query)
+    historic_data = _merge_weekly_and_daily(historic_data_weekly, historic_data_daily)
 
     # Step 3: Generate Chart.js data
     _generate_chartjs_data(historic_data, query)
+
+    # Date to filename map for the browser to fetch package lists
+    query.data["historic_daily_dates"] = _list_historic_data_daily_pkgs_dates(query)
 
     log("Done!")
     log("")

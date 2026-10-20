@@ -348,7 +348,9 @@ def _generate_view_pages(query):
         template_data = {
             "query": query,
             "view_conf": view_conf,
-            "view_all_arches": view_all_arches
+            "view_all_arches": view_all_arches,
+            # Date-to-filename map for the daily snapshots date picker
+            "historic_daily_dates": query.data.get("historic_daily_dates", {}),
         }
 
         # Generate the overview page

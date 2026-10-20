@@ -89,9 +89,9 @@ def main():
 
     query = Query(data, configs, settings)
 
+    generate_historic_data(query)
     generate_pages(query)
     generate_data_files(query)
-    generate_historic_data(query)
 
 
     # -------------------------------------------------
